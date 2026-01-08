@@ -1,0 +1,11 @@
+{"level": "DEBUG", "logger": "__main__", "module": "main", "function": "main", "line": 16, "thread_name": "MainThread", "message": "debug example", "timestamp": "2026-01-08T19:05:05.866Z"}
+{"level": "INFO", "logger": "__main__", "module": "main", "function": "main", "line": 17, "thread_name": "MainThread", "message": "info example", "timestamp": "2026-01-08T19:05:05.866Z"}
+{"level": "WARNING", "logger": "__main__", "module": "main", "function": "main", "line": 18, "thread_name": "MainThread", "message": "warning example", "timestamp": "2026-01-08T19:05:05.866Z"}
+{"level": "DEBUG", "logger": "__main__", "module": "main", "function": "main", "line": 16, "thread_name": "MainThread", "message": "debug example", "timestamp": "2026-01-08T19:05:35.512Z"}
+{"level": "INFO", "logger": "__main__", "module": "main", "function": "main", "line": 17, "thread_name": "MainThread", "message": "info example", "timestamp": "2026-01-08T19:05:35.512Z"}
+{"level": "WARNING", "logger": "__main__", "module": "main", "function": "main", "line": 18, "thread_name": "MainThread", "message": "warning example", "timestamp": "2026-01-08T19:05:35.512Z"}
+{"level": "DEBUG", "logger": "__main__", "module": "main", "function": "main", "line": 16, "thread_name": "MainThread", "message": "debug example", "timestamp": "2026-01-08T19:05:55.520Z"}
+{"level": "INFO", "logger": "__main__", "module": "main", "function": "main", "line": 17, "thread_name": "MainThread", "message": "info example", "timestamp": "2026-01-08T19:05:55.520Z"}
+{"level": "WARNING", "logger": "__main__", "module": "main", "function": "main", "line": 18, "thread_name": "MainThread", "message": "warning example", "timestamp": "2026-01-08T19:05:55.520Z"}
+{"level": "INFO", "logger": "__main__", "module": "main", "function": "main", "line": 16, "thread_name": "MainThread", "message": "info example", "timestamp": "2026-01-08T19:06:12.567Z"}
+{"level": "WARNING", "logger": "__main__", "module": "main", "function": "main", "line": 17, "thread_name": "MainThread", "message": "warning example", "timestamp": "2026-01-08T19:06:12.567Z"}

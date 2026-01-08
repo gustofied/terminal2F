@@ -1,16 +1,19 @@
 import logging
-from mylogger import setup_logging
 from pathlib import Path
 
-dir = Path(__name__).resolve().parent
+import rerun as rr
 
-configen = dir / "scratchpad" / "reeruun" / "config.json"
+from mylogger import setup_logging
+
 
 def main() -> None:
-    setup_logging(configen)
+    base_dir = Path(__file__).resolve().parent
+    config_path = base_dir / "scratchpad" / "reeruun" / "config.json"
+
+    rr.init("my_app_logs", spawn=True)  # Rerun must be initialized first
+    setup_logging(str(config_path))
 
     log = logging.getLogger(__name__)
-    log.debug("debug example")
     log.info("info example")
     log.warning("warning example")
 
