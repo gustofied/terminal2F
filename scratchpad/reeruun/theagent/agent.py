@@ -4,6 +4,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+import logging
+log = logging.getLogger("app.agent")
+
 class Agent:
     def __init__(self, tools, model: str = "mistral-medium-latest"):
         self.client = Mistral(api_key=os.environ["MISTRAL_API_KEY"])
@@ -15,6 +18,7 @@ class Agent:
             "Use tools only for payment transaction questions."
         )
         self.messages = [{"role": "system", "content": self.system_message}]
+        self.turn_idx = 0
 
     def step(self):
         """

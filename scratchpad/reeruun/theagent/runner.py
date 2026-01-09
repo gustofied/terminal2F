@@ -1,22 +1,44 @@
 import json
 from tools import names_to_functions
+import logging
+import rerun as rr
+
+import logging
+log = logging.getLogger("app.runner")
+
+def context_char_len(agent) -> int:
+    total = 0
+    for m in agent.messages:
+        if isinstance(m, dict):
+            total += len(m.get("content", ""))
+        else:
+            # AssistantMessage or similar SDK object
+            total += len(getattr(m, "content", "") or "")
+    return total
 
 def run_agent(agent, user_message: str, max_turns: int = 10):
-    """
-    Pattern B runner:
-    - add user message
-    - call agent.step()
-    - if tool_calls: execute tool, append tool result, step again
-    - returns FINAL response object
-    """
 
+
+    turn_idx = 0
+    log.debug(f"context char length before turn = {context_char_len(agent)}")
     agent.messages.append({"role": "user", "content": user_message})
+
+
+    turn_idx += 1
+    rr.set_time("turn", sequence=turn_idx)
+    rr.log(
+        "agent/conversation",
+        rr.TextLog(f"user: {user_message}"),
+    )
 
     response = agent.step()
     assistant_message = response.choices[0].message
+    
+    
 
     turns = 0
     while getattr(assistant_message, "tool_calls", None):
+        turn_idx += 1
         turns += 1
         if turns > max_turns:
             raise RuntimeError("Max turns reached without a final answer.")
@@ -25,7 +47,11 @@ def run_agent(agent, user_message: str, max_turns: int = 10):
 
         function_name = tool_call.function.name
         function_params = json.loads(tool_call.function.arguments)
-        print(f"[tool] {function_name}({function_params})")
+        rr.log(
+            "agent/tool_calls",
+            rr.TextLog(f"{function_name}({function_params})"),
+        )
+
 
         tool_function = names_to_functions.get(function_name)
 
@@ -43,5 +69,14 @@ def run_agent(agent, user_message: str, max_turns: int = 10):
 
         response = agent.step()
         assistant_message = response.choices[0].message
+
+    log.debug(f"after the turn ={context_char_len(agent)}")
+
+    size = context_char_len(agent)
+    log.debug(size)
+
+    rr.log("context", rr.Points2D([1, 1.0], radii=size, colors=[255, 200, 10]))
+
+    
 
     return response
