@@ -76,6 +76,30 @@ def run_agent(agent, user_message: str, max_turns: int = 10):
 
     rr.log("context/char_len", rr.Scalars(size))
 
+    fraction = min(size / 16000, 1.0)  
+
+    # circle radius proportional to fraction
+    base_radius = 10.2 # should be logged at time 0 so we can see it at beggining, maybe like 0 ctx is still a circle, or what you can do have an outer ctx circle which hollow
+    max_extra = 20.8
+    radius = base_radius + max_extra * fraction
+
+    # color by threshold
+    if fraction < 0.5:
+        color = [0, 255, 0]       # green
+    elif fraction < 0.8:
+        color = [255, 200, 0]     # yellow/orange
+    else:
+        color = [255, 0, 0]       # red (close to/over limit)
+
+    rr.log(
+        "context/circle",
+        rr.Points2D(
+            [[0.0, 2.0]],         # always at origin, just size/color changes
+            radii=[radius],
+            colors=[color],
+        ),
+    )
+
     
 
     return response
