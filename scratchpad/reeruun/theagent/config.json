@@ -1,0 +1,69 @@
+{
+  "version": 1,
+  "disable_existing_loggers": false,
+
+  "filters": {
+    "non_error": { "()": "mylogger.NonErrorFilter" }
+  },
+  "loggers": {
+    "httpcore": { "level": "WARNING", "propagate": true },
+    "httpx": { "level": "WARNING", "propagate": true },
+    "asyncio": { "level": "WARNING", "propagate": true }
+  },
+  "formatters": {
+    "console": {
+      "()": "mylogger.UTCISOFormatter",
+      "format": "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+    },
+    "json": {
+      "()": "mylogger.MyJSONFormatter",
+      "fmt_keys": {
+        "level": "levelname",
+        "logger": "name",
+        "module": "module",
+        "function": "funcName",
+        "line": "lineno",
+        "thread_name": "threadName"
+      }
+    }
+  },
+
+  "handlers": {
+    "file_json": {
+      "class": "logging.handlers.RotatingFileHandler",
+      "level": "DEBUG",
+      "formatter": "json",
+      "filename": "logs/my_app.log.jsonl",
+      "maxBytes": 1048576,
+      "backupCount": 5,
+      "encoding": "utf-8",
+      "delay": true
+    },
+
+    "rerun": {
+      "()": "rerun.LoggingHandler",
+      "level": "DEBUG",
+      "path_prefix": "logs/python"
+    },
+
+    "stderr": {
+      "class": "logging.StreamHandler",
+      "level": "WARNING",
+      "formatter": "console",
+      "stream": "ext://sys.stderr"
+    },
+
+    "stdout": {
+      "class": "logging.StreamHandler",
+      "level": "DEBUG",
+      "formatter": "console",
+      "filters": ["non_error"],
+      "stream": "ext://sys.stdout"
+    }
+  },
+
+  "root": {
+    "level": "DEBUG",
+    "handlers": ["stdout", "stderr", "file_json", "rerun"]
+  }
+}
