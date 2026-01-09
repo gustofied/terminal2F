@@ -1,9 +1,9 @@
 from __future__ import annotations
+
 import datetime as dt
 import json
 import logging
 import logging.config
-import logging.handlers
 from pathlib import Path
 from typing import override
 
@@ -60,21 +60,8 @@ class NonErrorFilter(logging.Filter):
         return record.levelno <= logging.INFO
 
 
-class AutoStartQueueListener(logging.handlers.QueueListener):
-    def __init__(self, queue, *handlers, respect_handler_level: bool = True):
-        super().__init__(queue, *handlers, respect_handler_level=respect_handler_level)
-        self.start()
-
-
-_registered = False
-
-def setup_logging(config_path: str = "config.json", *, queue_handler_name: str = "zzz_queue"):
+def setup_logging(config_path: str = "config.json") -> None:
     Path("logs").mkdir(parents=True, exist_ok=True)
 
     cfg = json.loads(Path(config_path).read_text(encoding="utf-8"))
     logging.config.dictConfig(cfg)
-
-    qh = logging.getHandlerByName(queue_handler_name)
-    return getattr(qh, "listener", None)
-
-

@@ -10,6 +10,7 @@ requires-python = ">=3.13"
 dependencies = [
     "mistralai>=1.10.0",
     "pandas>=2.3.3",
+    "python-dotenv>=1.2.1",
     "requests>=2.32.5",
     "rerun-sdk>=0.28.1",
     "tqdm>=4.67.1",

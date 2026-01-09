@@ -60,6 +60,7 @@ Thumbs.db
 
 # Logs
 *.log
+*.log.jsonl
 
 # Local data/scratch
 data/

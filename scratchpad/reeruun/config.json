@@ -55,18 +55,11 @@
       "formatter": "console",
       "filters": ["non_error"],
       "stream": "ext://sys.stdout"
-    },
-
-    "zzz_queue": {
-      "class": "logging.handlers.QueueHandler",
-      "listener": "mylogger.AutoStartQueueListener",
-      "queue": { "()": "queue.Queue", "maxsize": 1000 },
-      "handlers": ["stdout", "stderr", "file_json", "rerun"]
     }
   },
 
   "root": {
     "level": "DEBUG",
-    "handlers": ["zzz_queue"]
+    "handlers": ["stdout", "stderr", "file_json", "rerun"]
   }
 }
