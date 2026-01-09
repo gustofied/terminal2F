@@ -10,7 +10,6 @@ api_key = os.environ["MISTRAL_API_KEY"]
 model = "mistral-medium-latest"
 
 # tools for the agent / functoin calling
-
 # Assuming we have the following data
 data = {
     'transaction_id': ['T1001', 'T1002', 'T1003', 'T1004', 'T1005'],
@@ -104,7 +103,12 @@ class Agent:
             print(f"[tool] {function_name}({function_params})")
 
 
-            function_result = names_to_functions[function_name](**function_params)
+            tool_function = names_to_functions.get(function_name)
+
+            if tool_function is None:
+                function_result = json.dumps({"error": f"Unknown tool: {function_name}"})
+            else:
+                function_result = tool_function(**function_params)
 
             # send tool result back to model
             self.messages.append({
@@ -124,77 +128,22 @@ class Agent:
             self.messages.append(msg)
 
         return response
-    
-def run_agent(agent, user_input: str, max_turns: int = 10) -> str:
-    i = 0
 
-    while i < max_turns:
-        i += 1
-        print(f"\nIteration {i}:")
-        print(f"User input: {user_input}")
 
-        # 1) Send user message
-        agent.messages.append({"role": "user", "content": user_input})
+if __name__ == "__main__":
+    agent = Agent()
 
-        # 2) Model decides next step (may request tool)
-        response = agent.client.chat.complete(
-            model=agent.model,
-            messages=agent.messages,
-            tools=agent.tools,
-            tool_choice="auto",
-            parallel_tool_calls=False,
-            temperature=0.1,
-            max_tokens=1024,
-        )
+    response = agent.chat("I have 4 apples. How many do you have?")
+    print(response.choices[0].message.content)
+    print("- - - - - - - - - - - -")
 
-        msg = response.choices[0].message
-        agent.messages.append(msg)
+    response = agent.chat("I ate 1 apple. How many are left?")
+    print(response.choices[0].message.content)
+    print("- - - - - - - - - - - -")
 
-        # 3) If tool requested, execute it and feed result back
-        tool_calls = getattr(msg, "tool_calls", None)
-        if tool_calls:
-            tool_call = tool_calls[0]  # since parallel_tool_calls=False
-            function_name = tool_call.function.name
-            function_params = json.loads(tool_call.function.arguments)
+    response = agent.chat("What is 157.09 * 493.89?")
+    print(response.choices[0].message.content)
+    print("- - - - - - - - - - - -")
 
-            print(f"Using tool {function_name} with input {function_params}")
-
-            tool_result = names_to_functions[function_name](**function_params)
-            print(f"Tool result: {tool_result}")
-
-            agent.messages.append({
-                "role": "tool",
-                "tool_call_id": tool_call.id,
-                "name": function_name,
-                "content": tool_result,  # JSON string
-            })
-
-            # Important: set next "user_input" to empty; we’re continuing the loop
-            user_input = ""  # or "continue"
-            continue
-
-        # 4) Otherwise we’re done
-        print(f"Agent output: {msg.content}")
-        return msg.content
-
-    raise RuntimeError("Max turns reached without a final answer.")
-
-agent = Agent()
-
-response = agent.chat("I have 4 apples. How many do you have?")
-print(response.choices[0].message.content)
-
-print("- - - - - - - - - - - -")
-
-response = agent.chat("I ate 1 apple. How many are left?")
-print(response.choices[0].message.content)
-
-print("- - - - - - - - - - - -")
-
-response = agent.chat("What is 157.09 * 493.89?")
-print(response.choices[0].message.content)
-
-print("- - - - - - - - - - - -")
-
-response = agent.chat("What's the status of my transaction T1001?")
-print(response.choices[0].message.content)
+    response = agent.chat("What's the status of my transaction T1001?")
+    print(response.choices[0].message.content)
