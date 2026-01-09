@@ -1,6 +1,4 @@
 from __future__ import annotations
-
-import atexit
 import datetime as dt
 import json
 import logging
@@ -70,17 +68,13 @@ class AutoStartQueueListener(logging.handlers.QueueListener):
 
 _registered = False
 
-
-def setup_logging(config_path: str = "config.json", *, queue_handler_name: str = "zzz_queue") -> None:
-    global _registered
+def setup_logging(config_path: str = "config.json", *, queue_handler_name: str = "zzz_queue"):
     Path("logs").mkdir(parents=True, exist_ok=True)
 
     cfg = json.loads(Path(config_path).read_text(encoding="utf-8"))
     logging.config.dictConfig(cfg)
 
-    # In 3.12+, dictConfig attaches the created listener as handler.listener. :contentReference[oaicite:4]{index=4}
     qh = logging.getHandlerByName(queue_handler_name)
-    listener = getattr(qh, "listener", None)
-    if listener is not None and not _registered:
-        atexit.register(listener.stop)
-        _registered = True
+    return getattr(qh, "listener", None)
+
+
