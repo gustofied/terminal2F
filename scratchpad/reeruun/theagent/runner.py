@@ -19,13 +19,12 @@ def context_char_len(agent) -> int:
 def run_agent(agent, user_message: str, max_turns: int = 10):
 
 
-    turn_idx = 0
     log.debug(f"context char length before turn = {context_char_len(agent)}")
     agent.messages.append({"role": "user", "content": user_message})
 
 
-    turn_idx += 1
-    rr.set_time("turn", sequence=turn_idx)
+    agent.turn_idx += 1
+    rr.set_time("turn", sequence=agent.turn_idx)
     rr.log(
         "agent/conversation",
         rr.TextLog(f"user: {user_message}"),
@@ -38,7 +37,7 @@ def run_agent(agent, user_message: str, max_turns: int = 10):
 
     turns = 0
     while getattr(assistant_message, "tool_calls", None):
-        turn_idx += 1
+        agent.turn_idx += 1
         turns += 1
         if turns > max_turns:
             raise RuntimeError("Max turns reached without a final answer.")
@@ -75,7 +74,7 @@ def run_agent(agent, user_message: str, max_turns: int = 10):
     size = context_char_len(agent)
     log.debug(size)
 
-    rr.log("context", rr.Points2D([1, 1.0], radii=size, colors=[255, 200, 10]))
+    rr.log("context/char_len", rr.Scalars(size))
 
     
 
