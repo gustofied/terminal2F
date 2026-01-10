@@ -1,11 +1,9 @@
 import json
 import logging
 from tools import names_to_functions
-
 import control_tower as control_tower
 
 log = logging.getLogger("app.runner")
-
 
 def context_char_len(agent) -> int:
     total = 0
@@ -16,18 +14,12 @@ def context_char_len(agent) -> int:
             total += len(getattr(m, "content", "") or "")
     return total
 
-
-
-
 def run_agent(agent, user_message: str, max_turns: int = 10):
-    before = context_char_len(agent)
-    log.debug("context char length before turn = %s", before)
+    log.debug("context char length before turn = %s", context_char_len(agent))
 
     agent.messages.append({"role": "user", "content": user_message})
 
-    # User interaction turn
     agent.turn_idx += 1
-    step_idx = 0
     control_tower.on_turn(agent.turn_idx, user_message)
 
     response = agent.step()
@@ -43,12 +35,9 @@ def run_agent(agent, user_message: str, max_turns: int = 10):
         function_name = tool_call.function.name
         function_params = json.loads(tool_call.function.arguments)
 
-        # Internal step within the same user turn
-        step_idx += 1
-        control_tower.on_tool_call(agent.turn_idx, step_idx, function_name, function_params)
+        control_tower.on_tool_call(agent.turn_idx, function_name, function_params)
 
         tool_function = names_to_functions.get(function_name)
-
         if tool_function is None:
             function_result = json.dumps({"error": f"Unknown tool: {function_name}"})
         else:
@@ -65,12 +54,10 @@ def run_agent(agent, user_message: str, max_turns: int = 10):
         assistant_message = response.choices[0].message
 
     final_text = getattr(assistant_message, "content", "") or ""
-    control_tower.on_assistant(agent.turn_idx, step_idx=0, content=final_text)
+    control_tower.on_assistant(agent.turn_idx, final_text)
 
     after = context_char_len(agent)
     log.debug("context char length after turn = %s", after)
-
-    # Log final context stats as step 0 (or keep it as last step_idx+1 if you prefer)
-    control_tower.on_context(agent.turn_idx, step_idx=0, char_len=after)
+    control_tower.on_context(agent.turn_idx, after)
 
     return response

@@ -9,34 +9,23 @@ def init(app_id: str = "the_agent_logs", *, spawn: bool = True) -> None:
     rr.init(app_id, spawn=spawn)
     _initialized = True
 
-def _set_time(turn_idx: int, step_idx: int) -> None:
+def _set_time(turn_idx: int) -> None:
     rr.set_time("turn", sequence=turn_idx)
-    rr.set_time("step", sequence=step_idx)
-    rr.set_time("turn_step", sequence=turn_idx * 100 + step_idx)
 
 def on_turn(turn_idx: int, user_message: str) -> None:
-    _set_time(turn_idx, step_idx=0)
-    rr.log(
-        "agent/conversation",
-        rr.TextLog(f"{turn_idx}.0 user: {user_message}", level=rr.TextLogLevel.INFO),
-    )
+    _set_time(turn_idx)
+    rr.log("agent/conversation", rr.TextLog(f"user: {user_message}", level=rr.TextLogLevel.INFO))
 
-def on_tool_call(turn_idx: int, step_idx: int, function_name: str, function_params: dict) -> None:
-    _set_time(turn_idx, step_idx)
-    rr.log(
-        "agent/tool_calls",
-        rr.TextLog(f"{turn_idx}.{step_idx} {function_name}({function_params})"),
-    )
+def on_tool_call(turn_idx: int, function_name: str, function_params: dict) -> None:
+    _set_time(turn_idx)
+    rr.log("agent/tool_calls", rr.TextLog(f"{function_name}({function_params})", level=rr.TextLogLevel.INFO))
 
-def on_assistant(turn_idx: int, step_idx: int, content: str) -> None:
-    _set_time(turn_idx, step_idx)
-    rr.log(
-        "agent/conversation",
-        rr.TextLog(f"{turn_idx}.{step_idx} assistant: {content}", level=rr.TextLogLevel.INFO),
-    )
+def on_assistant(turn_idx: int, content: str) -> None:
+    _set_time(turn_idx)
+    rr.log("agent/conversation", rr.TextLog(f"assistant: {content}", level=rr.TextLogLevel.INFO))
 
-def on_context(turn_idx: int, step_idx: int, char_len: int, *, limit: int = 16000) -> None:
-    _set_time(turn_idx, step_idx)
+def on_context(turn_idx: int, char_len: int, *, limit: int = 16000) -> None:
+    _set_time(turn_idx)
     rr.log("context/char_len", rr.Scalars(char_len))
 
     fraction = min(char_len / limit, 1.0)
@@ -51,7 +40,4 @@ def on_context(turn_idx: int, step_idx: int, char_len: int, *, limit: int = 1600
     else:
         color = [255, 0, 0]
 
-    rr.log(
-        "context/circle",
-        rr.Points2D([[0.0, 2.0]], radii=[radius], colors=[color]),
-    )
+    rr.log("context/circle", rr.Points2D([[0.0, 2.0]], radii=[radius], colors=[color]))
