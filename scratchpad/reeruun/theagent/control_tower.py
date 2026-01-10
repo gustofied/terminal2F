@@ -2,6 +2,10 @@ import rerun as rr
 
 _initialized = False
 
+USER = [80, 160, 255, 255]
+ASSISTANT = [120, 220, 120, 255]
+TOOL = [255, 200, 80, 255]
+
 def init(app_id: str = "the_agent_logs", *, spawn: bool = True) -> None:
     global _initialized
     if _initialized:
@@ -9,26 +13,41 @@ def init(app_id: str = "the_agent_logs", *, spawn: bool = True) -> None:
     rr.init(app_id, spawn=spawn)
     _initialized = True
 
+
 def _set_time(turn_idx: int) -> None:
     rr.set_time("turn", sequence=turn_idx)
 
+
 def on_turn(turn_idx: int, user_message: str) -> None:
     _set_time(turn_idx)
-    rr.log("agent/conversation", rr.TextLog(f"user: {user_message}", level=rr.TextLogLevel.INFO))
+    rr.log(
+        "agent/conversation",
+        rr.TextLog(f"user: {user_message}", level=rr.TextLogLevel.INFO, color=USER),
+    )
+
 
 def on_tool_call(turn_idx: int, function_name: str, function_params: dict) -> None:
     _set_time(turn_idx)
-    rr.log("agent/tool_calls", rr.TextLog(f"{function_name}({function_params})", level=rr.TextLogLevel.INFO))
+    rr.log(
+        "agent/tool_calls",
+        rr.TextLog(f"{function_name}({function_params})", level=rr.TextLogLevel.INFO,  color=TOOL),
+    )
+
 
 def on_assistant(turn_idx: int, content: str) -> None:
     _set_time(turn_idx)
-    rr.log("agent/conversation", rr.TextLog(f"assistant: {content}", level=rr.TextLogLevel.INFO))
+    rr.log(
+        "agent/conversation",
+        rr.TextLog(f"assistant: {content}", level=rr.TextLogLevel.INFO,  color=ASSISTANT),
+    )
 
-def on_context(turn_idx: int, char_len: int, *, limit: int = 16000) -> None:
+
+def on_usage(turn_idx: int, prompt_tokens: int, *, context_limit: int = 262_144) -> None:
     _set_time(turn_idx)
-    rr.log("context/char_len", rr.Scalars(char_len))
 
-    fraction = min(char_len / limit, 1.0)
+    rr.log("usage/prompt_tokens", rr.Scalars(prompt_tokens))
+
+    fraction = min(prompt_tokens / context_limit, 1.0)
     base_radius = 10.2
     max_extra = 20.8
     radius = base_radius + max_extra * fraction

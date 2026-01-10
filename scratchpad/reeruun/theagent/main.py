@@ -9,9 +9,10 @@ import control_tower
 BASE_DIR = Path(__file__).resolve().parent
 teksten_path = BASE_DIR / "user_txt.txt"
 
-
+# if I want to test ctx explosion..
 with open(teksten_path, "r", encoding="utf-8") as file:
     prompt = file.read()
+
 
 def main():
     control_tower.init()
@@ -24,5 +25,9 @@ def main():
 
     while True:
         run_agent(agent, "What is the payment status right now on the latest ID, which is T1001")
+        run_agent(agent, "What is the payment status right now on the latest ID, which is T1001")
+        run_agent(agent, "What is the payment status right now on the latest ID, which is T1001")
+        run_agent(agent, "What is the payment status right now on the latest ID, which is T1001")
+        run_agent(agent, prompt)
 if __name__ == "__main__":
     main()

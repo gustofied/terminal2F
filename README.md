@@ -14,6 +14,10 @@
 
 ### Notes
 
+#### How it currently work, I'm inside theagent folde btw
+
+agent.py only does model calls, runner.py the loop + tool execution, and control_tower.py does all Rerun logging.
+
 #### TO-DOS
 
 ##### QueueHandler/QueueListener + Rerun can get weird on quit

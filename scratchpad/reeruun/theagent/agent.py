@@ -1,7 +1,7 @@
 import os
-from mistralai import Mistral
-from dotenv import load_dotenv
 import logging
+from dotenv import load_dotenv
+from mistralai import Mistral
 
 load_dotenv()
 log = logging.getLogger("app.agent")

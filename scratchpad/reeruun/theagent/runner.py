@@ -5,24 +5,19 @@ import control_tower as control_tower
 
 log = logging.getLogger("app.runner")
 
-def context_char_len(agent) -> int:
-    total = 0
-    for m in agent.messages:
-        if isinstance(m, dict):
-            total += len(m.get("content", "") or "")
-        else:
-            total += len(getattr(m, "content", "") or "")
-    return total
 
 def run_agent(agent, user_message: str, max_turns: int = 10):
-    log.debug("context char length before turn = %s", context_char_len(agent))
-
     agent.messages.append({"role": "user", "content": user_message})
 
     agent.turn_idx += 1
     control_tower.on_turn(agent.turn_idx, user_message)
 
+    prompt_tokens_max = 0
+
     response = agent.step()
+    prompt_tokens_max = max(prompt_tokens_max, response.usage.prompt_tokens)
+
+
     assistant_message = response.choices[0].message
 
     turns = 0
@@ -51,13 +46,16 @@ def run_agent(agent, user_message: str, max_turns: int = 10):
         })
 
         response = agent.step()
+        
+        prompt_tokens_max = max(prompt_tokens_max, response.usage.prompt_tokens)
+
         assistant_message = response.choices[0].message
 
     final_text = getattr(assistant_message, "content", "") or ""
     control_tower.on_assistant(agent.turn_idx, final_text)
 
-    after = context_char_len(agent)
-    log.debug("context char length after turn = %s", after)
-    control_tower.on_context(agent.turn_idx, after)
+    control_tower.on_usage(agent.turn_idx, prompt_tokens_max)
+
+
 
     return response
