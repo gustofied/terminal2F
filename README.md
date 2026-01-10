@@ -18,3 +18,7 @@ When putting logging behind a queue, the actual send to Rerun happens on the lis
 
 1. Stop listener
 2. Flush/disconnect
+
+##### Token Prediction
+
+Add token prediction so you I see how much context a request will take before sending it. Pretty useful for staying under limits and knowing when to trim history. Will use the Mistral's tokenizer from mistral-common since we're on Mistral models. Viz this too with two scalars, prediction and actual..

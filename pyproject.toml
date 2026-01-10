@@ -8,6 +8,7 @@ authors = [
 ]
 requires-python = ">=3.13"
 dependencies = [
+    "mistral-common>=1.8.8",
     "mistralai>=1.10.0",
     "pandas>=2.3.3",
     "python-dotenv>=1.2.1",
