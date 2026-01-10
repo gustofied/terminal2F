@@ -1,6 +1,14 @@
-# terminal2F
-
-REBORN
+<div align="center">
+<img src="assets/terminaldeuxbanny.png" alt="Terminal2F Banner" width="600">
+<h1>Terminal2F</h1>
+</div>
+<div align="center">
+<b>A way to observe agents and agent systems</b>
+</div>
+<br>
+<div align="center">
+<i>Monitor • Trace • Visualize LLM calls.</i>
+</div>
 
 ---
 
