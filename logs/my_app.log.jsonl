@@ -2915,3 +2915,6 @@
 {"level": "DEBUG", "logger": "app.runner", "module": "runner", "function": "run_agent", "line": 72, "thread_name": "MainThread", "message": "after the turn =14060", "timestamp": "2026-01-10T11:54:18.700Z"}
 {"level": "DEBUG", "logger": "app.runner", "module": "runner", "function": "run_agent", "line": 75, "thread_name": "MainThread", "message": "14060", "timestamp": "2026-01-10T11:54:18.700Z"}
 {"level": "DEBUG", "logger": "app.runner", "module": "runner", "function": "run_agent", "line": 21, "thread_name": "MainThread", "message": "context char length before turn = 14060", "timestamp": "2026-01-10T11:54:18.701Z"}
+{"level": "DEBUG", "logger": "app.runner", "module": "runner", "function": "run_agent", "line": 21, "thread_name": "MainThread", "message": "context char length before turn = 169", "timestamp": "2026-01-10T13:37:38.276Z"}
+{"level": "DEBUG", "logger": "app.runner", "module": "runner", "function": "run_agent", "line": 72, "thread_name": "MainThread", "message": "after the turn =413", "timestamp": "2026-01-10T13:37:41.945Z"}
+{"level": "DEBUG", "logger": "app.runner", "module": "runner", "function": "run_agent", "line": 75, "thread_name": "MainThread", "message": "413", "timestamp": "2026-01-10T13:37:41.946Z"}

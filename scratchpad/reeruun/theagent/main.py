@@ -17,21 +17,26 @@ def main():
 
     agent = Agent(tools=tools)
 
-    while True:
-        response = run_agent(agent, "I have 4 apples. How many do you have?")
-        # log.info(response.choices[0].message.content)
-        print("- - - - - - - - - - - -")
+    r = run_agent(agent, "I have 4 apples. How many do you have?")
+    
+    print(r.model_dump_json)
 
-    response = run_agent(agent, "I ate 1 apple. How many are left?")
-    log.info(response.choices[0].message.content)
-    print("- - - - - - - - - - - -")
+    # while True:
+    #     # response = run_agent(agent, "I have 4 apples. How many do you have?")
+    #     print(agent.model)
+    #     # log.info(response.choices[0].message.content)
+    #     print("- - - - - - - - - - - -")
 
-    response = run_agent(agent, "What is 157.09 * 493.89?")
-    log.info(response.choices[0].message.content)
-    print("- - - - - - - - - - - -")
+    # response = run_agent(agent, "I ate 1 apple. How many are left?")
+    # log.info(response.choices[0].message.content)
+    # print("- - - - - - - - - - - -")
 
-    response = run_agent(agent, "What's the status of my transaction T1001?")
-    log.info(response.choices[0].message.content)
+    # response = run_agent(agent, "What is 157.09 * 493.89?")
+    # log.info(response.choices[0].message.content)
+    # print("- - - - - - - - - - - -")
+
+    # response = run_agent(agent, "What's the status of my transaction T1001?")
+    # log.info(response.choices[0].message.content)
 
     # log.info("info example")
     # log.warning("warning example")
