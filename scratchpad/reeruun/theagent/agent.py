@@ -6,6 +6,7 @@ from mistralai import Mistral
 load_dotenv()
 log = logging.getLogger("app.agent")
 
+
 class Agent:
     def __init__(self, tools, model: str = "ministral-3b-2512"):
         self.client = Mistral(api_key=os.environ["MISTRAL_API_KEY"])
@@ -16,23 +17,14 @@ class Agent:
             "Write max 3 sentences. "
             "Use tools only for payment transaction questions."
         )
-        self.messages = [{"role": "system", "content": self.system_message}]
-        self.turn_idx = 0
 
-    def step(self):
-        """
-        One LLM step. Runner decides what to do with tool_calls.
-        """
-        response = self.client.chat.complete(
+    def step(self, messages):
+        return self.client.chat.complete(
             model=self.model,
-            messages=self.messages,
+            messages=messages,
             tools=self.tools,
             tool_choice="auto",
             parallel_tool_calls=False,
             temperature=0.1,
             max_tokens=1024,
         )
-
-        assistant_message = response.choices[0].message
-        self.messages.append(assistant_message)
-        return response
