@@ -1,5 +1,5 @@
 from agent import Agent
-from runners import run_agent
+from runners import load
 from tools import tools
 import logging
 from pathlib import Path
@@ -9,10 +9,11 @@ import control_tower
 BASE_DIR = Path(__file__).resolve().parent
 teksten_path = BASE_DIR / "user_txt.txt"
 
-# if I want to test ctx explosion..
+# if I want to test heavier prompt..
 with open(teksten_path, "r", encoding="utf-8") as file:
     prompt = file.read()
 
+run_agent = load("regular")
 
 def main():
     control_tower.init()
@@ -22,6 +23,7 @@ def main():
 
     log = logging.getLogger("app")
     agent = Agent(tools=tools)
+    agent2 = Agent(tools=tools)
 
     while True:
         run_agent(agent, "What is the payment status right now on the latest ID, which is T1001")
@@ -29,5 +31,7 @@ def main():
         run_agent(agent, "What is the payment status right now on the latest ID, which is T1001")
         run_agent(agent, "What is the payment status right now on the latest ID, which is T1001")
         run_agent(agent, prompt)
+        run_agent(agent2, prompt)
+        run_agent(agent2, prompt)
 if __name__ == "__main__":
     main()
