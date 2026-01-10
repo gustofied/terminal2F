@@ -33,4 +33,4 @@ Add token prediction so you I see how much context a request will take before se
 
 ##### Step inside Turns
 
-Later add per-turn "step" indexing (1.1, 1.2, 1.3) for internal tool calls also when talking to sub-agents. # Keep turn_idx as the user interaction counter. # Add step_idx inside this turn and pass it into control_tower hooks. # That will let Rerun show ordering within a single user turn.
+Later add per-turn "step" indexing (1.1, 1.2, 1.3) for internal tool calls also when talking to sub-agents. # Keep turn_idx as the user interaction counter. Add step_idx inside this turn and pass it into control_tower hooks. That will let Rerun show ordering within a single user turn.
