@@ -12,7 +12,6 @@ def context_char_len(agent) -> int:
         if isinstance(m, dict):
             total += len(m.get("content", ""))
         else:
-            # AssistantMessage or similar SDK object
             total += len(getattr(m, "content", "") or "")
     return total
 
@@ -27,7 +26,8 @@ def run_agent(agent, user_message: str, max_turns: int = 10):
     rr.set_time("turn", sequence=agent.turn_idx)
     rr.log(
         "agent/conversation",
-        rr.TextLog(f"user: {user_message}"),
+        rr.TextLog(f"user: {user_message}", level=rr.TextLogLevel.INFO),
+    
     )
 
     response = agent.step()

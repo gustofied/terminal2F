@@ -17,9 +17,10 @@ def main():
 
     agent = Agent(tools=tools)
 
-    response = run_agent(agent, "I have 4 apples. How many do you have?")
-    log.info(response.choices[0].message.content)
-    print("- - - - - - - - - - - -")
+    while True:
+        response = run_agent(agent, "I have 4 apples. How many do you have?")
+        # log.info(response.choices[0].message.content)
+        print("- - - - - - - - - - - -")
 
     response = run_agent(agent, "I ate 1 apple. How many are left?")
     log.info(response.choices[0].message.content)
