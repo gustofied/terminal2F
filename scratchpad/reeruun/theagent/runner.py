@@ -17,11 +17,6 @@ def context_char_len(agent) -> int:
     return total
 
 
-def _execute_tool(function_name: str, function_params: dict) -> str:
-    tool_function = names_to_functions.get(function_name)
-    if tool_function is None:
-        return json.dumps({"error": f"Unknown tool: {function_name}"})
-    return tool_function(**function_params)
 
 
 def run_agent(agent, user_message: str, max_turns: int = 10):
@@ -52,7 +47,12 @@ def run_agent(agent, user_message: str, max_turns: int = 10):
         step_idx += 1
         control_tower.on_tool_call(agent.turn_idx, step_idx, function_name, function_params)
 
-        function_result = _execute_tool(function_name, function_params)
+        tool_function = names_to_functions.get(function_name)
+
+        if tool_function is None:
+            function_result = json.dumps({"error": f"Unknown tool: {function_name}"})
+        else:
+            function_result = tool_function(**function_params)
 
         agent.messages.append({
             "role": "tool",

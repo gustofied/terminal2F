@@ -1,6 +1,6 @@
 <div align="center">
-<img src="assets/terminaldeuxbanny.png" alt="Terminal2F Banner" width="600">
-<h1>Terminal2F</h1>
+<img src="assets/terminaldeuxbanny.png" alt="terminal2F Banner" width="600">
+<h1>terminal2F</h1>
 </div>
 <div align="center">
 <b>A way to observe agents and agent systems</b>
