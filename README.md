@@ -22,3 +22,7 @@ When putting logging behind a queue, the actual send to Rerun happens on the lis
 ##### Token Prediction
 
 Add token prediction so you I see how much context a request will take before sending it. Pretty useful for staying under limits and knowing when to trim history. Will use the Mistral's tokenizer from mistral-common since we're on Mistral models. Viz this too with two scalars, prediction and actual..
+
+##### Step inside Turns
+
+Later add per-turn "step" indexing (1.1, 1.2, 1.3) for internal tool calls also when talking to sub-agents. # Keep turn_idx as the user interaction counter. # Add step_idx inside this turn and pass it into control_tower hooks. # That will let Rerun show ordering within a single user turn.

@@ -7,7 +7,7 @@ import json
 load_dotenv()
 
 api_key = os.environ["MISTRAL_API_KEY"]
-model = "mistral-medium-latest"
+model = "mministral-3b-2512"
 
 # tools for the agent / functoin calling
 # Assuming we have the following data

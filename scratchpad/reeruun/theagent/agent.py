@@ -1,14 +1,13 @@
 import os
 from mistralai import Mistral
 from dotenv import load_dotenv
+import logging
 
 load_dotenv()
-
-import logging
 log = logging.getLogger("app.agent")
 
 class Agent:
-    def __init__(self, tools, model: str = "mistral-medium-latest"):
+    def __init__(self, tools, model: str = "ministral-3b-2512"):
         self.client = Mistral(api_key=os.environ["MISTRAL_API_KEY"])
         self.model = model
         self.tools = tools
