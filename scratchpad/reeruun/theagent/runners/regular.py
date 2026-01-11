@@ -11,25 +11,27 @@ def run_agent(agent, user_message: str, max_turns: int = 10):
     state = agent.__dict__.setdefault(
         "_regular_runner_state",
         {
-            "agent_key": hex(id(agent))[2:],
+            "instance_id": getattr(agent, "instance_id", hex(id(agent))[2:]),
+            "agent_name": getattr(agent, "name", "agent"),
             "turn_idx": 0,
             "messages": [{"role": "system", "content": agent.system_message}],
         },
     )
 
-    agent_key = state["agent_key"]
+    instance_id = state["instance_id"]
+    agent_name = state["agent_name"]
     messages = state["messages"]
 
     messages.append({"role": "user", "content": user_message})
 
     state["turn_idx"] += 1
     turn_idx = state["turn_idx"]
-    control_tower.on_turn(agent_key, turn_idx, user_message)
+    control_tower.on_turn(agent_name, instance_id, turn_idx, user_message)
 
-    prompt_tokens_max = 0
+    context_window = 0
 
     response = agent.step(messages)
-    prompt_tokens_max = max(prompt_tokens_max, response.usage.prompt_tokens)
+    context_window = max(context_window, response.usage.prompt_tokens)
 
     assistant_message = response.choices[0].message
     messages.append(assistant_message)
@@ -44,7 +46,7 @@ def run_agent(agent, user_message: str, max_turns: int = 10):
         function_name = tool_call.function.name
         function_params = json.loads(tool_call.function.arguments)
 
-        control_tower.on_tool_call(agent_key, turn_idx, function_name, function_params)
+        control_tower.on_tool_call(agent_name, instance_id, turn_idx, function_name, function_params)
 
         function_result = names_to_functions[function_name](**function_params)
 
@@ -58,13 +60,13 @@ def run_agent(agent, user_message: str, max_turns: int = 10):
         )
 
         response = agent.step(messages)
-        prompt_tokens_max = max(prompt_tokens_max, response.usage.prompt_tokens)
+        context_window = max(context_window, response.usage.prompt_tokens)
 
         assistant_message = response.choices[0].message
         messages.append(assistant_message)
 
     final_text = getattr(assistant_message, "content", "") or ""
-    control_tower.on_assistant(agent_key, turn_idx, final_text)
-    control_tower.on_usage(agent_key, turn_idx, prompt_tokens_max)
+    control_tower.on_assistant(agent_name, instance_id, turn_idx, final_text)
+    control_tower.on_usage(agent_name, instance_id, turn_idx, context_window)
 
     return response

@@ -5,6 +5,7 @@ import logging
 from pathlib import Path
 from mylogger import setup_logging
 import control_tower
+import time
 
 BASE_DIR = Path(__file__).resolve().parent
 teksten_path = BASE_DIR / "user_txt.txt"
@@ -22,16 +23,17 @@ def main():
     setup_logging(str(config_path))
 
     log = logging.getLogger("app")
-    agent = Agent(tools=tools)
-    agent2 = Agent(tools=tools)
+    agentA = Agent(tools=tools, name="agentA", instance_id="agentA")
+    agentB = Agent(tools=tools, name="agentB", instance_id="agentB")
 
     while True:
-        run_agent(agent, "What is the payment status right now on the latest ID, which is T1001")
-        run_agent(agent, "What is the payment status right now on the latest ID, which is T1001")
-        run_agent(agent, "What is the payment status right now on the latest ID, which is T1001")
-        run_agent(agent, "What is the payment status right now on the latest ID, which is T1001")
-        run_agent(agent, prompt)
-        run_agent(agent2, prompt)
-        run_agent(agent2, prompt)
+        run_agent(agentA, "What is the payment status right now on the latest ID, which is T1001")
+        run_agent(agentA, "What is the payment status right now on the latest ID, which is T1001")
+        run_agent(agentA, "What is the payment status right now on the latest ID, which is T1001")
+        run_agent(agentA, "What is the payment status right now on the latest ID, which is T1001")
+        run_agent(agentA, prompt)
+        run_agent(agentB, prompt)
+        run_agent(agentB, prompt)
+        time.sleep(15)
 if __name__ == "__main__":
     main()
