@@ -1,8 +1,8 @@
 import json
 import logging
 
-import control_tower
-from tools import names_to_functions
+from .. import control_tower
+from ..tools import names_to_functions
 
 log = logging.getLogger("app.runner")
 

@@ -1,11 +1,13 @@
-from agent import Agent
-from runners import load
-from tools import tools
+from terminal2f.agent import Agent
+from terminal2f.runners import load
+from terminal2f.tools import tools
+from terminal2f.mylogger import setup_logging
+from terminal2f import control_tower
+
 import logging
 from pathlib import Path
-from mylogger import setup_logging
-import control_tower
 import time
+
 
 BASE_DIR = Path(__file__).resolve().parent
 teksten_path = BASE_DIR / "user_txt.txt"
