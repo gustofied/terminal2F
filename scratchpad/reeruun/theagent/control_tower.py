@@ -18,34 +18,38 @@ def _set_time(turn_idx: int) -> None:
     rr.set_time("turn", sequence=turn_idx)
 
 
-def on_turn(turn_idx: int, user_message: str) -> None:
+def on_turn(agent_key: str, turn_idx: int, user_message: str) -> None:
     _set_time(turn_idx)
     rr.log(
-        "agent/conversation",
+        f"agents/{agent_key}/conversation",
         rr.TextLog(f"user: {user_message}", level=rr.TextLogLevel.INFO, color=USER),
     )
 
 
-def on_tool_call(turn_idx: int, function_name: str, function_params: dict) -> None:
+def on_tool_call(agent_key: str, turn_idx: int, function_name: str, function_params: dict) -> None:
     _set_time(turn_idx)
     rr.log(
-        "agent/tool_calls",
-        rr.TextLog(f"{function_name}({function_params})", level=rr.TextLogLevel.INFO,  color=TOOL),
+        f"agents/{agent_key}/tool_calls",
+        rr.TextLog(
+            f"{function_name}({function_params})",
+            level=rr.TextLogLevel.INFO,
+            color=TOOL,
+        ),
     )
 
 
-def on_assistant(turn_idx: int, content: str) -> None:
+def on_assistant(agent_key: str, turn_idx: int, content: str) -> None:
     _set_time(turn_idx)
     rr.log(
-        "agent/conversation",
-        rr.TextLog(f"assistant: {content}", level=rr.TextLogLevel.INFO,  color=ASSISTANT),
+        f"agents/{agent_key}/conversation",
+        rr.TextLog(f"assistant: {content}", level=rr.TextLogLevel.INFO, color=ASSISTANT),
     )
 
 
-def on_usage(turn_idx: int, prompt_tokens: int, *, context_limit: int = 262_144) -> None:
+def on_usage(agent_key: str, turn_idx: int, prompt_tokens: int, *, context_limit: int = 262_144) -> None:
     _set_time(turn_idx)
 
-    rr.log("usage/prompt_tokens", rr.Scalars(prompt_tokens))
+    rr.log(f"agents/{agent_key}/usage/prompt_tokens", rr.Scalars(prompt_tokens))
 
     fraction = min(prompt_tokens / context_limit, 1.0)
     base_radius = 10.2
@@ -59,4 +63,7 @@ def on_usage(turn_idx: int, prompt_tokens: int, *, context_limit: int = 262_144)
     else:
         color = [255, 0, 0]
 
-    rr.log("context/circle", rr.Points2D([[0.0, 2.0]], radii=[radius], colors=[color]))
+    rr.log(
+        f"agents/{agent_key}/context/circle",
+        rr.Points2D([[0.0, 2.0]], radii=[radius], colors=[color]),
+    )
