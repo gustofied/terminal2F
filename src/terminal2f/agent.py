@@ -26,7 +26,7 @@ class Agent:
         self.name = name
         self.instance_id = instance_id or uuid.uuid4().hex[:8]
 
-        self.system_message = f"Concise assistand and or a coding assistant. cwd: {os.getcwd()}"
+        self.system_message = f"Concise coding assistant. cwd: {os.getcwd()}"
 
     def step(self, messages):
         return self.client.chat.complete(

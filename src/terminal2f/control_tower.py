@@ -1,20 +1,114 @@
 import hashlib
-import colorsys
+import math
+import threading
+import time
+
 import rerun as rr
 
 _initialized = False
+ROOT = "t2f"
 
 USER = [80, 160, 255, 255]
 ASSISTANT = [120, 220, 120, 255]
 TOOL = [255, 200, 80, 255]
 EVENT = [180, 180, 180, 255]
 
+IDLE = [160, 160, 160, 255]
+ACTIVE = [120, 220, 120, 255]
+
+_frame = 0
+_turn = 0
+_agents: dict[tuple[str, str], dict] = {}
+_started = False
+
+
+# rotation matixy (kept same style)
+def new_location(center_x, center_y, x, y, angle):
+    cos_a = math.cos(angle)
+    sin_a = math.sin(angle)
+    translated_x = x - center_x
+    translated_y = y - center_y
+    new_x = translated_x * cos_a - translated_y * sin_a + center_x
+    new_y = translated_x * sin_a + translated_y * cos_a + center_y
+    return new_x, new_y
+
+
+def _base(agent_name: str, instance_id: str) -> str:
+    return f"{ROOT}/agents/{agent_name}/instances/{instance_id}"
+
+
+def _set_time(turn_idx: int) -> None:
+    global _turn
+    _turn = turn_idx
+    rr.set_time("turn", sequence=turn_idx)
+
+def _st(agent_name: str, instance_id: str) -> dict:
+    k = (agent_name, instance_id)
+    st = _agents.get(k)
+    if st is None:
+        n = int.from_bytes(hashlib.blake2b(f"{agent_name}:{instance_id}".encode(), digest_size=8).digest(), "little")
+        r = 6.0 + (n % 7) * 1.1
+        a0 = (n % 360) * (math.pi / 180.0)
+        st = _agents[k] = {
+            "n": n,
+            "bx": r * math.cos(a0),
+            "by": r * math.sin(a0),
+            "frac": 0.0,
+            "active_until": -1,
+        }
+    return st
+
+
+def _draw(frame: int):
+    cx = cy = 0.0
+    angle = frame * 0.05  # same feel as your demo
+
+    pts, cols, rads, labels = [], [], [], []
+    for (name, iid), st in _agents.items():
+        x, y = new_location(cx, cy, st["bx"], st["by"], angle)
+
+        # size = context fraction + bubble pulse
+        base = 0.04 + 0.25 * st["frac"]            # min size + context growth
+        pulse = 0.025 * math.sin(frame * (0.15 + (st["n"] % 10) * 0.03))
+        rad = max(base + pulse, 1.01)
+
+        pts.append([x, y])
+        cols.append(ACTIVE if frame <= st["active_until"] else IDLE)
+        rads.append(rad)
+        labels.append(f"{name}:{iid}")
+
+    rr.log(f"{ROOT}/swarm/points", rr.Points2D(pts, colors=cols, radii=rads, labels=labels, show_labels=True))
+
+
+
+def _anim():
+    global _frame
+    while True:
+        rr.set_time("frame", sequence=_frame)
+        rr.set_time("turn", sequence=_turn) 
+        if _agents:
+            _draw(_frame)
+        _frame += 1
+        time.sleep(1 / 30)  # smooth enough, low overhead
+
 
 def init(app_id: str = "the_agent_logs", *, spawn: bool = True) -> None:
-    global _initialized
+    global _initialized, _started
     if _initialized:
         return
+
     rr.init(app_id, spawn=spawn)
+
+    rr.log(
+        f"{ROOT}/swarm/origin",
+        rr.Boxes2D(mins=[-1, -1], sizes=[2, 2], labels=["terminal2F"], show_labels=True),
+        static=True,
+    )
+
+    if not _started:
+        _started = True
+        threading.Thread(target=_anim, daemon=True).start()
+
     _initialized = True
 
 
@@ -22,46 +116,14 @@ def _set_time(turn_idx: int) -> None:
     rr.set_time("turn", sequence=turn_idx)
 
 
-def _base(agent_name: str, instance_id: str) -> str:
-    return f"agents/{agent_name}/instances/{instance_id}"
-
-
-def _circle_xy(
-    agent_name: str,
-    instance_id: str,
-    cols: int = 30,
-    rows: int = 30,
-    spacing: float = 3.0,
-) -> tuple[float, float]:
-    s = f"{agent_name}:{instance_id}".encode("utf-8")
-    h = hashlib.blake2b(s, digest_size=8).digest()
-    n = int.from_bytes(h, "little")
-
-    col = n % cols
-    row = (n // cols) % rows
-    return col * spacing, row * spacing
-
-
-def _agent_rgb(agent_name: str, instance_id: str) -> list[int]:
-    s = f"{agent_name}:{instance_id}".encode("utf-8")
-    h = hashlib.blake2b(s, digest_size=8).digest()
-    n = int.from_bytes(h, "little")
-
-    hue = (n % 360) / 360.0
-    r, g, b = colorsys.hsv_to_rgb(hue, 0.70, 0.95)
-    return [int(r * 255), int(g * 255), int(b * 255)]
-
-
-def _blend(a: list[int], b: list[int], t: float) -> list[int]:
-    return [int(a[i] * (1.0 - t) + b[i] * t) for i in range(3)]
-
-
 def on_event(agent_name: str, instance_id: str, turn_idx: int, text: str) -> None:
     _set_time(turn_idx)
-    rr.log(
-        f"{_base(agent_name, instance_id)}/events",
-        rr.TextLog(text, level=rr.TextLogLevel.INFO, color=EVENT),
-    )
+    rr.log(f"{_base(agent_name, instance_id)}/events", rr.TextLog(text, level=rr.TextLogLevel.INFO, color=EVENT))
+
+    if "cleared" in text.lower():
+        st = _st(agent_name, instance_id)
+        st["frac"] = 0.0
+        st["active_until"] = -1
 
 
 def on_turn(agent_name: str, instance_id: str, turn_idx: int, user_message: str) -> None:
@@ -70,15 +132,10 @@ def on_turn(agent_name: str, instance_id: str, turn_idx: int, user_message: str)
         f"{_base(agent_name, instance_id)}/conversation",
         rr.TextLog(f"user: {user_message}", level=rr.TextLogLevel.INFO, color=USER),
     )
+    _st(agent_name, instance_id)["active_until"] = _frame + 20  # light up for a bit
 
 
-def on_tool_call(
-    agent_name: str,
-    instance_id: str,
-    turn_idx: int,
-    function_name: str,
-    function_params: dict,
-) -> None:
+def on_tool_call(agent_name: str, instance_id: str, turn_idx: int, function_name: str, function_params: dict) -> None:
     _set_time(turn_idx)
     rr.log(
         f"{_base(agent_name, instance_id)}/tool_calls",
@@ -96,26 +153,7 @@ def on_assistant(agent_name: str, instance_id: str, turn_idx: int, content: str)
 
 def on_usage(agent_name: str, instance_id: str, turn_idx: int, prompt_tokens: int, *, context_limit: int) -> None:
     _set_time(turn_idx)
-
     rr.log(f"{_base(agent_name, instance_id)}/usage/context_length", rr.Scalars(prompt_tokens))
 
-    fraction = min(prompt_tokens / context_limit, 1.0)
-    base_radius = 10.2
-    max_extra = 20.8
-    radius = base_radius + max_extra * fraction
-
-    base_color = _agent_rgb(agent_name, instance_id)
-
-    if fraction < 0.5:
-        color = base_color
-    elif fraction < 0.8:
-        color = _blend(base_color, [255, 200, 0], 0.6)
-    else:
-        color = [255, 0, 0]
-
-    x, y = _circle_xy(agent_name, instance_id)
-
-    rr.log(
-        f"{_base(agent_name, instance_id)}/context/circle",
-        rr.Points2D([[x, y]], radii=[radius], colors=[color]),
-    )
+    st = _st(agent_name, instance_id)
+    st["frac"] = min(prompt_tokens / max(context_limit, 1), 1.0)
