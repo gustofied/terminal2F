@@ -7,6 +7,7 @@ _initialized = False
 USER = [80, 160, 255, 255]
 ASSISTANT = [120, 220, 120, 255]
 TOOL = [255, 200, 80, 255]
+EVENT = [180, 180, 180, 255]
 
 
 def init(app_id: str = "the_agent_logs", *, spawn: bool = True) -> None:
@@ -38,7 +39,6 @@ def _circle_xy(
 
     col = n % cols
     row = (n // cols) % rows
-
     return col * spacing, row * spacing
 
 
@@ -56,6 +56,14 @@ def _blend(a: list[int], b: list[int], t: float) -> list[int]:
     return [int(a[i] * (1.0 - t) + b[i] * t) for i in range(3)]
 
 
+def on_event(agent_name: str, instance_id: str, turn_idx: int, text: str) -> None:
+    _set_time(turn_idx)
+    rr.log(
+        f"{_base(agent_name, instance_id)}/events",
+        rr.TextLog(text, level=rr.TextLogLevel.INFO, color=EVENT),
+    )
+
+
 def on_turn(agent_name: str, instance_id: str, turn_idx: int, user_message: str) -> None:
     _set_time(turn_idx)
     rr.log(
@@ -64,7 +72,13 @@ def on_turn(agent_name: str, instance_id: str, turn_idx: int, user_message: str)
     )
 
 
-def on_tool_call(agent_name: str, instance_id: str, turn_idx: int, function_name: str, function_params: dict) -> None:
+def on_tool_call(
+    agent_name: str,
+    instance_id: str,
+    turn_idx: int,
+    function_name: str,
+    function_params: dict,
+) -> None:
     _set_time(turn_idx)
     rr.log(
         f"{_base(agent_name, instance_id)}/tool_calls",

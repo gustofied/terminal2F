@@ -67,12 +67,13 @@ def run_agent(agent, user_message: str, max_turns: int = 10):
 
     final_text = getattr(assistant_message, "content", "") or ""
     control_tower.on_assistant(agent_name, instance_id, turn_idx, final_text)
+
     control_tower.on_usage(
-    agent_name,
-    instance_id,
-    turn_idx,
-    context_window,
-    context_limit=agent.max_context_length,
-)
+        agent_name,
+        instance_id,
+        turn_idx,
+        context_window,
+        context_limit=agent.max_context_length,
+    )
 
     return response

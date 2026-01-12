@@ -18,6 +18,12 @@
 
 agent.py only does model calls, runner.py the loop + tool execution, and control_tower.py does all Rerun logging.
 
+##### Expirments
+
+setup, a single Rerun recording is one experiment. An experiment can contain multiple agents running side by side, and each agent instance produces its own logs and metrics while sharing the same experiment context.
+
+Within an experiment, you create episodes by clearing the conversational state. A clear does not rewind time. It resets the agent’s message history so context length drops naturally, and it logs a clear event so the episode boundary is explicit and easy to spot later. Because the turn counter is monotonic for the entire experiment, nothing gets overwritten in Rerun and you can reliably compare behavior across episodes, across agents, and across different runner implementations inside the same experiment.
+
 #### TO-DOS
 
 ##### QueueHandler/QueueListener + Rerun can get weird on quit

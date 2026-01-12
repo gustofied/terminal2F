@@ -19,11 +19,11 @@ def run(
     file: Path = typer.Argument(..., exists=True, dir_okay=False, readable=True),
     runner: str = typer.Option("regular", help="Runner module (e.g. regular)."),
 ):
-    """Run a single prompt from a file and exit."""
     prompt = file.read_text(encoding="utf-8")
 
     control_tower.init()
     agent = Agent(tools=tool_schemas, name="agentA", instance_id="agentA")
+
     response = load(runner)(agent, prompt)
     typer.echo(_extract_text(response))
 
@@ -32,7 +32,6 @@ def run(
 def chat(
     runner: str = typer.Option("regular", help="Runner module (e.g. regular)."),
 ):
-    """Interactive chat. Commands: /q quit, /c clear."""
     control_tower.init()
     agent = Agent(tools=tool_schemas, name="agentA", instance_id="agentA")
     run_agent = load(runner)
@@ -49,8 +48,30 @@ def chat(
                 continue
             if user_input in ("/q", "exit", "quit"):
                 break
+
             if user_input == "/c":
-                agent.__dict__.pop(state_key, None)
+                state = agent.__dict__.setdefault(
+                    state_key,
+                    {
+                        "instance_id": agent.instance_id,
+                        "agent_name": agent.name,
+                        "turn_idx": 0,
+                        "messages": [{"role": "system", "content": agent.system_message}],
+                    },
+                )
+
+                # Allocate a unique turn index for the clear marker (so nothing collides).
+                state["turn_idx"] += 1
+                turn_idx = state["turn_idx"]
+
+                episode_idx = state.setdefault("episode_idx", 0) + 1
+                state["episode_idx"] = episode_idx
+
+                control_tower.on_event(agent.name, agent.instance_id, turn_idx, f"⏺ cleared (episode={episode_idx})")
+
+                # Reset context only; DO NOT reset turn_idx.
+                state["messages"] = [{"role": "system", "content": agent.system_message}]
+
                 typer.echo("⏺ cleared\n")
                 continue
 
@@ -68,10 +89,8 @@ def chat(
 def run_main(
     runner: str = typer.Option("regular", help="Runner module to use for main()."),
 ):
-    """Run the scripted main loop."""
-    from . import main as main_mod
-    main_mod.load = load  # optional: keeps imports consistent if you refactor later
-    main_mod.main()       # runs terminal2f/main.py:main()
+    from .main import main as real_main
+    real_main()
 
 
 if __name__ == "__main__":
