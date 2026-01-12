@@ -37,13 +37,19 @@ def run_agent(agent, user_message: str, max_turns: int = 10, ui=None):
         if callable(fn):
             fn(*args)
 
+    def _run_tool(function_name: str, function_params: dict) -> str:
+        try:
+            fn = names_to_functions[function_name]
+            return fn(**function_params)
+        except Exception as err:
+            return f"error: {err}"
+
     response = agent.step(messages)
     context_window = max(context_window, response.usage.prompt_tokens)
 
     assistant_message = response.choices[0].message
     messages.append(assistant_message)
 
-    # Print assistant text immediately (if any)
     text = getattr(assistant_message, "content", "") or ""
     if text:
         _ui_call("on_assistant_text", text)
@@ -54,24 +60,32 @@ def run_agent(agent, user_message: str, max_turns: int = 10, ui=None):
         if turns > max_turns:
             raise RuntimeError("Max turns reached without a final answer.")
 
-        tool_call = assistant_message.tool_calls[0]
-        function_name = tool_call.function.name
-        function_params = json.loads(tool_call.function.arguments)
+        for tool_call in assistant_message.tool_calls:
+            function_name = tool_call.function.name
 
-        control_tower.on_tool_call(agent_name, instance_id, turn_idx, function_name, function_params)
-        _ui_call("on_tool_call", function_name, function_params)
+            try:
+                function_params = json.loads(tool_call.function.arguments)
+            except Exception as err:
+                function_params = {}
+                function_result = f"error: {err}"
+            else:
+                control_tower.on_tool_call(
+                    agent_name, instance_id, turn_idx, function_name, function_params
+                )
+                _ui_call("on_tool_call", function_name, function_params)
 
-        function_result = names_to_functions[function_name](**function_params)
-        _ui_call("on_tool_result", function_name, function_result)
+                function_result = _run_tool(function_name, function_params)
 
-        messages.append(
-            {
-                "role": "tool",
-                "tool_call_id": tool_call.id,
-                "name": function_name,
-                "content": function_result,
-            }
-        )
+            _ui_call("on_tool_result", function_name, function_result)
+
+            messages.append(
+                {
+                    "role": "tool",
+                    "tool_call_id": tool_call.id,
+                    "name": function_name,
+                    "content": function_result,
+                }
+            )
 
         response = agent.step(messages)
         context_window = max(context_window, response.usage.prompt_tokens)
