@@ -80,7 +80,7 @@ def on_assistant(agent_name: str, instance_id: str, turn_idx: int, content: str)
     )
 
 
-def on_usage(agent_name: str, instance_id: str, turn_idx: int, prompt_tokens: int, *, context_limit: int = 262_144) -> None:
+def on_usage(agent_name: str, instance_id: str, turn_idx: int, prompt_tokens: int, *, context_limit: int) -> None:
     _set_time(turn_idx)
 
     rr.log(f"{_base(agent_name, instance_id)}/usage/context_length", rr.Scalars(prompt_tokens))

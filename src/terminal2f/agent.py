@@ -20,6 +20,9 @@ class Agent:
         self.model = model
         self.tools = tools
 
+        model_info = self.client.models.retrieve(model_id=self.model)
+        self.max_context_length = model_info.max_context_length
+        
         self.name = name
         # Unique id, unsure about this one
         self.instance_id = instance_id or uuid.uuid4().hex[:8]

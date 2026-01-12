@@ -44,6 +44,7 @@ Later add per-turn "step" indexing (1.1, 1.2, 1.3) for internal tool calls also 
 prompt_tokens is the size of what is sent into the model for this call.
 might be interested to look at response.usage.total_tokens or
 response.usage.completion_token
+the model also needs room for the output so I can't just use prompt tokens like now..
 
 ##### Jinja Templates
 
