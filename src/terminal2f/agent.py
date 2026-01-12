@@ -22,16 +22,11 @@ class Agent:
 
         model_info = self.client.models.retrieve(model_id=self.model)
         self.max_context_length = model_info.max_context_length
-        
+
         self.name = name
-        # Unique id, unsure about this one
         self.instance_id = instance_id or uuid.uuid4().hex[:8]
 
-        self.system_message = (
-            "You are a helpful agent that breaks down problems into steps and solves them systematically. "
-            "Write max 3 sentences. "
-            "Use tools only for payment transaction questions."
-        )
+        self.system_message = f"Concise assistand and or a coding assistant. cwd: {os.getcwd()}"
 
     def step(self, messages):
         return self.client.chat.complete(

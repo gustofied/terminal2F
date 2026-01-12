@@ -40,6 +40,9 @@ def run_agent(agent, user_message: str, max_turns: int = 10, ui=None):
     def _run_tool(function_name: str, function_params: dict) -> str:
         try:
             fn = names_to_functions[function_name]
+        except Exception as err:
+            return f"error: {err}"
+        try:
             return fn(**function_params)
         except Exception as err:
             return f"error: {err}"
@@ -64,7 +67,7 @@ def run_agent(agent, user_message: str, max_turns: int = 10, ui=None):
             function_name = tool_call.function.name
 
             try:
-                function_params = json.loads(tool_call.function.arguments)
+                function_params = json.loads(tool_call.function.arguments or "{}")
             except Exception as err:
                 function_params = {}
                 function_result = f"error: {err}"

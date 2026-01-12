@@ -14,11 +14,6 @@ from . import control_tower
 app = typer.Typer(add_completion=False)
 
 
-def _extract_text(response) -> str:
-    msg = response.choices[0].message
-    return (getattr(msg, "content", "") or "").strip()
-
-
 def _term_width(default: int = 80) -> int:
     try:
         return min(os.get_terminal_size().columns, default)
@@ -27,7 +22,6 @@ def _term_width(default: int = 80) -> int:
 
 
 def _render_bold_md(text: str) -> str:
-    # Minimal: only supports **bold**
     out = []
     last = 0
     for m in re.finditer(r"\*\*(.+?)\*\*", text):
@@ -88,9 +82,15 @@ def run(
 
     control_tower.init()
     agent = Agent(tools=tool_schemas, name="agentA", instance_id="agentA")
+    run_agent = load(runner)
 
-    response = load(runner)(agent, prompt)
-    typer.echo(_extract_text(response))
+    ui = TerminalUI()
+    ui.console.print(
+        f"[bold]t2f run[/] | [dim]{agent.model}[/] | [dim]{os.getcwd()}[/]\n"
+    )
+
+    run_agent(agent, prompt, ui=ui)
+    ui.console.print()
 
 
 @app.command()
@@ -105,7 +105,7 @@ def chat(
     state_key = f"_{runner}_runner_state"
 
     ui.console.print(
-        f"[bold]t2f chat[/] | [dim]{agent.model}[/] | [dim]runner={runner}[/] | [dim]{os.getcwd()}[/]"
+        f"[bold]t2f chat[/] | [dim]{agent.model}[/] | [dim]{os.getcwd()}[/]"
     )
     ui.console.print("[dim]Commands:[/] /q quit, /c clear\n")
 
@@ -145,7 +145,6 @@ def chat(
                 )
 
                 state["messages"] = [{"role": "system", "content": agent.system_message}]
-
                 ui.console.print("[green]⏺ Cleared conversation[/]\n")
                 continue
 
@@ -161,7 +160,6 @@ def run_main(
     runner: str = typer.Option("regular", help="Runner module to use for main()."),
 ):
     from .main import main as real_main
-
     real_main()
 
 
