@@ -2,6 +2,7 @@ from pathlib import Path
 import os
 import re
 import typer
+import uuid
 
 from rich.console import Console
 from rich.markup import escape
@@ -81,15 +82,22 @@ def run(
     prompt = file.read_text(encoding="utf-8")
 
     control_tower.init()
+    episode_id = uuid.uuid4().hex[:8]
+    bench_step = 0
+
     agent = Agent(tools=tool_schemas, name="agentA", instance_id="agentA")
     run_agent = load(runner)
+
+    control_tower.register_agent(episode_id, agent.name, agent.instance_id)
 
     ui = TerminalUI()
     ui.console.print(
         f"[bold]t2f run[/] | [dim]{agent.model}[/] | [dim]{os.getcwd()}[/]\n"
     )
 
-    run_agent(agent, prompt, ui=ui)
+    bench_step += 1
+    control_tower.set_step(bench_step)
+    run_agent(agent, prompt, episode_id=episode_id, step=bench_step, ui=ui)
     ui.console.print()
 
 
@@ -98,12 +106,15 @@ def chat(
     runner: str = typer.Option("regular", help="Runner module (e.g. regular)."),
 ):
     control_tower.init()
+    episode_id = uuid.uuid4().hex[:8]
+    bench_step = 0
+
     agent = Agent(tools=tool_schemas, name="agentA", instance_id="agentA")
     run_agent = load(runner)
 
-    ui = TerminalUI()
-    state_key = f"_{runner}_runner_state"
+    control_tower.register_agent(episode_id, agent.name, agent.instance_id)
 
+    ui = TerminalUI()
     ui.console.print(
         f"[bold]t2f chat[/] | [dim]{agent.model}[/] | [dim]{os.getcwd()}[/]"
     )
@@ -121,34 +132,23 @@ def chat(
                 break
 
             if user_input == "/c":
-                state = agent.__dict__.setdefault(
-                    state_key,
-                    {
-                        "instance_id": agent.instance_id,
-                        "agent_name": agent.name,
-                        "turn_idx": 0,
-                        "messages": [{"role": "system", "content": agent.system_message}],
-                    },
-                )
+                bench_step += 1
+                control_tower.set_step(bench_step)
 
-                state["turn_idx"] += 1
-                turn_idx = state["turn_idx"]
-
-                episode_idx = state.setdefault("episode_idx", 0) + 1
-                state["episode_idx"] = episode_idx
-
+                run_agent.reset(agent)
                 control_tower.on_event(
+                    episode_id,
                     agent.name,
                     agent.instance_id,
-                    turn_idx,
-                    f"⏺ cleared (episode={episode_idx})",
+                    bench_step,
+                    "⏺ cleared",
                 )
-
-                state["messages"] = [{"role": "system", "content": agent.system_message}]
                 ui.console.print("[green]⏺ Cleared conversation[/]\n")
                 continue
 
-            run_agent(agent, user_input, ui=ui)
+            bench_step += 1
+            control_tower.set_step(bench_step)
+            run_agent(agent, user_input, episode_id=episode_id, step=bench_step, ui=ui)
             ui.console.print()
 
         except (KeyboardInterrupt, EOFError):
