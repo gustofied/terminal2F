@@ -25,9 +25,10 @@ class Agent:
 
         self.name = name
         self.instance_id = instance_id or uuid.uuid4().hex[:8]
-
+        # set up as a coding assitant now, want general tbh
         self.system_message = f"Concise coding assistant. cwd: {os.getcwd()}"
 
+    # the request to mistral api
     def step(self, messages):
         return self.client.chat.complete(
             model=self.model,
