@@ -12,6 +12,9 @@
 
 ---
 
+> [!WARNING]
+> This project exposes a bash tool that executes arbitrary shell commands on the host machine. If an LLM calls this tool it can read or modify files, run destructive commands, and potentially access secrets from the environment. Do not enable this tool on any machine that contains sensitive data. Only use it in a disposable development environment or after you add strict allowlisting or sandboxing.
+
 ### Notes
 
 #### How it currently work, I'm inside theagent folde btw

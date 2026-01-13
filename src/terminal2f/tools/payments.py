@@ -1,6 +1,8 @@
 import json
 import pandas as pd
 
+# This was part of the mistral tool demonstration
+
 data = {
     "transaction_id": ["T1001", "T1002", "T1003", "T1004", "T1005"],
     "customer_id": ["C001", "C002", "C003", "C002", "C001"],
