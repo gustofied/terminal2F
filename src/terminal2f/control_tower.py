@@ -111,11 +111,6 @@ def init(app_id: str = "the_agent_logs", *, spawn: bool = True) -> None:
 
     _initialized = True
 
-
-def _set_time(turn_idx: int) -> None:
-    rr.set_time("turn", sequence=turn_idx)
-
-
 def on_event(agent_name: str, instance_id: str, turn_idx: int, text: str) -> None:
     _set_time(turn_idx)
     rr.log(f"{_base(agent_name, instance_id)}/events", rr.TextLog(text, level=rr.TextLogLevel.INFO, color=EVENT))
