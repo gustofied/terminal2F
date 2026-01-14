@@ -1,11 +1,66 @@
 import numpy as np
 import rerun as rr
+import matplotlib.pyplot as plt
 
-rr.init("Hey", spawn=True)
+plt.style.use(['dark_background'])
 
-rr.log(
-    "my/points",
-    rr.Points3D([[0.2, 0.5, 0.3], [0.9, 1.2, 0.1], [1.0, 4.2, 0.3]], radii=[0.1, 0.2, 0.3]),
-    rr.Arrows3D(vectors=[[0.3, 2.1, 0.2], [0.9, -1.1, 2.3], [-0.4, 0.5, 2.9]]),
-    rr.AnyValues(confidence=[0.3, 0.4, 0.9]),
-)
+# x = np.arange(0, 10 ,1)
+# print(x)
+
+# y = np.linspace(0, 1, 20)
+# print(y)
+
+# f = x**2 * np.sin(x*10)
+
+# plt.figure(figsize=(4,2))
+# plt.plot(x, f)
+# plt.show()
+
+
+
+# b = np.linspace(0, 1, 11)
+# c = np.linspace(0, 1, 20)
+
+# print("..")
+
+# bc = np.meshgrid(b,c)
+# print(bc)
+
+# plt.figure(figsize=(4,2))
+# x, y = bc
+# plt.plot(x, y)
+# plt.show()
+
+
+
+
+
+print("- - - - - - - - - - - - ")
+
+
+h= np.linspace(0, 7, 8)
+j = np.linspace(0, 3, 4)
+
+for xpoint in h:
+    for ypoint in j:
+        plt.plot(xpoint, ypoint, "wh")
+
+plt.show()
+
+
+print("- - - - - - - - - - - - ")
+
+
+x2d, y2d = np.meshgrid(h, j)
+
+plt.plot(x2d, y2d, "yh")
+plt.show()
+
+rr.init("hey_im_learning", spawn=True)
+# rr.log("dd,",rr.Mesh3D(
+#     f,
+
+# ), )
+
+
+
