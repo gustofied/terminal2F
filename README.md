@@ -19,10 +19,10 @@
 
 #### How does terminal2F currently work
 
-**agent.py** only does the model call. It takes messages and optional tools, hits Mistral, returns the raw response.
-**runner** owns the whole loop. It appends user messages, calls agent.step, handles tool calls, appends tool results, and keeps looping until we get a final assistant message.
-**control_tower.py** is just observability. It logs turns, tool calls, tool results, assistant text, and usage to Rerun, plus the little swarm viz stuff.
-**Tools are capability on the agent, permission on the runner.** The agent can be initialized with tools=tools (everything installed), but the runner decides what the model can actually see and execute for that run.
+- **agent.py** only does the model call. It takes messages and optional tools, hits Mistral, returns the raw response.
+- **runner** owns the whole loop. It appends user messages, calls agent.step, handles tool calls, appends tool results, and keeps looping until we get a final assistant message.
+- **control_tower.py** is just observability. It logs turns, tool calls, tool results, assistant text, and usage to Rerun, plus the little swarm viz stuff.
+- **Tools are capability on the agent, permission on the runner.** The agent can be initialized with tools=tools (everything installed), but the runner decides what the model can actually see and execute for that run.
 
 ##### Expirments
 
