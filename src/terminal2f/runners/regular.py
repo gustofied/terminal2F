@@ -1,75 +1,35 @@
 import json
 import logging
-import weakref
+from dataclasses import dataclass, field
 from typing import Any
 
 from .. import control_tower
-from ..tools import names_to_functions
+from ..tools import names_to_functions, payment_tools
 
 log = logging.getLogger("app.runner")
 
-# agent -> state (no agent.__dict__ mutation)
-_STATE: "weakref.WeakKeyDictionary[object, dict]" = weakref.WeakKeyDictionary()
+
+@dataclass
+class RunnerMemory:
+    instance_id: str
+    agent_name: str
+    agent_step: int = 0
+    messages: list[dict] = field(default_factory=list)
 
 
-def reset(agent) -> None:
-    """Clear this agent's runner memory."""
-    st = _STATE.get(agent)
-    if st is not None:
-        st["agent_step"] = 0
-        st["messages"] = [{"role": "system", "content": agent.system_message}]
+def new_memory(agent) -> RunnerMemory:
+    iid = getattr(agent, "instance_id", hex(id(agent))[2:])
+    name = getattr(agent, "name", "agent")
+    return RunnerMemory(
+        instance_id=iid,
+        agent_name=name,
+        messages=[{"role": "system", "content": agent.system_message}],
+    )
 
 
-def _get_state(agent) -> dict:
-    st = _STATE.get(agent)
-    if st is None:
-        st = {
-            "instance_id": getattr(agent, "instance_id", hex(id(agent))[2:]),
-            "agent_name": getattr(agent, "name", "agent"),
-            "agent_step": 0,
-            "messages": [{"role": "system", "content": agent.system_message}],
-        }
-        _STATE[agent] = st
-    return st
-
-
-def _run_tool(function_name: str, function_params: dict) -> str:
-    try:
-        fn = names_to_functions[function_name]
-    except Exception as err:
-        return f"error: {err}"
-    try:
-        return fn(**function_params)
-    except Exception as err:
-        return f"error: {err}"
-
-
-def _msg_to_dict(msg: Any) -> dict:
-    # keep messages consistently dict-shaped
-    if isinstance(msg, dict):
-        out = dict(msg)
-    elif hasattr(msg, "model_dump"):
-        out = msg.model_dump(exclude_none=True)
-    elif hasattr(msg, "dict"):
-        out = msg.dict(exclude_none=True)
-    else:
-        out = {
-            "role": getattr(msg, "role", "assistant"),
-            "content": getattr(msg, "content", "") or "",
-        }
-
-    tcs = out.get("tool_calls")
-    if tcs is not None:
-        dumped = []
-        for tc in tcs:
-            if isinstance(tc, dict):
-                dumped.append(tc)
-            elif hasattr(tc, "model_dump"):
-                dumped.append(tc.model_dump(exclude_none=True))
-            elif hasattr(tc, "dict"):
-                dumped.append(tc.dict(exclude_none=True))
-        out["tool_calls"] = dumped
-    return out
+def reset(agent, memory: RunnerMemory) -> None:
+    memory.agent_step = 0
+    memory.messages = [{"role": "system", "content": agent.system_message}]
 
 
 def _usage_prompt_tokens(resp: Any) -> int:
@@ -84,44 +44,61 @@ def _usage_prompt_tokens(resp: Any) -> int:
     return 0
 
 
+def _tool_name_set(tool_schemas: list[dict]) -> set[str]:
+    out: set[str] = set()
+    for t in tool_schemas or []:
+        fn = (t.get("function") or {}).get("name")
+        if fn:
+            out.add(fn)
+    return out
+
+
+def _run_tool(function_name: str, function_params: dict) -> str:
+    try:
+        fn = names_to_functions[function_name]
+    except Exception as err:
+        return f"error: {err}"
+    try:
+        return fn(**function_params)
+    except Exception as err:
+        return f"error: {err}"
+
+
 def run_agent(
     agent,
     user_message: str,
     *,
     episode_id: str,
     step: int,
+    memory: RunnerMemory,
     max_turns: int = 10,
     ui=None,
+    # Runner-level policy knobs:
+    tool_schemas: list[dict] | None = None,
+    context_budget: int | None = 5000,
 ):
     """
-    Full transition:
-      - episode_id + step REQUIRED (global timeline is external)
-      - per-agent memory kept in module state, not agent.__dict__
-      - agent_step increments per call for that agent
+    Baseline agent loop (LLM + convo memory + tools + loop).
+    Policy is enforced at runner level:
+      - tool_schemas defaults to payments-only for this runner
+      - context_budget is a soft warning threshold (prompt tokens)
     """
-    st = _get_state(agent)
+    tool_schemas = payment_tools if tool_schemas is None else tool_schemas
+    allowed_tools = _tool_name_set(tool_schemas)
 
-    instance_id = st["instance_id"]
-    agent_name = st["agent_name"]
-    messages = st["messages"]
+    iid = memory.instance_id
+    name = memory.agent_name
+    msgs = memory.messages
 
-    st["agent_step"] += 1
-    agent_step = st["agent_step"]
+    memory.agent_step += 1
+    agent_step = memory.agent_step
 
-    control_tower.register_agent(episode_id, agent_name, instance_id)
+    control_tower.register_agent(episode_id, name, iid)
 
-    messages.append({"role": "user", "content": user_message})
-
+    msgs.append({"role": "user", "content": user_message})
     control_tower.on_turn(
-        episode_id,
-        agent_name,
-        instance_id,
-        step,
-        agent_step=agent_step,
-        user_message=user_message,
+        episode_id, name, iid, step, agent_step=agent_step, user_message=user_message
     )
-
-    context_window = 0
 
     def _ui_call(method_name: str, *args):
         if not ui:
@@ -130,12 +107,29 @@ def run_agent(
         if callable(fn):
             fn(*args)
 
-    # ---- LLM call ----
-    response = agent.step(messages)
-    context_window = max(context_window, _usage_prompt_tokens(response))
+    def _warn_budget(prompt_tokens: int):
+        if context_budget is None:
+            return
+        if prompt_tokens <= context_budget:
+            return
+        txt = f"⚠️ context budget exceeded: {prompt_tokens}/{context_budget} prompt tokens"
+        control_tower.on_event(episode_id, name, iid, step, txt)
+        _ui_call("on_event", txt)
 
-    assistant = _msg_to_dict(response.choices[0].message)
-    messages.append(assistant)
+    context_window = 0
+    warned = False
+
+    # ---- LLM call ----
+    response = agent.step(msgs, tools=tool_schemas)
+    pt = _usage_prompt_tokens(response)
+    context_window = max(context_window, pt)
+
+    if (not warned) and context_budget is not None and pt > context_budget:
+        warned = True
+        _warn_budget(pt)
+
+    assistant = response.choices[0].message.model_dump(exclude_none=True)
+    msgs.append(assistant)
 
     text = assistant.get("content", "") or ""
     if text:
@@ -153,27 +147,30 @@ def run_agent(
             function_name = fn_block.get("name") or ""
             raw_args = fn_block.get("arguments") or "{}"
 
-            try:
-                function_params = json.loads(raw_args)
-                if not isinstance(function_params, dict):
-                    raise ValueError("tool arguments must decode to an object")
-            except Exception as err:
+            if function_name not in allowed_tools:
                 function_params = {}
-                function_result = f"error: {err}"
+                function_result = f"error: tool '{function_name}' not allowed by runner policy"
             else:
-                control_tower.on_tool_call(
-                    episode_id, agent_name, instance_id, step, function_name, function_params
-                )
-                _ui_call("on_tool_call", function_name, function_params)
-
-                function_result = _run_tool(function_name, function_params)
+                try:
+                    function_params = json.loads(raw_args)
+                    if not isinstance(function_params, dict):
+                        raise ValueError("tool arguments must decode to an object")
+                except Exception as err:
+                    function_params = {}
+                    function_result = f"error: {err}"
+                else:
+                    control_tower.on_tool_call(
+                        episode_id, name, iid, step, function_name, function_params
+                    )
+                    _ui_call("on_tool_call", function_name, function_params)
+                    function_result = _run_tool(function_name, function_params)
 
             _ui_call("on_tool_result", function_name, function_result)
             control_tower.on_tool_result(
-                episode_id, agent_name, instance_id, step, function_name, function_result
+                episode_id, name, iid, step, function_name, function_result
             )
 
-            messages.append(
+            msgs.append(
                 {
                     "role": "tool",
                     "tool_call_id": tool_call.get("id"),
@@ -182,23 +179,28 @@ def run_agent(
                 }
             )
 
-        response = agent.step(messages)
-        context_window = max(context_window, _usage_prompt_tokens(response))
+        response = agent.step(msgs, tools=tool_schemas)
+        pt = _usage_prompt_tokens(response)
+        context_window = max(context_window, pt)
 
-        assistant = _msg_to_dict(response.choices[0].message)
-        messages.append(assistant)
+        if (not warned) and context_budget is not None and pt > context_budget:
+            warned = True
+            _warn_budget(pt)
+
+        assistant = response.choices[0].message.model_dump(exclude_none=True)
+        msgs.append(assistant)
 
         text = assistant.get("content", "") or ""
         if text:
             _ui_call("on_assistant_text", text)
 
     final_text = assistant.get("content", "") or ""
-    control_tower.on_assistant(episode_id, agent_name, instance_id, step, final_text)
+    control_tower.on_assistant(episode_id, name, iid, step, final_text)
 
     control_tower.on_usage(
         episode_id,
-        agent_name,
-        instance_id,
+        name,
+        iid,
         step,
         context_window,
         context_limit=agent.max_context_length,

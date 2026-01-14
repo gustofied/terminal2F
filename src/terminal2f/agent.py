@@ -1,6 +1,7 @@
 import os
 import logging
 import uuid
+from typing import Any
 from dotenv import load_dotenv
 from mistralai import Mistral
 
@@ -25,17 +26,22 @@ class Agent:
 
         self.name = name
         self.instance_id = instance_id or uuid.uuid4().hex[:8]
-        # set up as a coding assitant now, want general tbh
         self.system_message = f"Concise coding assistant. cwd: {os.getcwd()}"
 
-    # the request to mistral api
-    def step(self, messages):
-        return self.client.chat.complete(
+    def step(self, messages, *, tools=None):
+        tools_arg = self.tools if tools is None else tools
+
+        kwargs: dict[str, Any] = dict(
             model=self.model,
             messages=messages,
-            tools=self.tools,
-            tool_choice="auto",
             parallel_tool_calls=False,
             temperature=0.1,
             max_tokens=1024,
         )
+
+        # Only pass tool fields if tools exist
+        if tools_arg:
+            kwargs["tools"] = tools_arg
+            kwargs["tool_choice"] = "auto"
+
+        return self.client.chat.complete(**kwargs)

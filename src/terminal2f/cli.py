@@ -53,6 +53,9 @@ class TerminalUI:
     def separator(self):
         self.console.print("─" * _term_width(), style="dim")
 
+    def on_event(self, text: str):
+        self.console.print(f"\n[yellow]⏺[/] {escape(text)}", markup=True)
+
     def on_assistant_text(self, text: str):
         self.console.print(f"\n[cyan]⏺[/] {_render_bold_md(text)}", markup=True)
 
@@ -87,8 +90,7 @@ def run(
 
     agent = Agent(tools=tool_schemas, name="agentA", instance_id="agentA")
     run_agent = load(runner)
-
-    control_tower.register_agent(episode_id, agent.name, agent.instance_id)
+    mem = run_agent.new_memory(agent)
 
     ui = TerminalUI()
     ui.console.print(
@@ -97,7 +99,7 @@ def run(
 
     bench_step += 1
     control_tower.set_step(bench_step)
-    run_agent(agent, prompt, episode_id=episode_id, step=bench_step, ui=ui)
+    run_agent(agent, prompt, episode_id=episode_id, step=bench_step, memory=mem, ui=ui)
     ui.console.print()
 
 
@@ -111,8 +113,7 @@ def chat(
 
     agent = Agent(tools=tool_schemas, name="agentA", instance_id="agentA")
     run_agent = load(runner)
-
-    control_tower.register_agent(episode_id, agent.name, agent.instance_id)
+    mem = run_agent.new_memory(agent)
 
     ui = TerminalUI()
     ui.console.print(
@@ -135,7 +136,7 @@ def chat(
                 bench_step += 1
                 control_tower.set_step(bench_step)
 
-                run_agent.reset(agent)
+                run_agent.reset(agent, mem)
                 control_tower.on_event(
                     episode_id,
                     agent.name,
@@ -148,7 +149,14 @@ def chat(
 
             bench_step += 1
             control_tower.set_step(bench_step)
-            run_agent(agent, user_input, episode_id=episode_id, step=bench_step, ui=ui)
+            run_agent(
+                agent,
+                user_input,
+                episode_id=episode_id,
+                step=bench_step,
+                memory=mem,
+                ui=ui,
+            )
             ui.console.print()
 
         except (KeyboardInterrupt, EOFError):

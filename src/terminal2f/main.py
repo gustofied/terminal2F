@@ -1,5 +1,3 @@
-# main.py (or whatever your loop file is)
-
 from terminal2f.agent import Agent
 from terminal2f.runners import load
 from terminal2f.tools import tools
@@ -32,30 +30,27 @@ def main():
         control_tower.set_step(bench_step)
         return bench_step
 
-    def call(agent, msg: str, ui=None):
-        step = tick()
-        return run_agent(agent, msg, episode_id=episode_id, step=step, ui=ui)
-
     agentA = Agent(tools=tools, name="agentA", instance_id="agentA")
     agentB = Agent(tools=tools, name="agentB", instance_id="agentB")
 
-    control_tower.register_agent(episode_id, agentA.name, agentA.instance_id)
-    control_tower.register_agent(episode_id, agentB.name, agentB.instance_id)
+    memA = run_agent.new_memory(agentA)
+    memB = run_agent.new_memory(agentB)
+
+    def call(agent, mem, msg: str, ui=None):
+        step = tick()
+        return run_agent(agent, msg, episode_id=episode_id, step=step, memory=mem, ui=ui)
 
     while True:
-        call(agentA, "What is the payment status right now on the latest ID, which is T1001")
-        call(agentA, "What is the payment status right now on the latest ID, which is T1001")
-        call(agentA, "What is the payment status right now on the latest ID, which is T1001")
-        call(agentA, "What is the payment status right now on the latest ID, which is T1001")
+        call(agentA, memA, "What is the payment status right now on the latest ID, which is T1001")
+        call(agentA, memA, "What is the payment status right now on the latest ID, which is T1001")
+        call(agentA, memA, "What is the payment status right now on the latest ID, which is T1001")
+        call(agentA, memA, "What is the payment status right now on the latest ID, which is T1001")
 
-        # if you want A and B logged on the SAME global step for the same prompt,
-        # do it manually without call():
         step = tick()
-        run_agent(agentA, prompt, episode_id=episode_id, step=step)
-        run_agent(agentB, prompt, episode_id=episode_id, step=step)
+        run_agent(agentA, prompt, episode_id=episode_id, step=step, memory=memA)
+        run_agent(agentB, prompt, episode_id=episode_id, step=step, memory=memB)
 
-        # extra B call at its own step
-        call(agentB, prompt)
+        call(agentB, memB, prompt)
 
         time.sleep(15)
 
