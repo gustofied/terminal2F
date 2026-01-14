@@ -80,7 +80,7 @@ class TerminalUI:
 @app.command()
 def run(
     file: Path = typer.Argument(..., exists=True, dir_okay=False, readable=True),
-    runner: str = typer.Option("regular", help="Runner module (e.g. regular)."),
+    runner: str = typer.Option("loop", help="Runner module (e.g. loop)."),
 ):
     prompt = file.read_text(encoding="utf-8")
 
@@ -105,7 +105,7 @@ def run(
 
 @app.command()
 def chat(
-    runner: str = typer.Option("regular", help="Runner module (e.g. regular)."),
+    runner: str = typer.Option("loop", help="Runner module (e.g. loop)."),
 ):
     control_tower.init()
     episode_id = uuid.uuid4().hex[:8]
@@ -165,7 +165,7 @@ def chat(
 
 @app.command(name="main")
 def run_main(
-    runner: str = typer.Option("regular", help="Runner module to use for main()."),
+    runner: str = typer.Option("loop", help="Runner module to use for main()."),
 ):
     from .main import main as real_main
     real_main()

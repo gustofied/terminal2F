@@ -84,13 +84,6 @@ def run_agent(
     tool_schemas: list[dict] | None = None,
     context_budget: int | None = 5000,
 ):
-    """
-    Regular runner:
-      - Agent has installed tools.
-      - Runner policy decides what tools are allowed.
-      - Caller may pass tool_schemas to further narrow, never to expand.
-    """
-
     # Runner policy (hard allowlist)
     policy_tools = payment_tools
 

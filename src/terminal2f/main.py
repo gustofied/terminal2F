@@ -12,7 +12,7 @@ import uuid
 BASE_DIR = Path(__file__).resolve().parent
 prompt = (BASE_DIR / "user_txt.txt").read_text(encoding="utf-8")
 
-run_agent = load("regular")
+run_agent = load("loop")
 
 
 def main():
