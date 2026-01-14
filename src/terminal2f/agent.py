@@ -2,6 +2,7 @@ import os
 import logging
 import uuid
 from typing import Any
+
 from dotenv import load_dotenv
 from mistralai import Mistral
 
@@ -19,7 +20,9 @@ class Agent:
     ):
         self.client = Mistral(api_key=os.environ["MISTRAL_API_KEY"])
         self.model = model
-        self.tools = tools
+
+        # Installed tools (capability). Runner decides what is allowed/exposed.
+        self.tools = tools or []
 
         model_info = self.client.models.retrieve(model_id=self.model)
         self.max_context_length = model_info.max_context_length
@@ -29,7 +32,7 @@ class Agent:
         self.system_message = f"Concise coding assistant. cwd: {os.getcwd()}"
 
     def step(self, messages, *, tools=None):
-        tools_arg = self.tools if tools is None else tools
+        tools_arg = self.tools if tools is None else (tools or [])
 
         kwargs: dict[str, Any] = dict(
             model=self.model,
@@ -39,7 +42,6 @@ class Agent:
             max_tokens=1024,
         )
 
-        # Only pass tool fields if tools exist
         if tools_arg:
             kwargs["tools"] = tools_arg
             kwargs["tool_choice"] = "auto"

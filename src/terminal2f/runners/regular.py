@@ -44,22 +44,29 @@ def _usage_prompt_tokens(resp: Any) -> int:
     return 0
 
 
-def _tool_name_set(tool_schemas: list[dict]) -> set[str]:
+def _tool_name(t: dict) -> str:
+    return ((t or {}).get("function") or {}).get("name") or ""
+
+
+def _tool_names(tool_schemas: list[dict]) -> set[str]:
     out: set[str] = set()
     for t in tool_schemas or []:
-        fn = (t.get("function") or {}).get("name")
-        if fn:
-            out.add(fn)
+        n = _tool_name(t)
+        if n:
+            out.add(n)
     return out
 
 
+def _keep_tools(tool_schemas: list[dict], allowed_names: set[str]) -> list[dict]:
+    return [t for t in (tool_schemas or []) if _tool_name(t) in allowed_names]
+
+
 def _run_tool(function_name: str, function_params: dict) -> str:
+    fn = names_to_functions.get(function_name)
+    if not callable(fn):
+        return f"error: tool '{function_name}' not found"
     try:
-        fn = names_to_functions[function_name]
-    except Exception as err:
-        return f"error: {err}"
-    try:
-        return fn(**function_params)
+        return fn(**(function_params or {}))
     except Exception as err:
         return f"error: {err}"
 
@@ -73,18 +80,28 @@ def run_agent(
     memory: RunnerMemory,
     max_turns: int = 10,
     ui=None,
-    # Runner-level policy knobs:
+    # Narrowing hint only. Runner policy still clamps.
     tool_schemas: list[dict] | None = None,
     context_budget: int | None = 5000,
 ):
     """
-    Baseline agent loop (LLM + convo memory + tools + loop).
-    Policy is enforced at runner level:
-      - tool_schemas defaults to payments-only for this runner
-      - context_budget is a soft warning threshold (prompt tokens)
+    Regular runner:
+      - Agent has installed tools.
+      - Runner policy decides what tools are allowed.
+      - Caller may pass tool_schemas to further narrow, never to expand.
     """
-    tool_schemas = payment_tools if tool_schemas is None else tool_schemas
-    allowed_tools = _tool_name_set(tool_schemas)
+
+    # Runner policy (hard allowlist)
+    policy_tools = payment_tools
+
+    # Installed tools (capability)
+    installed_tools = getattr(agent, "tools", None) or []
+
+    # Optional per-call narrowing request (never expands)
+    requested_tools = installed_tools if tool_schemas is None else (tool_schemas or [])
+
+    allowed_to_execute = _tool_names(installed_tools) & _tool_names(policy_tools)
+    exposed_to_model = _keep_tools(requested_tools, allowed_to_execute)
 
     iid = memory.instance_id
     name = memory.agent_name
@@ -108,9 +125,7 @@ def run_agent(
             fn(*args)
 
     def _warn_budget(prompt_tokens: int):
-        if context_budget is None:
-            return
-        if prompt_tokens <= context_budget:
+        if context_budget is None or prompt_tokens <= context_budget:
             return
         txt = f"⚠️ context budget exceeded: {prompt_tokens}/{context_budget} prompt tokens"
         control_tower.on_event(episode_id, name, iid, step, txt)
@@ -120,10 +135,9 @@ def run_agent(
     warned = False
 
     # ---- LLM call ----
-    response = agent.step(msgs, tools=tool_schemas)
+    response = agent.step(msgs, tools=exposed_to_model)
     pt = _usage_prompt_tokens(response)
     context_window = max(context_window, pt)
-
     if (not warned) and context_budget is not None and pt > context_budget:
         warned = True
         _warn_budget(pt)
@@ -147,7 +161,7 @@ def run_agent(
             function_name = fn_block.get("name") or ""
             raw_args = fn_block.get("arguments") or "{}"
 
-            if function_name not in allowed_tools:
+            if function_name not in allowed_to_execute:
                 function_params = {}
                 function_result = f"error: tool '{function_name}' not allowed by runner policy"
             else:
@@ -179,10 +193,9 @@ def run_agent(
                 }
             )
 
-        response = agent.step(msgs, tools=tool_schemas)
+        response = agent.step(msgs, tools=exposed_to_model)
         pt = _usage_prompt_tokens(response)
         context_window = max(context_window, pt)
-
         if (not warned) and context_budget is not None and pt > context_budget:
             warned = True
             _warn_budget(pt)

@@ -9,7 +9,7 @@ from rich.markup import escape
 
 from .agent import Agent
 from .runners import load
-from .tools import tools as tool_schemas
+from .tools import tools as installed_tools
 from . import control_tower
 
 app = typer.Typer(add_completion=False)
@@ -88,7 +88,7 @@ def run(
     episode_id = uuid.uuid4().hex[:8]
     bench_step = 0
 
-    agent = Agent(tools=tool_schemas, name="agentA", instance_id="agentA")
+    agent = Agent(tools=installed_tools, name="agentA", instance_id="agentA")
     run_agent = load(runner)
     mem = run_agent.new_memory(agent)
 
@@ -111,7 +111,7 @@ def chat(
     episode_id = uuid.uuid4().hex[:8]
     bench_step = 0
 
-    agent = Agent(tools=tool_schemas, name="agentA", instance_id="agentA")
+    agent = Agent(tools=installed_tools, name="agentA", instance_id="agentA")
     run_agent = load(runner)
     mem = run_agent.new_memory(agent)
 
