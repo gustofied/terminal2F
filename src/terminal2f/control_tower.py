@@ -111,10 +111,7 @@ def _send_default_blueprint() -> None:
     Safe to call multiple times; it will only send once per process.
     """
     global _blueprint_sent
-    if _blueprint_sent:
-        return
-    if rrb is None:
-        return
+
 
     # A dashboard that works for any episode_id by targeting your stable roots.
     bp = rrb.Blueprint(
