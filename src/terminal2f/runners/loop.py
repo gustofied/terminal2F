@@ -3,6 +3,8 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any
 
+
+
 from .. import control_tower
 from ..tools import names_to_functions, payment_tools
 
@@ -105,6 +107,22 @@ def run_agent(
 
     control_tower.register_agent(episode_id, name, iid)
 
+    # ---- TABLE SPEC (log once per agent per episode) ----
+    installed_names = sorted(_tool_names(installed_tools))
+    allowed_names = sorted(list(allowed_to_execute))
+    exposed_names = sorted(_tool_names(exposed_to_model))
+
+    control_tower.log_agent_spec(
+        episode_id,
+        name,
+        iid,
+        step=step,
+        model=getattr(agent, "model", None),
+        max_context_length=getattr(agent, "max_context_length", None),
+        system_message=getattr(agent, "system_message", None),
+        tools_installed=installed_names,
+    )
+
     msgs.append({"role": "user", "content": user_message})
     control_tower.on_turn(
         episode_id, name, iid, step, agent_step=agent_step, user_message=user_message
@@ -126,10 +144,21 @@ def run_agent(
 
     context_window = 0
     warned = False
+    llm_calls = 0
+    last_prompt_tokens = 0
+
+    # Tool stats for the summary table row
+    tool_calls = 0
+    tool_errors = 0
+    tool_turns = 0
+    last_tool_name = ""
+    last_tool_error = ""
 
     # ---- LLM call ----
     response = agent.step(msgs, tools=exposed_to_model)
+    llm_calls += 1
     pt = _usage_prompt_tokens(response)
+    last_prompt_tokens = pt
     context_window = max(context_window, pt)
     if (not warned) and context_budget is not None and pt > context_budget:
         warned = True
@@ -146,17 +175,25 @@ def run_agent(
     turns = 0
     while assistant.get("tool_calls"):
         turns += 1
+        tool_turns = turns
         if turns > max_turns:
             raise RuntimeError("Max turns reached without a final answer.")
 
         for tool_call in assistant["tool_calls"]:
+            tool_calls += 1
+
             fn_block = tool_call.get("function") or {}
             function_name = fn_block.get("name") or ""
             raw_args = fn_block.get("arguments") or "{}"
+            last_tool_name = function_name
 
             if function_name not in allowed_to_execute:
                 function_params = {}
-                function_result = f"error: tool '{function_name}' not allowed by runner policy"
+                function_result = (
+                    f"error: tool '{function_name}' not allowed by runner policy"
+                )
+                tool_errors += 1
+                last_tool_error = function_result
             else:
                 try:
                     function_params = json.loads(raw_args)
@@ -165,12 +202,18 @@ def run_agent(
                 except Exception as err:
                     function_params = {}
                     function_result = f"error: {err}"
+                    tool_errors += 1
+                    last_tool_error = function_result
                 else:
                     control_tower.on_tool_call(
                         episode_id, name, iid, step, function_name, function_params
                     )
                     _ui_call("on_tool_call", function_name, function_params)
                     function_result = _run_tool(function_name, function_params)
+
+                    if (function_result or "").startswith("error:"):
+                        tool_errors += 1
+                        last_tool_error = function_result
 
             _ui_call("on_tool_result", function_name, function_result)
             control_tower.on_tool_result(
@@ -187,7 +230,9 @@ def run_agent(
             )
 
         response = agent.step(msgs, tools=exposed_to_model)
+        llm_calls += 1
         pt = _usage_prompt_tokens(response)
+        last_prompt_tokens = pt
         context_window = max(context_window, pt)
         if (not warned) and context_budget is not None and pt > context_budget:
             warned = True
@@ -210,6 +255,31 @@ def run_agent(
         step,
         context_window,
         context_limit=agent.max_context_length,
+    )
+
+    # ---- TABLE STATE (one row per run_agent call) ----
+    control_tower.log_agent_state(
+        episode_id,
+        name,
+        iid,
+        step=step,
+        agent_step=agent_step,
+        model=getattr(agent, "model", None),
+        prompt_tokens_last=int(last_prompt_tokens or 0),
+        prompt_tokens_max=int(context_window or 0),
+        context_budget=context_budget,
+        context_limit=getattr(agent, "max_context_length", None),
+        warned_budget=bool(warned),
+        tools_allowed=allowed_names,
+        tools_exposed=exposed_names,
+        tool_calls=int(tool_calls),
+        tool_errors=int(tool_errors),
+        tool_turns=int(tool_turns),
+        llm_calls=int(llm_calls),
+        user_chars=len(user_message or ""),
+        assistant_chars=len(final_text or ""),
+        last_tool_name=str(last_tool_name or ""),
+        last_tool_error=str(last_tool_error or ""),
     )
 
     return response

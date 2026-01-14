@@ -12,6 +12,9 @@ _started = False
 _blueprint_sent = False
 
 ROOT = "t2f"
+TABLE_ROOT = f"{ROOT}/tables"
+AGENT_STATE_TABLE = f"{TABLE_ROOT}/agent_state"
+AGENT_SPEC_TABLE = f"{TABLE_ROOT}/agent_spec"
 
 USER = [80, 160, 255, 255]
 ASSISTANT = [120, 220, 120, 255]
@@ -26,6 +29,9 @@ _step = 0
 
 # key: (episode_id, agent_name, instance_id)
 _agents: dict[tuple[str, str, str], dict] = {}
+
+# log spec once per (episode, agent, instance)
+_spec_logged: set[tuple[str, str, str]] = set()
 
 
 def new_location(center_x, center_y, x, y, angle):
@@ -53,7 +59,9 @@ def _st(episode_id: str, agent_name: str, instance_id: str) -> dict:
     st = _agents.get(k)
     if st is None:
         seed = f"{episode_id}:{agent_name}:{instance_id}"
-        n = int.from_bytes(hashlib.blake2b(seed.encode(), digest_size=8).digest(), "little")
+        n = int.from_bytes(
+            hashlib.blake2b(seed.encode(), digest_size=8).digest(), "little"
+        )
         r = 6.0 + (n % 7) * 1.1
         a0 = (n % 360) * (math.pi / 180.0)
         st = _agents[k] = {
@@ -71,12 +79,125 @@ def register_agent(episode_id: str, agent_name: str, instance_id: str) -> None:
     _st(episode_id, agent_name, instance_id)
 
 
+# -------------------------
+# TABLE LOGGING (THE NEW BIT)
+# -------------------------
+def log_agent_spec(
+    episode_id: str,
+    agent_name: str,
+    instance_id: str,
+    *,
+    step: int,
+    model: str | None = None,
+    max_context_length: int | None = None,
+    system_message: str | None = None,
+    tools_installed: list[str] | None = None,
+) -> None:
+    """
+    Log per-agent metadata once per episode into a single shared table path.
+    This shows up nicely in the Dataframe view.
+    """
+    k = (episode_id, agent_name, instance_id)
+    if k in _spec_logged:
+        return
+
+    set_step(step)
+
+    sm = system_message or ""
+    sm_preview = sm[:300] + ("…" if len(sm) > 300 else "")
+    sm_hash = (
+        hashlib.blake2b(sm.encode("utf-8"), digest_size=8).hexdigest() if sm else ""
+    )
+
+    rr.log(
+        AGENT_SPEC_TABLE,
+        rr.AnyValues(
+            episode_id=episode_id,
+            agent_name=agent_name,
+            instance_id=instance_id,
+            agent_key=f"{agent_name}:{instance_id}",
+            model=model or "",
+            max_context_length=int(max_context_length or 0),
+            system_message_preview=sm_preview,
+            system_message_hash=sm_hash,
+            tools_installed=",".join(sorted(tools_installed or [])),
+        ),
+    )
+
+    _spec_logged.add(k)
+
+
+def log_agent_state(
+    episode_id: str,
+    agent_name: str,
+    instance_id: str,
+    *,
+    step: int,
+    agent_step: int,
+    model: str | None = None,
+    prompt_tokens_last: int = 0,
+    prompt_tokens_max: int = 0,
+    context_budget: int | None = None,
+    context_limit: int | None = None,
+    warned_budget: bool = False,
+    tools_allowed: list[str] | None = None,
+    tools_exposed: list[str] | None = None,
+    tool_calls: int = 0,
+    tool_errors: int = 0,
+    tool_turns: int = 0,
+    llm_calls: int = 0,
+    user_chars: int = 0,
+    assistant_chars: int = 0,
+    last_tool_name: str = "",
+    last_tool_error: str = "",
+) -> None:
+    """
+    Log one compact "summary row" per run_agent call to a shared table entity path.
+    """
+    set_step(step)
+
+    cl = int(context_limit or 0)
+    frac = float(prompt_tokens_max / cl) if cl > 0 else 0.0
+
+    rr.log(
+        AGENT_STATE_TABLE,
+        rr.AnyValues(
+            episode_id=episode_id,
+            bench_step=int(step),
+            agent_name=agent_name,
+            instance_id=instance_id,
+            agent_key=f"{agent_name}:{instance_id}",
+            agent_step=int(agent_step),
+            model=model or "",
+            prompt_tokens_last=int(prompt_tokens_last),
+            prompt_tokens_max=int(prompt_tokens_max),
+            context_budget=int(context_budget) if context_budget is not None else -1,
+            context_limit=int(context_limit or 0),
+            context_frac=float(frac),
+            warned_budget=bool(warned_budget),
+            tools_allowed=",".join(sorted(tools_allowed or [])),
+            tools_exposed=",".join(sorted(tools_exposed or [])),
+            tool_calls=int(tool_calls),
+            tool_errors=int(tool_errors),
+            tool_turns=int(tool_turns),
+            llm_calls=int(llm_calls),
+            user_chars=int(user_chars),
+            assistant_chars=int(assistant_chars),
+            last_tool_name=str(last_tool_name or ""),
+            last_tool_error=str((last_tool_error or "")[:300]),
+        ),
+    )
+
+
+# -------------------------
+# SWARM / VISUALS (unchanged, but small safety fix)
+# -------------------------
 def _draw(frame: int):
     cx = cy = 0.0
     angle = frame * 0.05
 
     pts, cols, rads, labels = [], [], [], []
-    for (episode_id, name, iid), st in _agents.items():
+    for (episode_id, name, iid), st in list(_agents.items()):
         x, y = new_location(cx, cy, st["bx"], st["by"], angle)
 
         base = 0.04 + 0.25 * st["frac"]
@@ -106,14 +227,17 @@ def _anim():
 
 
 def _send_default_blueprint() -> None:
-    """Send a simple 2x2 dashboard blueprint.
+    """
+    Send a simple 2x2 dashboard blueprint.
 
     Safe to call multiple times; it will only send once per process.
     """
     global _blueprint_sent
+    if _blueprint_sent:
+        return
+    if rrb is None:
+        return
 
-
-    # A dashboard that works for any episode_id by targeting your stable roots.
     bp = rrb.Blueprint(
         rrb.Grid(
             # 1) Swarm visualization
@@ -134,10 +258,10 @@ def _send_default_blueprint() -> None:
                 name="Usage",
                 contents=f"{ROOT}/episodes/**/usage/**",
             ),
-            # 4) Dataframe view of everything (your “grid container”)
+            # 4) CLEAN dataframe view: only our tables (not the whole world)
             rrb.DataframeView(
-                origin="/",
-                name="All data (DF)",
+                origin=f"{ROOT}/tables",
+                name="Tables (DF)",
                 query=rrb.archetypes.DataframeQuery(
                     timeline="bench_step",
                     apply_latest_at=True,
@@ -153,7 +277,9 @@ def _send_default_blueprint() -> None:
     _blueprint_sent = True
 
 
-def init(app_id: str = "the_agent_logs", *, spawn: bool = True, send_blueprint: bool = True) -> None:
+def init(
+    app_id: str = "the_agent_logs", *, spawn: bool = True, send_blueprint: bool = True
+) -> None:
     global _initialized, _started
     if _initialized:
         return
@@ -163,7 +289,12 @@ def init(app_id: str = "the_agent_logs", *, spawn: bool = True, send_blueprint: 
     # Establish the swarm space (static).
     rr.log(
         f"{ROOT}/swarm/origin",
-        rr.Boxes2D(mins=[-1, -1], sizes=[2, 2], labels=["terminal2F"], show_labels=True),
+        rr.Boxes2D(
+            mins=[-1, -1],
+            sizes=[2, 2],
+            labels=["terminal2F"],
+            show_labels=True,
+        ),
         static=True,
     )
 
@@ -179,6 +310,9 @@ def init(app_id: str = "the_agent_logs", *, spawn: bool = True, send_blueprint: 
     _initialized = True
 
 
+# -------------------------
+# EXISTING LOG EVENTS (unchanged)
+# -------------------------
 def on_event(episode_id: str, agent_name: str, instance_id: str, step: int, text: str) -> None:
     set_step(step)
     rr.log(
@@ -223,7 +357,9 @@ def on_tool_call(
     set_step(step)
     rr.log(
         f"{_base(episode_id, agent_name, instance_id)}/tool_calls",
-        rr.TextLog(f"{function_name}({function_params})", level=rr.TextLogLevel.INFO, color=TOOL),
+        rr.TextLog(
+            f"{function_name}({function_params})", level=rr.TextLogLevel.INFO, color=TOOL
+        ),
     )
 
 
