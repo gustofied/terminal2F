@@ -31,32 +31,28 @@ plt.style.use(['dark_background'])
 # plt.plot(x, y)
 # plt.show()
 
-
-
-
-
 print("- - - - - - - - - - - - ")
 
 
-h= np.linspace(0, 7, 8)
-j = np.linspace(0, 3, 4)
+# h= np.linspace(0, 7, 8)
+# j = np.linspace(0, 3, 4)
 
-for xpoint in h:
-    for ypoint in j:
-        plt.plot(xpoint, ypoint, "wh")
+# for xpoint in h:
+#     for ypoint in j:
+#         plt.plot(xpoint, ypoint, "wh")
 
-plt.show()
-
-
-print("- - - - - - - - - - - - ")
+# plt.show()
 
 
-x2d, y2d = np.meshgrid(h, j)
+# print("- - - - - - - - - - - - ")
 
-plt.plot(x2d, y2d, "yh")
-plt.show()
 
-rr.init("hey_im_learning", spawn=True)
+# x2d, y2d = np.meshgrid(h, j)
+
+# plt.plot(x2d, y2d, "yh")
+# plt.show()
+
+# rr.init("hey_im_learning", spawn=True)
 # rr.log("dd,",rr.Mesh3D(
 #     f,
 

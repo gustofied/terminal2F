@@ -1,11 +1,16 @@
+# control_tower.py
 import hashlib
 import math
 import threading
 import time
-
+import rerun.blueprint as rrb
 import rerun as rr
 
+
 _initialized = False
+_started = False
+_blueprint_sent = False
+
 ROOT = "t2f"
 
 USER = [80, 160, 255, 255]
@@ -21,7 +26,6 @@ _step = 0
 
 # key: (episode_id, agent_name, instance_id)
 _agents: dict[tuple[str, str, str], dict] = {}
-_started = False
 
 
 def new_location(center_x, center_y, x, y, angle):
@@ -101,18 +105,76 @@ def _anim():
         time.sleep(1 / 30)
 
 
-def init(app_id: str = "the_agent_logs", *, spawn: bool = True) -> None:
+def _send_default_blueprint() -> None:
+    """Send a simple 2x2 dashboard blueprint.
+
+    Safe to call multiple times; it will only send once per process.
+    """
+    global _blueprint_sent
+    if _blueprint_sent:
+        return
+    if rrb is None:
+        return
+
+    # A dashboard that works for any episode_id by targeting your stable roots.
+    bp = rrb.Blueprint(
+        rrb.Grid(
+            # 1) Swarm visualization
+            rrb.Spatial2DView(
+                origin=f"{ROOT}/swarm",
+                name="Swarm",
+                contents=f"{ROOT}/swarm/**",
+            ),
+            # 2) Text logs (conversation / tool calls / events)
+            rrb.TextLogView(
+                origin=f"{ROOT}/episodes",
+                name="Episode logs",
+                contents=f"{ROOT}/episodes/**",
+            ),
+            # 3) Usage scalars over time
+            rrb.TimeSeriesView(
+                origin=f"{ROOT}/episodes",
+                name="Usage",
+                contents=f"{ROOT}/episodes/**/usage/**",
+            ),
+            # 4) Dataframe view of everything (your “grid container”)
+            rrb.DataframeView(
+                origin="/",
+                name="All data (DF)",
+                query=rrb.archetypes.DataframeQuery(
+                    timeline="bench_step",
+                    apply_latest_at=True,
+                ),
+            ),
+            grid_columns=2,
+            name="t2f dashboard",
+        ),
+        collapse_panels=True,
+    )
+
+    rr.send_blueprint(bp)
+    _blueprint_sent = True
+
+
+def init(app_id: str = "the_agent_logs", *, spawn: bool = True, send_blueprint: bool = True) -> None:
     global _initialized, _started
     if _initialized:
         return
 
     rr.init(app_id, spawn=spawn)
+
+    # Establish the swarm space (static).
     rr.log(
         f"{ROOT}/swarm/origin",
         rr.Boxes2D(mins=[-1, -1], sizes=[2, 2], labels=["terminal2F"], show_labels=True),
         static=True,
     )
 
+    # Send the default dashboard layout.
+    if send_blueprint:
+        _send_default_blueprint()
+
+    # Start background animation thread once.
     if not _started:
         _started = True
         threading.Thread(target=_anim, daemon=True).start()
