@@ -8,6 +8,7 @@ from rich.console import Console
 from rich.markup import escape
 
 from .agent import Agent
+from .env import get_env
 from .runners import load
 from .tools import tools as installed_tools
 from . import control_tower
@@ -81,6 +82,7 @@ class TerminalUI:
 def run(
     file: Path = typer.Argument(..., exists=True, dir_okay=False, readable=True),
     runner: str = typer.Option("loop", help="Runner module (e.g. loop)."),
+    env: str = typer.Option("default", help="Env preset (default/chat_safe/dev_all_tools)."),
 ):
     prompt = file.read_text(encoding="utf-8")
 
@@ -88,36 +90,41 @@ def run(
     episode_id = uuid.uuid4().hex[:8]
     bench_step = 0
 
-    agent = Agent(tools=installed_tools, name="agentA", instance_id="agentA")
+    the_env = get_env(env)
+
+    agent = Agent(tools_installed=installed_tools, env=the_env, name="agentA", instance_id="agentA")
     run_agent = load(runner)
     mem = run_agent.new_memory(agent)
 
     ui = TerminalUI()
     ui.console.print(
-        f"[bold]t2f run[/] | [dim]{agent.model}[/] | [dim]{os.getcwd()}[/]\n"
+        f"[bold]t2f run[/] | [dim]{agent.model}[/] | [dim]{os.getcwd()}[/] | [dim]env={the_env.name}[/]\n"
     )
 
     bench_step += 1
     control_tower.set_step(bench_step)
-    run_agent(agent, prompt, episode_id=episode_id, step=bench_step, memory=mem, ui=ui)
+    run_agent(agent, prompt, episode_id=episode_id, step=bench_step, memory=mem, ui=ui, env=the_env)
     ui.console.print()
 
 
 @app.command()
 def chat(
     runner: str = typer.Option("loop", help="Runner module (e.g. loop)."),
+    env: str = typer.Option("default", help="Env preset (default/chat_safe/dev_all_tools)."),
 ):
     control_tower.init()
     episode_id = uuid.uuid4().hex[:8]
     bench_step = 0
 
-    agent = Agent(tools=installed_tools, name="agentA", instance_id="agentA")
+    the_env = get_env(env)
+
+    agent = Agent(tools_installed=installed_tools, env=the_env, name="agentA", instance_id="agentA")
     run_agent = load(runner)
     mem = run_agent.new_memory(agent)
 
     ui = TerminalUI()
     ui.console.print(
-        f"[bold]t2f chat[/] | [dim]{agent.model}[/] | [dim]{os.getcwd()}[/]"
+        f"[bold]t2f chat[/] | [dim]{agent.model}[/] | [dim]{os.getcwd()}[/] | [dim]env={the_env.name}[/]"
     )
     ui.console.print("[dim]Commands:[/] /q quit, /c clear\n")
 
@@ -156,6 +163,7 @@ def chat(
                 step=bench_step,
                 memory=mem,
                 ui=ui,
+                env=the_env,
             )
             ui.console.print()
 

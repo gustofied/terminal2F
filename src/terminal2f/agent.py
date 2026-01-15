@@ -1,49 +1,56 @@
 import os
-import logging
 import uuid
 from typing import Any
 
 from dotenv import load_dotenv
 from mistralai import Mistral
+from .env import Env, get_env
 
 load_dotenv()
-log = logging.getLogger("app.agent")
 
 
 class Agent:
     def __init__(
         self,
-        tools,
-        model: str = "ministral-3b-2512",
+        tools_installed,
+        *,
+        env: Env | None = None,
+        model: str | None = None,
         name: str = "agent",
         instance_id: str | None = None,
     ):
-        self.client = Mistral(api_key=os.environ["MISTRAL_API_KEY"])
-        self.model = model
+        api_key = os.getenv("MISTRAL_API_KEY")
+        if not api_key:
+            raise RuntimeError("Missing MISTRAL_API_KEY in environment")
 
-        # Installed tools (capability). Runner decides what is allowed/exposed.
-        self.tools = tools or []
+        self.client = Mistral(api_key=api_key)
+
+        self.env = env or get_env("default")
+        self.model = model or self.env.agent.model
+
+        self.tools_installed = tools_installed or []
 
         model_info = self.client.models.retrieve(model_id=self.model)
         self.max_context_length = model_info.max_context_length
 
         self.name = name
         self.instance_id = instance_id or uuid.uuid4().hex[:8]
-        self.system_message = f"Concise coding assistant. cwd: {os.getcwd()}"
+        self.system_message = self.env.render_system_message(cwd=os.getcwd())
 
-    def step(self, messages, *, tools=None):
-        tools_arg = self.tools if tools is None else (tools or [])
+    def step(self, messages, *, tools_exposed: list[dict] | None = None, env: Env | None = None):
+        env = env or self.env
+        tools_exposed = tools_exposed or []
 
         kwargs: dict[str, Any] = dict(
-            model=self.model,
+            model=env.agent.model or self.model,
             messages=messages,
-            parallel_tool_calls=False,
-            temperature=0.1,
-            max_tokens=1024,
+            temperature=float(env.agent.temperature),
+            max_tokens=int(env.agent.max_tokens),
         )
 
-        if tools_arg:
-            kwargs["tools"] = tools_arg
+        if tools_exposed:
+            kwargs["tools"] = tools_exposed
             kwargs["tool_choice"] = "auto"
+            kwargs["parallel_tool_calls"] = bool(env.agent.parallel_tool_calls)
 
         return self.client.chat.complete(**kwargs)

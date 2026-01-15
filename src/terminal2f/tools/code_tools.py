@@ -18,7 +18,7 @@ def _resolve_in_repo(user_path: str) -> Path:
     resolved = candidate.resolve(strict=False)
 
     try:
-        ok = resolved.is_relative_to(root)  # py3.9+
+        ok = resolved.is_relative_to(root) 
     except AttributeError:
         try:
             resolved.relative_to(root)
@@ -107,7 +107,6 @@ def grep(pat: str, path: str = ".") -> str:
 
 
 def bash(cmd: str) -> str:
-    # 🔒 LOCKED: shell execution disabled.
     return "error: bash tool is disabled (locked)"
 
 

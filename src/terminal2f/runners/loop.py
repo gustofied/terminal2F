@@ -3,10 +3,9 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any
 
-
-
 from .. import control_tower
-from ..tools import names_to_functions, payment_tools
+from ..env import Env, get_env, compile_tools, tool_name
+from ..tools import names_to_functions
 
 log = logging.getLogger("app.runner")
 
@@ -46,21 +45,8 @@ def _usage_prompt_tokens(resp: Any) -> int:
     return 0
 
 
-def _tool_name(t: dict) -> str:
-    return ((t or {}).get("function") or {}).get("name") or ""
-
-
-def _tool_names(tool_schemas: list[dict]) -> set[str]:
-    out: set[str] = set()
-    for t in tool_schemas or []:
-        n = _tool_name(t)
-        if n:
-            out.add(n)
-    return out
-
-
-def _keep_tools(tool_schemas: list[dict], allowed_names: set[str]) -> list[dict]:
-    return [t for t in (tool_schemas or []) if _tool_name(t) in allowed_names]
+def _schema_names(tool_schemas: list[dict]) -> set[str]:
+    return {tool_name(t) for t in (tool_schemas or [])}
 
 
 def _run_tool(function_name: str, function_params: dict) -> str:
@@ -80,23 +66,23 @@ def run_agent(
     episode_id: str,
     step: int,
     memory: RunnerMemory,
-    max_turns: int = 10,
+    env: Env | None = None,
     ui=None,
-    # Narrowing hint only. Runner policy still clamps.
-    tool_schemas: list[dict] | None = None,
-    context_budget: int | None = 5000,
+    tool_schemas: list[dict] | None = None,  # optional per-call narrowing
+    context_budget: int | None = None,
+    max_turns: int | None = None,
 ):
-    # Runner policy (hard allowlist)
-    policy_tools = payment_tools
+    env = env or getattr(agent, "env", None) or get_env("default")
+    context_budget = env.rules.ctx_budget if context_budget is None else context_budget
+    max_turns = env.rules.max_tool_turns if max_turns is None else int(max_turns)
 
-    # Installed tools (capability)
-    installed_tools = getattr(agent, "tools", None) or []
+    tools_installed = getattr(agent, "tools_installed", None) or []
 
-    # Optional per-call narrowing request (never expands)
-    requested_tools = installed_tools if tool_schemas is None else (tool_schemas or [])
-
-    allowed_to_execute = _tool_names(installed_tools) & _tool_names(policy_tools)
-    exposed_to_model = _keep_tools(requested_tools, allowed_to_execute)
+    tool_names_allowed, tools_exposed = compile_tools(
+        env=env,
+        installed_tools=tools_installed,
+        requested_tools=tool_schemas,
+    )
 
     iid = memory.instance_id
     name = memory.agent_name
@@ -107,10 +93,9 @@ def run_agent(
 
     control_tower.register_agent(episode_id, name, iid)
 
-    # ---- TABLE SPEC (log once per agent per episode) ----
-    installed_names = sorted(_tool_names(installed_tools))
-    allowed_names = sorted(list(allowed_to_execute))
-    exposed_names = sorted(_tool_names(exposed_to_model))
+    installed_names = sorted(_schema_names(tools_installed))
+    allowed_names = sorted(tool_names_allowed)
+    exposed_names = sorted(_schema_names(tools_exposed))
 
     control_tower.log_agent_spec(
         episode_id,
@@ -147,7 +132,6 @@ def run_agent(
     llm_calls = 0
     last_prompt_tokens = 0
 
-    # Tool stats for the summary table row
     tool_calls = 0
     tool_errors = 0
     tool_turns = 0
@@ -155,7 +139,7 @@ def run_agent(
     last_tool_error = ""
 
     # ---- LLM call ----
-    response = agent.step(msgs, tools=exposed_to_model)
+    response = agent.step(msgs, tools_exposed=tools_exposed, env=env)
     llm_calls += 1
     pt = _usage_prompt_tokens(response)
     last_prompt_tokens = pt
@@ -187,11 +171,9 @@ def run_agent(
             raw_args = fn_block.get("arguments") or "{}"
             last_tool_name = function_name
 
-            if function_name not in allowed_to_execute:
+            if function_name not in tool_names_allowed:
                 function_params = {}
-                function_result = (
-                    f"error: tool '{function_name}' not allowed by runner policy"
-                )
+                function_result = f"error: tool '{function_name}' not allowed by env.rules"
                 tool_errors += 1
                 last_tool_error = function_result
             else:
@@ -229,7 +211,7 @@ def run_agent(
                 }
             )
 
-        response = agent.step(msgs, tools=exposed_to_model)
+        response = agent.step(msgs, tools_exposed=tools_exposed, env=env)
         llm_calls += 1
         pt = _usage_prompt_tokens(response)
         last_prompt_tokens = pt
@@ -257,13 +239,13 @@ def run_agent(
         context_limit=agent.max_context_length,
     )
 
-    # ---- TABLE STATE (one row per run_agent call) ----
     control_tower.log_agent_state(
         episode_id,
         name,
         iid,
         step=step,
         agent_step=agent_step,
+        env_name=env.name,
         model=getattr(agent, "model", None),
         prompt_tokens_last=int(last_prompt_tokens or 0),
         prompt_tokens_max=int(context_window or 0),

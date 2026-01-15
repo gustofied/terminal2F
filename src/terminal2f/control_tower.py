@@ -1,4 +1,3 @@
-# control_tower.py
 import hashlib
 import math
 import threading
@@ -27,10 +26,7 @@ ACTIVE = [120, 220, 120, 255]
 _frame = 0
 _step = 0
 
-# key: (episode_id, agent_name, instance_id)
 _agents: dict[tuple[str, str, str], dict] = {}
-
-# log spec once per (episode, agent, instance)
 _spec_logged: set[tuple[str, str, str]] = set()
 
 
@@ -79,9 +75,6 @@ def register_agent(episode_id: str, agent_name: str, instance_id: str) -> None:
     _st(episode_id, agent_name, instance_id)
 
 
-# -------------------------
-# TABLE LOGGING (THE NEW BIT)
-# -------------------------
 def log_agent_spec(
     episode_id: str,
     agent_name: str,
@@ -93,10 +86,6 @@ def log_agent_spec(
     system_message: str | None = None,
     tools_installed: list[str] | None = None,
 ) -> None:
-    """
-    Log per-agent metadata once per episode into a single shared table path.
-    This shows up nicely in the Dataframe view.
-    """
     k = (episode_id, agent_name, instance_id)
     if k in _spec_logged:
         return
@@ -134,6 +123,7 @@ def log_agent_state(
     *,
     step: int,
     agent_step: int,
+    env_name: str = "",
     model: str | None = None,
     prompt_tokens_last: int = 0,
     prompt_tokens_max: int = 0,
@@ -151,9 +141,6 @@ def log_agent_state(
     last_tool_name: str = "",
     last_tool_error: str = "",
 ) -> None:
-    """
-    Log one compact "summary row" per run_agent call to a shared table entity path.
-    """
     set_step(step)
 
     cl = int(context_limit or 0)
@@ -164,6 +151,7 @@ def log_agent_state(
         rr.AnyValues(
             episode_id=episode_id,
             bench_step=int(step),
+            env_name=str(env_name or ""),
             agent_name=agent_name,
             instance_id=instance_id,
             agent_key=f"{agent_name}:{instance_id}",
@@ -189,15 +177,12 @@ def log_agent_state(
     )
 
 
-# -------------------------
-# SWARM / VISUALS (unchanged, but small safety fix)
-# -------------------------
 def _draw(frame: int):
     cx = cy = 0.0
     angle = frame * 0.05
 
     pts, cols, rads, labels = [], [], [], []
-    for (episode_id, name, iid), st in list(_agents.items()):
+    for (_episode_id, name, iid), st in list(_agents.items()):
         x, y = new_location(cx, cy, st["bx"], st["by"], angle)
 
         base = 0.04 + 0.25 * st["frac"]
@@ -227,11 +212,6 @@ def _anim():
 
 
 def _send_default_blueprint() -> None:
-    """
-    Send a simple 2x2 dashboard blueprint.
-
-    Safe to call multiple times; it will only send once per process.
-    """
     global _blueprint_sent
     if _blueprint_sent:
         return
@@ -240,25 +220,21 @@ def _send_default_blueprint() -> None:
 
     bp = rrb.Blueprint(
         rrb.Grid(
-            # 1) Swarm visualization
             rrb.Spatial2DView(
                 origin=f"{ROOT}/swarm",
                 name="Swarm",
                 contents=f"{ROOT}/swarm/**",
             ),
-            # 2) Text logs (conversation / tool calls / events)
             rrb.TextLogView(
                 origin=f"{ROOT}/episodes",
                 name="Episode logs",
                 contents=f"{ROOT}/episodes/**",
             ),
-            # 3) Usage scalars over time
             rrb.TimeSeriesView(
                 origin=f"{ROOT}/episodes",
                 name="Usage",
                 contents=f"{ROOT}/episodes/**/usage/**",
             ),
-            # 4) CLEAN dataframe view: only our tables (not the whole world)
             rrb.DataframeView(
                 origin=f"{ROOT}/tables",
                 name="Tables (DF)",
@@ -286,7 +262,6 @@ def init(
 
     rr.init(app_id, spawn=spawn)
 
-    # Establish the swarm space (static).
     rr.log(
         f"{ROOT}/swarm/origin",
         rr.Boxes2D(
@@ -298,11 +273,9 @@ def init(
         static=True,
     )
 
-    # Send the default dashboard layout.
     if send_blueprint:
         _send_default_blueprint()
 
-    # Start background animation thread once.
     if not _started:
         _started = True
         threading.Thread(target=_anim, daemon=True).start()
@@ -310,9 +283,6 @@ def init(
     _initialized = True
 
 
-# -------------------------
-# EXISTING LOG EVENTS (unchanged)
-# -------------------------
 def on_event(episode_id: str, agent_name: str, instance_id: str, step: int, text: str) -> None:
     set_step(step)
     rr.log(

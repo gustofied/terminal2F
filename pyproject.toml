@@ -1,7 +1,7 @@
 [project]
 name = "terminal2f"
 version = "0.1.0"
-description = "Add your description here"
+description = "terminal2F, gustofied reborn"
 readme = "README.md"
 authors = [
     { name = "gustofied", email = "gustofied@gmail.com" }
