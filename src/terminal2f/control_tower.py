@@ -50,6 +50,13 @@ def set_step(step: int) -> None:
     rr.set_time("bench_step", sequence=step)
 
 
+def tick(delta: int = 1) -> int:
+    global _step
+    new_step = int(_step) + int(delta or 1)
+    set_step(new_step)
+    return new_step
+
+
 def _st(episode_id: str, agent_name: str, instance_id: str) -> dict:
     k = (episode_id, agent_name, instance_id)
     st = _agents.get(k)
@@ -254,7 +261,11 @@ def _send_default_blueprint() -> None:
 
 
 def init(
-    app_id: str = "the_agent_logs", *, spawn: bool = True, send_blueprint: bool = True
+    app_id: str = "the_agent_logs",
+    *,
+    spawn: bool = True,
+    send_blueprint: bool = True,
+    log_config_path: str | None = None,
 ) -> None:
     global _initialized, _started
     if _initialized:
@@ -279,6 +290,10 @@ def init(
     if not _started:
         _started = True
         threading.Thread(target=_anim, daemon=True).start()
+
+    if log_config_path:
+        from .logging.mylogger import setup_logging
+        setup_logging(log_config_path)
 
     _initialized = True
 

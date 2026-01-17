@@ -60,7 +60,7 @@ class NonErrorFilter(logging.Filter):
         return record.levelno <= logging.INFO
 
 
-def setup_logging(config_path: str = "config.json") -> None:
+def setup_logging(config_path: str = "logging/config.json") -> None:
     Path("logs").mkdir(parents=True, exist_ok=True)
 
     cfg = json.loads(Path(config_path).read_text(encoding="utf-8"))
