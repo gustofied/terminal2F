@@ -2,7 +2,6 @@ from pathlib import Path
 import os
 import re
 import typer
-import uuid
 
 from rich.console import Console
 from rich.markup import escape
@@ -81,50 +80,44 @@ class TerminalUI:
 @app.command()
 def run(
     file: Path = typer.Argument(..., exists=True, dir_okay=False, readable=True),
-    runner: str = typer.Option("loop", help="Runner module (e.g. loop)."),
+    runner_name: str = typer.Option("loop", help="Runner module (e.g. loop)."),
     env: str = typer.Option("default", help="Env preset (default/chat_safe/dev_all_tools)."),
+    spawn: bool = typer.Option(True, help="Spawn rerun viewer."),
 ):
     prompt = file.read_text(encoding="utf-8")
 
-    control_tower.init()
-    episode_id = uuid.uuid4().hex[:8]
-    bench_step = 0
-
+    ctx = control_tower.start_run(spawn=spawn)
     the_env = get_env(env)
 
     agent = Agent(tools_installed=installed_tools, env=the_env, name="agentA", instance_id="agentA")
-    run_agent = load(runner)
-    mem = run_agent.new_memory(agent)
+    runner = load(runner_name)
+    mem = runner.new_memory(agent)
 
     ui = TerminalUI()
     ui.console.print(
-        f"[bold]t2f run[/] | [dim]{agent.model}[/] | [dim]{os.getcwd()}[/] | [dim]env={the_env.name}[/]\n"
+        f"[bold]t2f run[/] | [dim]{agent.model}[/] | [dim]{os.getcwd()}[/] | [dim]env={the_env.name}[/] | [dim]episode={ctx.episode_id}[/]\n"
     )
 
-    bench_step += 1
-    control_tower.set_step(bench_step)
-    run_agent(agent, prompt, episode_id=episode_id, step=bench_step, memory=mem, ui=ui, env=the_env)
+    runner(agent, prompt, memory=mem, ui=ui, env=the_env, ctx=ctx)
     ui.console.print()
 
 
 @app.command()
 def chat(
-    runner: str = typer.Option("loop", help="Runner module (e.g. loop)."),
+    runner_name: str = typer.Option("loop", help="Runner module (e.g. loop)."),
     env: str = typer.Option("default", help="Env preset (default/chat_safe/dev_all_tools)."),
+    spawn: bool = typer.Option(True, help="Spawn rerun viewer."),
 ):
-    control_tower.init()
-    episode_id = uuid.uuid4().hex[:8]
-    bench_step = 0
-
+    ctx = control_tower.start_run(spawn=spawn)
     the_env = get_env(env)
 
     agent = Agent(tools_installed=installed_tools, env=the_env, name="agentA", instance_id="agentA")
-    run_agent = load(runner)
-    mem = run_agent.new_memory(agent)
+    runner = load(runner_name)
+    mem = runner.new_memory(agent)
 
     ui = TerminalUI()
     ui.console.print(
-        f"[bold]t2f chat[/] | [dim]{agent.model}[/] | [dim]{os.getcwd()}[/] | [dim]env={the_env.name}[/]"
+        f"[bold]t2f chat[/] | [dim]{agent.model}[/] | [dim]{os.getcwd()}[/] | [dim]env={the_env.name}[/] | [dim]episode={ctx.episode_id}[/]"
     )
     ui.console.print("[dim]Commands:[/] /q quit, /c clear\n")
 
@@ -140,31 +133,19 @@ def chat(
                 break
 
             if user_input == "/c":
-                bench_step += 1
-                control_tower.set_step(bench_step)
-
-                run_agent.reset(agent, mem)
+                step = ctx.tick()
+                runner.reset(agent, mem)
                 control_tower.on_event(
-                    episode_id,
+                    ctx.episode_id,
                     agent.name,
                     agent.instance_id,
-                    bench_step,
+                    step,
                     "⏺ cleared",
                 )
                 ui.console.print("[green]⏺ Cleared conversation[/]\n")
                 continue
 
-            bench_step += 1
-            control_tower.set_step(bench_step)
-            run_agent(
-                agent,
-                user_input,
-                episode_id=episode_id,
-                step=bench_step,
-                memory=mem,
-                ui=ui,
-                env=the_env,
-            )
+            runner(agent, user_input, memory=mem, ui=ui, env=the_env, ctx=ctx)
             ui.console.print()
 
         except (KeyboardInterrupt, EOFError):

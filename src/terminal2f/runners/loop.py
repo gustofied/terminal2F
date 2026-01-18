@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from .. import control_tower
+from ..control_tower import RunContext
 from ..env import Env, get_env, compile_tools, tool_name
 from ..tools import names_to_functions
 
@@ -63,18 +64,20 @@ def run_agent(
     agent,
     user_message: str,
     *,
-    episode_id: str,
-    step: int,
     memory: RunnerMemory,
+    ctx: RunContext,
     env: Env | None = None,
     ui=None,
-    tool_schemas: list[dict] | None = None,  # optional per-call narrowing
+    tool_schemas: list[dict] | None = None,
     context_budget: int | None = None,
     max_turns: int | None = None,
 ):
     env = env or getattr(agent, "env", None) or get_env("default")
     context_budget = env.rules.ctx_budget if context_budget is None else context_budget
     max_turns = env.rules.max_tool_turns if max_turns is None else int(max_turns)
+
+    episode_id = ctx.episode_id
+    step = ctx.tick()
 
     tools_installed = getattr(agent, "tools_installed", None) or []
 
@@ -138,7 +141,6 @@ def run_agent(
     last_tool_name = ""
     last_tool_error = ""
 
-    # ---- LLM call ----
     response = agent.step(msgs, tools_exposed=tools_exposed, env=env)
     llm_calls += 1
     pt = _usage_prompt_tokens(response)
@@ -155,7 +157,6 @@ def run_agent(
     if text:
         _ui_call("on_assistant_text", text)
 
-    # ---- tool loop ----
     turns = 0
     while assistant.get("tool_calls"):
         turns += 1

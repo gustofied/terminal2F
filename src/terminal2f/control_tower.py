@@ -2,6 +2,10 @@ import hashlib
 import math
 import threading
 import time
+import uuid
+from dataclasses import dataclass, field
+from pathlib import Path
+
 import rerun.blueprint as rrb
 import rerun as rr
 
@@ -24,10 +28,29 @@ IDLE = [160, 160, 160, 255]
 ACTIVE = [120, 220, 120, 255]
 
 _frame = 0
-_step = 0
 
 _agents: dict[tuple[str, str, str], dict] = {}
 _spec_logged: set[tuple[str, str, str]] = set()
+
+
+@dataclass
+class RunContext:
+    episode_id: str
+    step: int = 0
+    _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
+
+    def tick(self, delta: int = 1) -> int:
+        d = int(delta or 1)
+        with self._lock:
+            self.step = int(self.step) + d
+            rr.set_time("bench_step", sequence=int(self.step))
+            return int(self.step)
+
+    def set_step(self, step: int) -> int:
+        with self._lock:
+            self.step = int(step)
+            rr.set_time("bench_step", sequence=int(self.step))
+            return int(self.step)
 
 
 def new_location(center_x, center_y, x, y, angle):
@@ -42,19 +65,6 @@ def new_location(center_x, center_y, x, y, angle):
 
 def _base(episode_id: str, agent_name: str, instance_id: str) -> str:
     return f"{ROOT}/episodes/{episode_id}/agents/{agent_name}/instances/{instance_id}"
-
-
-def set_step(step: int) -> None:
-    global _step
-    _step = step
-    rr.set_time("bench_step", sequence=step)
-
-
-def tick(delta: int = 1) -> int:
-    global _step
-    new_step = int(_step) + int(delta or 1)
-    set_step(new_step)
-    return new_step
 
 
 def _st(episode_id: str, agent_name: str, instance_id: str) -> dict:
@@ -74,6 +84,7 @@ def _st(episode_id: str, agent_name: str, instance_id: str) -> dict:
             "frac": 0.0,
             "active_until": -1,
             "agent_step": 0,
+            "bench_step": 0,
         }
     return st
 
@@ -97,7 +108,7 @@ def log_agent_spec(
     if k in _spec_logged:
         return
 
-    set_step(step)
+    rr.set_time("bench_step", sequence=int(step))
 
     sm = system_message or ""
     sm_preview = sm[:300] + ("…" if len(sm) > 300 else "")
@@ -148,7 +159,7 @@ def log_agent_state(
     last_tool_name: str = "",
     last_tool_error: str = "",
 ) -> None:
-    set_step(step)
+    rr.set_time("bench_step", sequence=int(step))
 
     cl = int(context_limit or 0)
     frac = float(prompt_tokens_max / cl) if cl > 0 else 0.0
@@ -199,7 +210,10 @@ def _draw(frame: int):
         pts.append([x, y])
         cols.append(ACTIVE if frame <= st["active_until"] else IDLE)
         rads.append(rad)
-        labels.append(f"{name}:{iid} | bench={_step} | agent={st.get('agent_step', 0)}")
+
+        bench_step = int(st.get("bench_step", 0))
+        agent_step = int(st.get("agent_step", 0))
+        labels.append(f"{name}:{iid} | bench={bench_step} | agent={agent_step}")
 
     rr.log(
         f"{ROOT}/swarm/points",
@@ -211,7 +225,6 @@ def _anim():
     global _frame
     while True:
         rr.set_time("frame", sequence=_frame)
-        rr.set_time("bench_step", sequence=_step)
         if _agents:
             _draw(_frame)
         _frame += 1
@@ -291,15 +304,34 @@ def init(
         _started = True
         threading.Thread(target=_anim, daemon=True).start()
 
+    if log_config_path is None:
+        default_cfg = Path(__file__).resolve().parent / "mylogger" / "config.json"
+        if default_cfg.is_file():
+            log_config_path = str(default_cfg)
+
     if log_config_path:
-        from .logging.mylogger import setup_logging
+        from .mylogger.mylogger import setup_logging
         setup_logging(log_config_path)
 
     _initialized = True
 
 
+def start_run(
+    *,
+    app_id: str = "the_agent_logs",
+    spawn: bool = True,
+    send_blueprint: bool = True,
+    episode_id: str | None = None,
+) -> RunContext:
+    init(app_id=app_id, spawn=spawn, send_blueprint=send_blueprint)
+    eid = (episode_id or uuid.uuid4().hex[:8]).strip()
+    ctx = RunContext(episode_id=eid, step=0)
+    rr.set_time("bench_step", sequence=0)
+    return ctx
+
+
 def on_event(episode_id: str, agent_name: str, instance_id: str, step: int, text: str) -> None:
-    set_step(step)
+    rr.set_time("bench_step", sequence=int(step))
     rr.log(
         f"{_base(episode_id, agent_name, instance_id)}/events",
         rr.TextLog(text, level=rr.TextLogLevel.INFO, color=EVENT),
@@ -310,6 +342,7 @@ def on_event(episode_id: str, agent_name: str, instance_id: str, step: int, text
         st["frac"] = 0.0
         st["active_until"] = -1
         st["agent_step"] = 0
+        st["bench_step"] = int(step)
 
 
 def on_turn(
@@ -321,13 +354,14 @@ def on_turn(
     agent_step: int,
     user_message: str,
 ) -> None:
-    set_step(step)
+    rr.set_time("bench_step", sequence=int(step))
     rr.log(
         f"{_base(episode_id, agent_name, instance_id)}/conversation",
         rr.TextLog(f"user: {user_message}", level=rr.TextLogLevel.INFO, color=USER),
     )
     st = _st(episode_id, agent_name, instance_id)
-    st["agent_step"] = agent_step
+    st["agent_step"] = int(agent_step)
+    st["bench_step"] = int(step)
     st["active_until"] = _frame + 20
 
 
@@ -339,13 +373,15 @@ def on_tool_call(
     function_name: str,
     function_params: dict,
 ) -> None:
-    set_step(step)
+    rr.set_time("bench_step", sequence=int(step))
     rr.log(
         f"{_base(episode_id, agent_name, instance_id)}/tool_calls",
         rr.TextLog(
             f"{function_name}({function_params})", level=rr.TextLogLevel.INFO, color=TOOL
         ),
     )
+    st = _st(episode_id, agent_name, instance_id)
+    st["bench_step"] = int(step)
 
 
 def on_tool_result(
@@ -356,11 +392,13 @@ def on_tool_result(
     function_name: str,
     function_result: str,
 ) -> None:
-    set_step(step)
+    rr.set_time("bench_step", sequence=int(step))
     rr.log(
         f"{_base(episode_id, agent_name, instance_id)}/tool_results",
         rr.TextLog(f"{function_name} -> {function_result}", level=rr.TextLogLevel.INFO, color=TOOL),
     )
+    st = _st(episode_id, agent_name, instance_id)
+    st["bench_step"] = int(step)
 
 
 def on_assistant(
@@ -370,11 +408,13 @@ def on_assistant(
     step: int,
     content: str,
 ) -> None:
-    set_step(step)
+    rr.set_time("bench_step", sequence=int(step))
     rr.log(
         f"{_base(episode_id, agent_name, instance_id)}/conversation",
         rr.TextLog(f"assistant: {content}", level=rr.TextLogLevel.INFO, color=ASSISTANT),
     )
+    st = _st(episode_id, agent_name, instance_id)
+    st["bench_step"] = int(step)
 
 
 def on_usage(
@@ -386,10 +426,11 @@ def on_usage(
     *,
     context_limit: int,
 ) -> None:
-    set_step(step)
+    rr.set_time("bench_step", sequence=int(step))
     rr.log(
         f"{_base(episode_id, agent_name, instance_id)}/usage/context_length",
         rr.Scalars(prompt_tokens),
     )
     st = _st(episode_id, agent_name, instance_id)
     st["frac"] = min(prompt_tokens / max(context_limit, 1), 1.0)
+    st["bench_step"] = int(step)

@@ -63,3 +63,16 @@ the model also needs room for the output so I can't just use prompt tokens like 
 ### Jinja Templates
 
 introduce jinja templates in the future, that's going to be poerfull yeah
+
+### Change semantics around logging
+
+mylogger folder name etc..
+
+### Blueprints
+
+Blueprints do not summarise anything. They only choose what the viewer shows from logs you already wrote. To “summarise / look back”, that is a CLI command or a report generator. Blueprint just helps focus on a slice of that data.
+
+This goes into the idea of auto making an pdf report..
+
+Always concerned with correctness and isolation
+What the viewer shows
