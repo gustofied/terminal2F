@@ -6,15 +6,16 @@ import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 
-import rerun.blueprint as rrb
 import rerun as rr
-
+import rerun.blueprint as rrb
 
 _initialized = False
 _started = False
 _blueprint_sent = False
 
 ROOT = "t2f"
+RUNS_ROOT = f"{ROOT}/runs"
+
 TABLE_ROOT = f"{ROOT}/tables"
 AGENT_STATE_TABLE = f"{TABLE_ROOT}/agent_state"
 AGENT_SPEC_TABLE = f"{TABLE_ROOT}/agent_spec"
@@ -32,25 +33,39 @@ _frame = 0
 _agents: dict[tuple[str, str, str], dict] = {}
 _spec_logged: set[tuple[str, str, str]] = set()
 
+_bench_step = 0
+_bench_lock = threading.Lock()
+
+
+def _new_id(n: int = 8) -> str:
+    return uuid.uuid4().hex[: int(n)]
+
+
+def _tick_bench(delta: int = 1) -> int:
+    global _bench_step
+    d = int(delta or 1)
+    if d <= 0:
+        d = 1
+    with _bench_lock:
+        _bench_step += d
+        rr.set_time("bench_step", sequence=int(_bench_step))
+        return int(_bench_step)
+
 
 @dataclass
 class RunContext:
-    episode_id: str
-    step: int = 0
+    recording_id: str
+    run_id: str
+    run_step: int = 0
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
 
     def tick(self, delta: int = 1) -> int:
         d = int(delta or 1)
+        if d <= 0:
+            d = 1
         with self._lock:
-            self.step = int(self.step) + d
-            rr.set_time("bench_step", sequence=int(self.step))
-            return int(self.step)
-
-    def set_step(self, step: int) -> int:
-        with self._lock:
-            self.step = int(step)
-            rr.set_time("bench_step", sequence=int(self.step))
-            return int(self.step)
+            self.run_step += d
+        return _tick_bench(d)
 
 
 def new_location(center_x, center_y, x, y, angle):
@@ -63,15 +78,15 @@ def new_location(center_x, center_y, x, y, angle):
     return new_x, new_y
 
 
-def _base(episode_id: str, agent_name: str, instance_id: str) -> str:
-    return f"{ROOT}/episodes/{episode_id}/agents/{agent_name}/instances/{instance_id}"
+def _base(run_id: str, agent_name: str, instance_id: str) -> str:
+    return f"{RUNS_ROOT}/{run_id}/agents/{agent_name}/instances/{instance_id}"
 
 
-def _st(episode_id: str, agent_name: str, instance_id: str) -> dict:
-    k = (episode_id, agent_name, instance_id)
+def _st(run_id: str, agent_name: str, instance_id: str) -> dict:
+    k = (run_id, agent_name, instance_id)
     st = _agents.get(k)
     if st is None:
-        seed = f"{episode_id}:{agent_name}:{instance_id}"
+        seed = f"{run_id}:{agent_name}:{instance_id}"
         n = int.from_bytes(
             hashlib.blake2b(seed.encode(), digest_size=8).digest(), "little"
         )
@@ -89,12 +104,14 @@ def _st(episode_id: str, agent_name: str, instance_id: str) -> dict:
     return st
 
 
-def register_agent(episode_id: str, agent_name: str, instance_id: str) -> None:
-    _st(episode_id, agent_name, instance_id)
+def register_agent(recording_id: str, run_id: str, agent_name: str, instance_id: str) -> None:
+    _ = recording_id
+    _st(run_id, agent_name, instance_id)
 
 
 def log_agent_spec(
-    episode_id: str,
+    recording_id: str,
+    run_id: str,
     agent_name: str,
     instance_id: str,
     *,
@@ -104,7 +121,7 @@ def log_agent_spec(
     system_message: str | None = None,
     tools_installed: list[str] | None = None,
 ) -> None:
-    k = (episode_id, agent_name, instance_id)
+    k = (run_id, agent_name, instance_id)
     if k in _spec_logged:
         return
 
@@ -119,7 +136,8 @@ def log_agent_spec(
     rr.log(
         AGENT_SPEC_TABLE,
         rr.AnyValues(
-            episode_id=episode_id,
+            recording_id=recording_id,
+            run_id=run_id,
             agent_name=agent_name,
             instance_id=instance_id,
             agent_key=f"{agent_name}:{instance_id}",
@@ -130,12 +148,12 @@ def log_agent_spec(
             tools_installed=",".join(sorted(tools_installed or [])),
         ),
     )
-
     _spec_logged.add(k)
 
 
 def log_agent_state(
-    episode_id: str,
+    recording_id: str,
+    run_id: str,
     agent_name: str,
     instance_id: str,
     *,
@@ -167,7 +185,8 @@ def log_agent_state(
     rr.log(
         AGENT_STATE_TABLE,
         rr.AnyValues(
-            episode_id=episode_id,
+            recording_id=recording_id,
+            run_id=run_id,
             bench_step=int(step),
             env_name=str(env_name or ""),
             agent_name=agent_name,
@@ -200,7 +219,7 @@ def _draw(frame: int):
     angle = frame * 0.05
 
     pts, cols, rads, labels = [], [], [], []
-    for (_episode_id, name, iid), st in list(_agents.items()):
+    for (run_id, name, iid), st in list(_agents.items()):
         x, y = new_location(cx, cy, st["bx"], st["by"], angle)
 
         base = 0.04 + 0.25 * st["frac"]
@@ -213,7 +232,7 @@ def _draw(frame: int):
 
         bench_step = int(st.get("bench_step", 0))
         agent_step = int(st.get("agent_step", 0))
-        labels.append(f"{name}:{iid} | bench={bench_step} | agent={agent_step}")
+        labels.append(f"{run_id} | {name}:{iid} | bench={bench_step} | agent={agent_step}")
 
     rr.log(
         f"{ROOT}/swarm/points",
@@ -233,9 +252,7 @@ def _anim():
 
 def _send_default_blueprint() -> None:
     global _blueprint_sent
-    if _blueprint_sent:
-        return
-    if rrb is None:
+    if _blueprint_sent or rrb is None:
         return
 
     bp = rrb.Blueprint(
@@ -246,17 +263,17 @@ def _send_default_blueprint() -> None:
                 contents=f"{ROOT}/swarm/**",
             ),
             rrb.TextLogView(
-                origin=f"{ROOT}/episodes",
-                name="Episode logs",
-                contents=f"{ROOT}/episodes/**",
+                origin=f"{RUNS_ROOT}",
+                name="Run logs",
+                contents=f"{RUNS_ROOT}/**",
             ),
             rrb.TimeSeriesView(
-                origin=f"{ROOT}/episodes",
+                origin=RUNS_ROOT,
                 name="Usage",
-                contents=f"{ROOT}/episodes/**/usage/**",
+                contents=[f"+ {RUNS_ROOT}/**/usage/context_length"],
             ),
             rrb.DataframeView(
-                origin=f"{ROOT}/tables",
+                origin=f"{TABLE_ROOT}",
                 name="Tables (DF)",
                 query=rrb.archetypes.DataframeQuery(
                     timeline="bench_step",
@@ -270,21 +287,23 @@ def _send_default_blueprint() -> None:
     )
 
     rr.send_blueprint(bp)
-    _blueprint_sent = True
+    _blueprint_sent = True 
 
 
 def init(
     app_id: str = "the_agent_logs",
     *,
+    recording_id: str,
     spawn: bool = True,
     send_blueprint: bool = True,
     log_config_path: str | None = None,
 ) -> None:
     global _initialized, _started
+
     if _initialized:
         return
 
-    rr.init(app_id, spawn=spawn)
+    rr.init(app_id, recording_id=recording_id, spawn=spawn) 
 
     rr.log(
         f"{ROOT}/swarm/origin",
@@ -321,24 +340,40 @@ def start_run(
     app_id: str = "the_agent_logs",
     spawn: bool = True,
     send_blueprint: bool = True,
-    episode_id: str | None = None,
+    recording_id: str | None = None,
+    run_id: str | None = None,
 ) -> RunContext:
-    init(app_id=app_id, spawn=spawn, send_blueprint=send_blueprint)
-    eid = (episode_id or uuid.uuid4().hex[:8]).strip()
-    ctx = RunContext(episode_id=eid, step=0)
-    rr.set_time("bench_step", sequence=0)
-    return ctx
+    rid = (recording_id or _new_id()).strip()
+    init(app_id=app_id, recording_id=rid, spawn=spawn, send_blueprint=send_blueprint)
+
+    run_id = (run_id or _new_id()).strip()
+    return RunContext(recording_id=rid, run_id=run_id, run_step=0)
 
 
-def on_event(episode_id: str, agent_name: str, instance_id: str, step: int, text: str) -> None:
+def start_new_run(parent: RunContext, *, run_id: str | None = None) -> RunContext:
+    return RunContext(
+        recording_id=parent.recording_id,
+        run_id=(run_id or _new_id()).strip(),
+        run_step=0,
+    )
+
+
+def on_event(
+    recording_id: str,
+    run_id: str,
+    agent_name: str,
+    instance_id: str,
+    step: int,
+    text: str,
+) -> None:
     rr.set_time("bench_step", sequence=int(step))
     rr.log(
-        f"{_base(episode_id, agent_name, instance_id)}/events",
+        f"{_base(run_id, agent_name, instance_id)}/events",
         rr.TextLog(text, level=rr.TextLogLevel.INFO, color=EVENT),
     )
 
     if "cleared" in (text or "").lower():
-        st = _st(episode_id, agent_name, instance_id)
+        st = _st(run_id, agent_name, instance_id)
         st["frac"] = 0.0
         st["active_until"] = -1
         st["agent_step"] = 0
@@ -346,7 +381,8 @@ def on_event(episode_id: str, agent_name: str, instance_id: str, step: int, text
 
 
 def on_turn(
-    episode_id: str,
+    recording_id: str,
+    run_id: str,
     agent_name: str,
     instance_id: str,
     step: int,
@@ -356,17 +392,18 @@ def on_turn(
 ) -> None:
     rr.set_time("bench_step", sequence=int(step))
     rr.log(
-        f"{_base(episode_id, agent_name, instance_id)}/conversation",
+        f"{_base(run_id, agent_name, instance_id)}/conversation",
         rr.TextLog(f"user: {user_message}", level=rr.TextLogLevel.INFO, color=USER),
     )
-    st = _st(episode_id, agent_name, instance_id)
+    st = _st(run_id, agent_name, instance_id)
     st["agent_step"] = int(agent_step)
     st["bench_step"] = int(step)
     st["active_until"] = _frame + 20
 
 
 def on_tool_call(
-    episode_id: str,
+    recording_id: str,
+    run_id: str,
     agent_name: str,
     instance_id: str,
     step: int,
@@ -375,17 +412,18 @@ def on_tool_call(
 ) -> None:
     rr.set_time("bench_step", sequence=int(step))
     rr.log(
-        f"{_base(episode_id, agent_name, instance_id)}/tool_calls",
+        f"{_base(run_id, agent_name, instance_id)}/tool_calls",
         rr.TextLog(
             f"{function_name}({function_params})", level=rr.TextLogLevel.INFO, color=TOOL
         ),
     )
-    st = _st(episode_id, agent_name, instance_id)
+    st = _st(run_id, agent_name, instance_id)
     st["bench_step"] = int(step)
 
 
 def on_tool_result(
-    episode_id: str,
+    recording_id: str,
+    run_id: str,
     agent_name: str,
     instance_id: str,
     step: int,
@@ -394,15 +432,16 @@ def on_tool_result(
 ) -> None:
     rr.set_time("bench_step", sequence=int(step))
     rr.log(
-        f"{_base(episode_id, agent_name, instance_id)}/tool_results",
+        f"{_base(run_id, agent_name, instance_id)}/tool_results",
         rr.TextLog(f"{function_name} -> {function_result}", level=rr.TextLogLevel.INFO, color=TOOL),
     )
-    st = _st(episode_id, agent_name, instance_id)
+    st = _st(run_id, agent_name, instance_id)
     st["bench_step"] = int(step)
 
 
 def on_assistant(
-    episode_id: str,
+    recording_id: str,
+    run_id: str,
     agent_name: str,
     instance_id: str,
     step: int,
@@ -410,15 +449,16 @@ def on_assistant(
 ) -> None:
     rr.set_time("bench_step", sequence=int(step))
     rr.log(
-        f"{_base(episode_id, agent_name, instance_id)}/conversation",
+        f"{_base(run_id, agent_name, instance_id)}/conversation",
         rr.TextLog(f"assistant: {content}", level=rr.TextLogLevel.INFO, color=ASSISTANT),
     )
-    st = _st(episode_id, agent_name, instance_id)
+    st = _st(run_id, agent_name, instance_id)
     st["bench_step"] = int(step)
 
 
 def on_usage(
-    episode_id: str,
+    recording_id: str,
+    run_id: str,
     agent_name: str,
     instance_id: str,
     step: int,
@@ -428,9 +468,9 @@ def on_usage(
 ) -> None:
     rr.set_time("bench_step", sequence=int(step))
     rr.log(
-        f"{_base(episode_id, agent_name, instance_id)}/usage/context_length",
+        f"{_base(run_id, agent_name, instance_id)}/usage/context_length",
         rr.Scalars(prompt_tokens),
     )
-    st = _st(episode_id, agent_name, instance_id)
+    st = _st(run_id, agent_name, instance_id)
     st["frac"] = min(prompt_tokens / max(context_limit, 1), 1.0)
     st["bench_step"] = int(step)

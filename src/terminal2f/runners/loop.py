@@ -65,7 +65,7 @@ def run_agent(
     user_message: str,
     *,
     memory: RunnerMemory,
-    ctx: RunContext,
+    run: RunContext,
     env: Env | None = None,
     ui=None,
     tool_schemas: list[dict] | None = None,
@@ -76,8 +76,9 @@ def run_agent(
     context_budget = env.rules.ctx_budget if context_budget is None else context_budget
     max_turns = env.rules.max_tool_turns if max_turns is None else int(max_turns)
 
-    episode_id = ctx.episode_id
-    step = ctx.tick()
+    recording_id = run.recording_id
+    run_id = run.run_id
+    step = run.tick()
 
     tools_installed = getattr(agent, "tools_installed", None) or []
 
@@ -94,14 +95,15 @@ def run_agent(
     memory.agent_step += 1
     agent_step = memory.agent_step
 
-    control_tower.register_agent(episode_id, name, iid)
+    control_tower.register_agent(recording_id, run_id, name, iid)
 
     installed_names = sorted(_schema_names(tools_installed))
     allowed_names = sorted(tool_names_allowed)
     exposed_names = sorted(_schema_names(tools_exposed))
 
     control_tower.log_agent_spec(
-        episode_id,
+        recording_id,
+        run_id,
         name,
         iid,
         step=step,
@@ -113,7 +115,7 @@ def run_agent(
 
     msgs.append({"role": "user", "content": user_message})
     control_tower.on_turn(
-        episode_id, name, iid, step, agent_step=agent_step, user_message=user_message
+        recording_id, run_id, name, iid, step, agent_step=agent_step, user_message=user_message
     )
 
     def _ui_call(method_name: str, *args):
@@ -127,7 +129,7 @@ def run_agent(
         if context_budget is None or prompt_tokens <= context_budget:
             return
         txt = f"⚠️ context budget exceeded: {prompt_tokens}/{context_budget} prompt tokens"
-        control_tower.on_event(episode_id, name, iid, step, txt)
+        control_tower.on_event(recording_id, run_id, name, iid, step, txt)
         _ui_call("on_event", txt)
 
     context_window = 0
@@ -189,7 +191,7 @@ def run_agent(
                     last_tool_error = function_result
                 else:
                     control_tower.on_tool_call(
-                        episode_id, name, iid, step, function_name, function_params
+                        recording_id, run_id, name, iid, step, function_name, function_params
                     )
                     _ui_call("on_tool_call", function_name, function_params)
                     function_result = _run_tool(function_name, function_params)
@@ -200,7 +202,7 @@ def run_agent(
 
             _ui_call("on_tool_result", function_name, function_result)
             control_tower.on_tool_result(
-                episode_id, name, iid, step, function_name, function_result
+                recording_id, run_id, name, iid, step, function_name, function_result
             )
 
             msgs.append(
@@ -229,10 +231,11 @@ def run_agent(
             _ui_call("on_assistant_text", text)
 
     final_text = assistant.get("content", "") or ""
-    control_tower.on_assistant(episode_id, name, iid, step, final_text)
+    control_tower.on_assistant(recording_id, run_id, name, iid, step, final_text)
 
     control_tower.on_usage(
-        episode_id,
+        recording_id,
+        run_id,
         name,
         iid,
         step,
@@ -241,7 +244,8 @@ def run_agent(
     )
 
     control_tower.log_agent_state(
-        episode_id,
+        recording_id,
+        run_id,
         name,
         iid,
         step=step,

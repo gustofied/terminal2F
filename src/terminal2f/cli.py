@@ -86,7 +86,7 @@ def run(
 ):
     prompt = file.read_text(encoding="utf-8")
 
-    ctx = control_tower.start_run(spawn=spawn)
+    run_ctx = control_tower.start_run(spawn=spawn)
     the_env = get_env(env)
 
     agent = Agent(tools_installed=installed_tools, env=the_env, name="agentA", instance_id="agentA")
@@ -95,10 +95,11 @@ def run(
 
     ui = TerminalUI()
     ui.console.print(
-        f"[bold]t2f run[/] | [dim]{agent.model}[/] | [dim]{os.getcwd()}[/] | [dim]env={the_env.name}[/] | [dim]episode={ctx.episode_id}[/]\n"
+        f"[bold]t2f run[/] | [dim]{agent.model}[/] | [dim]{os.getcwd()}[/] | "
+        f"[dim]env={the_env.name}[/] | [dim]recording={run_ctx.recording_id}[/] | [dim]run={run_ctx.run_id}[/]\n"
     )
 
-    runner(agent, prompt, memory=mem, ui=ui, env=the_env, ctx=ctx)
+    runner(agent, prompt, memory=mem, ui=ui, env=the_env, run=run_ctx)
     ui.console.print()
 
 
@@ -108,7 +109,7 @@ def chat(
     env: str = typer.Option("default", help="Env preset (default/chat_safe/dev_all_tools)."),
     spawn: bool = typer.Option(True, help="Spawn rerun viewer."),
 ):
-    ctx = control_tower.start_run(spawn=spawn)
+    run_ctx = control_tower.start_run(spawn=spawn)
     the_env = get_env(env)
 
     agent = Agent(tools_installed=installed_tools, env=the_env, name="agentA", instance_id="agentA")
@@ -117,7 +118,8 @@ def chat(
 
     ui = TerminalUI()
     ui.console.print(
-        f"[bold]t2f chat[/] | [dim]{agent.model}[/] | [dim]{os.getcwd()}[/] | [dim]env={the_env.name}[/] | [dim]episode={ctx.episode_id}[/]"
+        f"[bold]t2f chat[/] | [dim]{agent.model}[/] | [dim]{os.getcwd()}[/] | "
+        f"[dim]env={the_env.name}[/] | [dim]recording={run_ctx.recording_id}[/] | [dim]run={run_ctx.run_id}[/]"
     )
     ui.console.print("[dim]Commands:[/] /q quit, /c clear\n")
 
@@ -133,10 +135,11 @@ def chat(
                 break
 
             if user_input == "/c":
-                step = ctx.tick()
+                step = run_ctx.tick()
                 runner.reset(agent, mem)
                 control_tower.on_event(
-                    ctx.episode_id,
+                    run_ctx.recording_id,
+                    run_ctx.run_id,
                     agent.name,
                     agent.instance_id,
                     step,
@@ -145,7 +148,7 @@ def chat(
                 ui.console.print("[green]⏺ Cleared conversation[/]\n")
                 continue
 
-            runner(agent, user_input, memory=mem, ui=ui, env=the_env, ctx=ctx)
+            runner(agent, user_input, memory=mem, ui=ui, env=the_env, run=run_ctx)
             ui.console.print()
 
         except (KeyboardInterrupt, EOFError):

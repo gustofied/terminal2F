@@ -4,7 +4,26 @@
 <b>A way to observe agents and agent systems</b>
 <br><br>
 <i>Monitor • Trace • Visualize LLM calls.</i>
+
 </div>
+
+<br>
+
+<p align="center">
+<img src="assets/demo_t2f.gif" alt="terminal2F Demo" width="800">
+</p>
+
+---
+
+## What is this
+
+terminal2F is a small research harness for running agents and watching them think. You can run the same task through different runner types and compare how they behave.
+
+The idea comes from a simple split: the agent is just the model caller (the brain), and the runner is the memory plus the control policy (the automaton). Different memory architectures give you different computational power. A basic loop with chat history, a finite state machine, a pushdown automaton with a stack, or something with read/write memory you can revisit.
+
+Everything streams to [Rerun](https://rerun.io). Tool calls, model responses, token usage, and a little visualization of who's talking to who. You get a timeline you can scrub through, zoom in on, and actually see what happened when things break.
+
+Built with Mistral models. No frameworks, just Python.
 
 ---
 
