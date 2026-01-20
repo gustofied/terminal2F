@@ -17,6 +17,8 @@
 
 ## What is this
 
+Currently this is a terminal LLM agent runner built on Mistral’s chat API, with tool-calling, multiple “runner” strategies, and a Rerun-based observability/control tower for visualizing agent behavior + usage.
+
 terminal2F is a small research harness for running agents and watching them think. You can run the same task through different runner types and compare how they behave.
 
 The idea comes from a simple split: the agent is just the model caller (the brain), and the runner is the memory plus the control policy (the automaton). Different memory architectures give you different computational power. A basic loop with chat history, a finite state machine, a pushdown automaton with a stack, or something with read/write memory you can revisit.
@@ -41,7 +43,33 @@ Built with Mistral models. No frameworks, just Python.
 - **control_tower.py** is just observability. It logs turns, tool calls, tool results, assistant text, and usage to Rerun, plus the little swarm viz stuff.
 - **Tools are capability on the agent, permission on the runner.** The agent can be initialized with tools=tools (everything installed), but the runner decides what the model can actually see and execute for that run.
 
-### Expirments
+### Agent Profiles
+
+Agent profiles are saved configurations for an agent. A profile bundles together who the agent is, how it should behave, and what it's allowed to do.
+
+A profile defines:
+
+- **Model config** — which model, temperature, max tokens
+- **Tool policy** — which tools the agent can call (none, some, or all)
+- **Budgets** — context budget, max tool turns before stopping
+- **System prompt** — the default vibe/instructions for the agent
+
+When you spawn an agent, you just pass a profile name and you get that whole setup instantly. No extra wiring every time.
+
+```python
+# Built-in profiles:
+"default"       # payments tools only, conservative limits
+"chat_safe"     # no tools at all, just chat
+"dev_all_tools" # all installed tools enabled
+```
+
+Tool policy semantics:
+
+- `allowed=None` or `allowed={"*"}` → allow ALL installed tools
+- `allowed=set()` → allow NO tools
+- `allowed={"tool_a", "tool_b"}` → allow only listed tools
+
+### Experiments
 
 setup, a single Rerun recording is one experiment. An experiment can contain multiple agents running side by side, and each agent instance produces its own logs and metrics while sharing the same experiment context.
 

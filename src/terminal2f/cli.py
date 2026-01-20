@@ -7,7 +7,7 @@ from rich.console import Console
 from rich.markup import escape
 
 from .agent import Agent
-from .env import get_env
+from .agent_profiles import get_profile
 from .runners import load
 from .tools import tools as installed_tools
 from . import control_tower
@@ -81,45 +81,45 @@ class TerminalUI:
 def run(
     file: Path = typer.Argument(..., exists=True, dir_okay=False, readable=True),
     runner_name: str = typer.Option("loop", help="Runner module (e.g. loop)."),
-    env: str = typer.Option("default", help="Env preset (default/chat_safe/dev_all_tools)."),
+    profile: str = typer.Option("default", help="Agent profile preset (default/chat_safe/dev_all_tools)."),
     spawn: bool = typer.Option(True, help="Spawn rerun viewer."),
 ):
     prompt = file.read_text(encoding="utf-8")
 
     run_ctx = control_tower.start_run(spawn=spawn)
-    the_env = get_env(env)
+    the_profile = get_profile(profile)
 
-    agent = Agent(tools_installed=installed_tools, env=the_env, name="agentA", instance_id="agentA")
+    agent = Agent(tools_installed=installed_tools, profile=the_profile, name="agentA", instance_id="agentA")
     runner = load(runner_name)
     mem = runner.new_memory(agent)
 
     ui = TerminalUI()
     ui.console.print(
         f"[bold]t2f run[/] | [dim]{agent.model}[/] | [dim]{os.getcwd()}[/] | "
-        f"[dim]env={the_env.name}[/] | [dim]recording={run_ctx.recording_id}[/] | [dim]run={run_ctx.run_id}[/]\n"
+        f"[dim]profile={the_profile.name}[/] | [dim]recording={run_ctx.recording_id}[/] | [dim]run={run_ctx.run_id}[/]\n"
     )
 
-    runner(agent, prompt, memory=mem, ui=ui, env=the_env, run=run_ctx)
+    runner(agent, prompt, memory=mem, ui=ui, profile=the_profile, run=run_ctx)
     ui.console.print()
 
 
 @app.command()
 def chat(
     runner_name: str = typer.Option("loop", help="Runner module (e.g. loop)."),
-    env: str = typer.Option("default", help="Env preset (default/chat_safe/dev_all_tools)."),
+    profile: str = typer.Option("default", help="Agent profile preset (default/chat_safe/dev_all_tools)."),
     spawn: bool = typer.Option(True, help="Spawn rerun viewer."),
 ):
     run_ctx = control_tower.start_run(spawn=spawn)
-    the_env = get_env(env)
+    the_profile = get_profile(profile)
 
-    agent = Agent(tools_installed=installed_tools, env=the_env, name="agentA", instance_id="agentA")
+    agent = Agent(tools_installed=installed_tools, profile=the_profile, name="agentA", instance_id="agentA")
     runner = load(runner_name)
     mem = runner.new_memory(agent)
 
     ui = TerminalUI()
     ui.console.print(
         f"[bold]t2f chat[/] | [dim]{agent.model}[/] | [dim]{os.getcwd()}[/] | "
-        f"[dim]env={the_env.name}[/] | [dim]recording={run_ctx.recording_id}[/] | [dim]run={run_ctx.run_id}[/]"
+        f"[dim]profile={the_profile.name}[/] | [dim]recording={run_ctx.recording_id}[/] | [dim]run={run_ctx.run_id}[/]"
     )
     ui.console.print("[dim]Commands:[/] /q quit, /c clear\n")
 
@@ -148,7 +148,7 @@ def chat(
                 ui.console.print("[green]⏺ Cleared conversation[/]\n")
                 continue
 
-            runner(agent, user_input, memory=mem, ui=ui, env=the_env, run=run_ctx)
+            runner(agent, user_input, memory=mem, ui=ui, profile=the_profile, run=run_ctx)
             ui.console.print()
 
         except (KeyboardInterrupt, EOFError):

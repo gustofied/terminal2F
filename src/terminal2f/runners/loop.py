@@ -5,7 +5,7 @@ from typing import Any
 
 from .. import control_tower
 from ..control_tower import RunContext
-from ..env import Env, get_env, compile_tools, tool_name
+from ..agent_profiles import AgentProfile, get_profile, compile_tools, tool_name
 from ..tools import names_to_functions
 
 log = logging.getLogger("app.runner")
@@ -66,15 +66,15 @@ def run_agent(
     *,
     memory: RunnerMemory,
     run: RunContext,
-    env: Env | None = None,
+    profile: AgentProfile | None = None,
     ui=None,
     tool_schemas: list[dict] | None = None,
     context_budget: int | None = None,
     max_turns: int | None = None,
 ):
-    env = env or getattr(agent, "env", None) or get_env("default")
-    context_budget = env.rules.ctx_budget if context_budget is None else context_budget
-    max_turns = env.rules.max_tool_turns if max_turns is None else int(max_turns)
+    profile = profile or getattr(agent, "profile", None) or get_profile("default")
+    context_budget = profile.ctx_budget if context_budget is None else context_budget
+    max_turns = profile.max_tool_turns if max_turns is None else int(max_turns)
 
     recording_id = run.recording_id
     run_id = run.run_id
@@ -83,7 +83,7 @@ def run_agent(
     tools_installed = getattr(agent, "tools_installed", None) or []
 
     tool_names_allowed, tools_exposed = compile_tools(
-        env=env,
+        profile=profile,
         installed_tools=tools_installed,
         requested_tools=tool_schemas,
     )
@@ -115,7 +115,13 @@ def run_agent(
 
     msgs.append({"role": "user", "content": user_message})
     control_tower.on_turn(
-        recording_id, run_id, name, iid, step, agent_step=agent_step, user_message=user_message
+        recording_id,
+        run_id,
+        name,
+        iid,
+        step,
+        agent_step=agent_step,
+        user_message=user_message,
     )
 
     def _ui_call(method_name: str, *args):
@@ -143,7 +149,7 @@ def run_agent(
     last_tool_name = ""
     last_tool_error = ""
 
-    response = agent.step(msgs, tools_exposed=tools_exposed, env=env)
+    response = agent.step(msgs, tools_exposed=tools_exposed, profile=profile)
     llm_calls += 1
     pt = _usage_prompt_tokens(response)
     last_prompt_tokens = pt
@@ -176,7 +182,7 @@ def run_agent(
 
             if function_name not in tool_names_allowed:
                 function_params = {}
-                function_result = f"error: tool '{function_name}' not allowed by env.rules"
+                function_result = f"error: tool '{function_name}' not allowed by profile.tool_policy"
                 tool_errors += 1
                 last_tool_error = function_result
             else:
@@ -214,7 +220,7 @@ def run_agent(
                 }
             )
 
-        response = agent.step(msgs, tools_exposed=tools_exposed, env=env)
+        response = agent.step(msgs, tools_exposed=tools_exposed, profile=profile)
         llm_calls += 1
         pt = _usage_prompt_tokens(response)
         last_prompt_tokens = pt
@@ -250,7 +256,7 @@ def run_agent(
         iid,
         step=step,
         agent_step=agent_step,
-        env_name=env.name,
+        profile_name=profile.name,
         model=getattr(agent, "model", None),
         prompt_tokens_last=int(last_prompt_tokens or 0),
         prompt_tokens_max=int(context_window or 0),

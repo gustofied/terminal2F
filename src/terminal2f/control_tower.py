@@ -159,7 +159,7 @@ def log_agent_state(
     *,
     step: int,
     agent_step: int,
-    env_name: str = "",
+    profile_name: str = "",
     model: str | None = None,
     prompt_tokens_last: int = 0,
     prompt_tokens_max: int = 0,
@@ -188,7 +188,7 @@ def log_agent_state(
             recording_id=recording_id,
             run_id=run_id,
             bench_step=int(step),
-            env_name=str(env_name or ""),
+            profile_name=str(profile_name or ""),
             agent_name=agent_name,
             instance_id=instance_id,
             agent_key=f"{agent_name}:{instance_id}",
@@ -287,7 +287,7 @@ def _send_default_blueprint() -> None:
     )
 
     rr.send_blueprint(bp)
-    _blueprint_sent = True 
+    _blueprint_sent = True
 
 
 def init(
@@ -303,7 +303,7 @@ def init(
     if _initialized:
         return
 
-    rr.init(app_id, recording_id=recording_id, spawn=spawn) 
+    rr.init(app_id, recording_id=recording_id, spawn=spawn)
 
     rr.log(
         f"{ROOT}/swarm/origin",
