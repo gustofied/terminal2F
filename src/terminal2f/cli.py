@@ -99,7 +99,7 @@ def run(
         f"[dim]profile={the_profile.name}[/] | [dim]recording={run_ctx.recording_id}[/] | [dim]run={run_ctx.run_id}[/]\n"
     )
 
-    runner(agent, prompt, memory=mem, ui=ui, profile=the_profile, run=run_ctx)
+    runner(agent, prompt, memory=mem, ui=ui, run=run_ctx)
     ui.console.print()
 
 
@@ -148,7 +148,7 @@ def chat(
                 ui.console.print("[green]⏺ Cleared conversation[/]\n")
                 continue
 
-            runner(agent, user_input, memory=mem, ui=ui, profile=the_profile, run=run_ctx)
+            runner(agent, user_input, memory=mem, ui=ui, run=run_ctx)
             ui.console.print()
 
         except (KeyboardInterrupt, EOFError):

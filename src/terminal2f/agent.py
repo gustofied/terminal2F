@@ -1,11 +1,14 @@
 import os
 import uuid
 from typing import Any
+
 from dotenv import load_dotenv
 from mistralai import Mistral
+
 from .agent_profiles import AgentProfile, get_profile
 
 load_dotenv()
+
 
 class Agent:
     def __init__(
@@ -40,10 +43,9 @@ class Agent:
         messages,
         *,
         tools_exposed: list[dict] | None = None,
-        profile: AgentProfile | None = None,
     ):
-        profile = profile or self.profile
         tools_exposed = tools_exposed or []
+        profile = self.profile
 
         kwargs: dict[str, Any] = dict(
             model=profile.model.model or self.model,

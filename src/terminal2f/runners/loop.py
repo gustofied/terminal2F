@@ -5,7 +5,7 @@ from typing import Any
 
 from .. import control_tower
 from ..control_tower import RunContext
-from ..agent_profiles import AgentProfile, get_profile, compile_tools, tool_name
+from ..agent_profiles import AgentProfile, compile_tools, get_profile, tool_name
 from ..tools import names_to_functions
 
 log = logging.getLogger("app.runner")
@@ -66,13 +66,12 @@ def run_agent(
     *,
     memory: RunnerMemory,
     run: RunContext,
-    profile: AgentProfile | None = None,
     ui=None,
     tool_schemas: list[dict] | None = None,
     context_budget: int | None = None,
     max_turns: int | None = None,
 ):
-    profile = profile or getattr(agent, "profile", None) or get_profile("default")
+    profile: AgentProfile = getattr(agent, "profile", None) or get_profile("default")
     context_budget = profile.ctx_budget if context_budget is None else context_budget
     max_turns = profile.max_tool_turns if max_turns is None else int(max_turns)
 
@@ -149,7 +148,7 @@ def run_agent(
     last_tool_name = ""
     last_tool_error = ""
 
-    response = agent.step(msgs, tools_exposed=tools_exposed, profile=profile)
+    response = agent.step(msgs, tools_exposed=tools_exposed)
     llm_calls += 1
     pt = _usage_prompt_tokens(response)
     last_prompt_tokens = pt
@@ -220,7 +219,7 @@ def run_agent(
                 }
             )
 
-        response = agent.step(msgs, tools_exposed=tools_exposed, profile=profile)
+        response = agent.step(msgs, tools_exposed=tools_exposed)
         llm_calls += 1
         pt = _usage_prompt_tokens(response)
         last_prompt_tokens = pt

@@ -20,9 +20,8 @@ def main():
     memB = runner.new_memory(agentB)
 
     while True:
-        runner(agentA, "What is the payment status for T1001?", memory=memA, profile=profile, run=runA)
-        runner(agentB, "What is the payment date for T1002?", memory=memB, profile=profile, run=runB)
-
+        runner(agentA, "What is the payment status for T1001?", memory=memA, run=runA)
+        runner(agentB, "What is the payment date for T1002?", memory=memB, run=runB)
         time.sleep(2)
 
 
