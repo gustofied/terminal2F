@@ -1,28 +1,45 @@
-from terminal2f.agent import Agent
-from terminal2f.agent_profiles import get_profile
-from terminal2f.runners import get_runner
-from terminal2f.tools import tools
 from terminal2f import control_tower
-import time
+from terminal2f.agent_profiles import get_profile
+from terminal2f.tools import tools
+
+
+def task(run):
+    run.step("agentA", "What is the payment status for T1001?")
+    run.step("agentB", "What is the payment date for T1002?")
 
 
 def main():
-    profile = get_profile("default") # sticking with profile for now..
-    runner = get_runner("loop")
+    recording = control_tower.start_recording(recording_id="exp_ab_eval", spawn=True)
 
-    runA = control_tower.start_run(run_id="runA")
-    runB = control_tower.start_new_run(runA, run_id="runB")
+    tools_on = recording.add_run(
+        name="tools_on",
+        profile=get_profile("default"),
+        runner_name="loop",
+        agents={
+            "agentA": {"tools": tools},
+            "agentB": {"tools": tools},
+        },
+        task=task,
+    )
 
-    agentA = Agent(tools_installed=tools, profile=profile, name="agentA", instance_id="agentA")
-    agentB = Agent(tools_installed=tools, profile=profile, name="agentB", instance_id="agentB")
+    tools_off = recording.add_run(
+        name="tools_off",
+        profile=get_profile("chat_safe"),
+        runner_name="loop",
+        agents={
+            "agentA": {"tools": []},
+            "agentB": {"tools": []},
+        },
+        task=task,
+    )
 
-    memA = runner.new_memory(agentA)
-    memB = runner.new_memory(agentB)
+    recording.play([tools_on, tools_off], n=10, interval_s=2)
 
-    while True:
-        runner(agentA, "What is the payment status for T1001?", memory=memA, run=runA)
-        runner(agentB, "What is the payment date for T1002?", memory=memB, run=runB)
-        time.sleep(2)
+    # Later:
+    # recording.evaluate([tools_on, tools_off])  # scores table in rerun
+
+    # Then Later after that..
+    # recording.train()
 
 
 if __name__ == "__main__":
