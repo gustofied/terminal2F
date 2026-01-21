@@ -135,7 +135,7 @@ def chat(
                 break
 
             if user_input == "/c":
-                step = run_ctx.tick()
+                step = run_ctx.step()
                 runner.reset(agent, mem)
                 control_tower.on_event(
                     run_ctx.recording_id,

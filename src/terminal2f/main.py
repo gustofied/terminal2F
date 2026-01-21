@@ -33,13 +33,13 @@ def main():
         task=task,
     )
 
-    recording.play([tools_on, tools_off], n=10, interval_s=2)
+    recording.play([tools_on], n=3, interval_s=2)
+    recording.play([tools_on, tools_off], n=3, interval_s=2)
 
     # Later:
-    # recording.evaluate([tools_on, tools_off])  # scores table in rerun
-
-    # Then Later after that..
-    # recording.train()
+    # recording.evaluate([tools_on, tools_off]) EVALS / BENCHMARKING
+    # recording.self_improve() ICL
+    # recording.train() RL
 
 
 if __name__ == "__main__":

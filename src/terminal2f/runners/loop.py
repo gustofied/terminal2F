@@ -69,15 +69,15 @@ def run_agent(
     ui=None,
     tool_schemas: list[dict] | None = None,
     context_budget: int | None = None,
-    max_turns: int | None = None,
+    max_tool_calls: int | None = None,
 ):
     profile: AgentProfile = getattr(agent, "profile", None) or get_profile("default")
     context_budget = profile.ctx_budget if context_budget is None else context_budget
-    max_turns = profile.max_tool_calls if max_turns is None else int(max_turns)
+    max_tool_calls = profile.max_tool_calls if max_tool_calls is None else int(max_tool_calls)
 
     recording_id = run.recording_id
     run_id = run.run_id
-    step = run.tick()
+    step = run.step()
 
     tools_installed = getattr(agent, "tools_installed", None) or []
 
@@ -143,8 +143,8 @@ def run_agent(
     last_prompt_tokens = 0
 
     tool_calls = 0
+    tool_rounds = 0
     tool_errors = 0
-    tool_turns = 0
     last_tool_name = ""
     last_tool_error = ""
 
@@ -164,15 +164,13 @@ def run_agent(
     if text:
         _ui_call("on_assistant_text", text)
 
-    calls = 0
     while assistant.get("tool_calls"):
-        calls += 1
-        tool_calls= calls
-        if calls > max_calls:
-            raise RuntimeError("Max tool calls reached without a final answer.")
+        tool_rounds += 1
 
         for tool_call in assistant["tool_calls"]:
             tool_calls += 1
+            if tool_calls > max_tool_calls:
+                raise RuntimeError("Max tool calls reached without a final answer.")
 
             fn_block = tool_call.get("function") or {}
             function_name = fn_block.get("name") or ""
@@ -266,7 +264,7 @@ def run_agent(
         tools_exposed=exposed_names,
         tool_calls=int(tool_calls),
         tool_errors=int(tool_errors),
-        tool_calls=int(tool_calls),
+        tool_rounds=int(tool_rounds),
         llm_calls=int(llm_calls),
         user_chars=len(user_message or ""),
         assistant_chars=len(final_text or ""),

@@ -35,7 +35,7 @@ _frame = 0
 
 _agents: dict[tuple[str, str, str], dict] = {}
 _spec_logged: set[tuple[str, str, str]] = set()
-_run_spec_logged: set[tuple[str, str]] = set()  # (recording_id, run_id)
+_run_spec_logged: set[tuple[str, str]] = set()
 
 _bench_step = 0
 _bench_lock = threading.Lock()
@@ -68,7 +68,7 @@ class RunContext:
     run_step: int = 0
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
 
-    def tick(self, delta: int = 1) -> int:
+    def step(self, delta: int = 1) -> int:
         d = int(delta or 1)
         if d <= 0:
             d = 1
@@ -128,9 +128,6 @@ def log_run_spec(
     agent_models: dict[str, str],
     agent_tools: dict[str, list[str]],
 ) -> None:
-    """
-    Logs a single row per run so you can see config in Rerun tables.
-    """
     k = (recording_id, run_id)
     if k in _run_spec_logged:
         return
@@ -216,6 +213,7 @@ def log_agent_state(
     tools_exposed: list[str] | None = None,
     tool_calls: int = 0,
     tool_errors: int = 0,
+    tool_rounds: int = 0,
     llm_calls: int = 0,
     user_chars: int = 0,
     assistant_chars: int = 0,
@@ -249,6 +247,7 @@ def log_agent_state(
             tools_exposed=",".join(sorted(tools_exposed or [])),
             tool_calls=int(tool_calls),
             tool_errors=int(tool_errors),
+            tool_rounds=int(tool_rounds),
             llm_calls=int(llm_calls),
             user_chars=int(user_chars),
             assistant_chars=int(assistant_chars),
@@ -296,7 +295,7 @@ def _anim():
 
 def _send_default_blueprint() -> None:
     global _blueprint_sent
-    if _blueprint_sent or rrb is None:
+    if _blueprint_sent:
         return
 
     bp = rrb.Blueprint(
@@ -390,8 +389,8 @@ def start_run(
     rid = (recording_id or _new_id()).strip()
     init(app_id=app_id, recording_id=rid, spawn=spawn, send_blueprint=send_blueprint)
 
-    run_id = (run_id or _new_id()).strip()
-    return RunContext(recording_id=rid, run_id=run_id, run_step=0)
+    the_run_id = (run_id or _new_id()).strip()
+    return RunContext(recording_id=rid, run_id=the_run_id, run_step=0)
 
 
 def start_new_run(parent: RunContext, *, run_id: str | None = None) -> RunContext:
@@ -416,31 +415,27 @@ class Recording:
         profile,
         runner_name: str = "loop",
         agents: dict[str, dict[str, Any]] | None = None,
-        task: Callable[["Run"], None] | None = None,
+        task: Callable[["Run"], None],
         run_id: str | None = None,
         ui: Any | None = None,
         tool_schemas: list[dict] | None = None,
     ) -> "Run":
-        agents = agents or {}
-
         ctx = RunContext(
             recording_id=self.recording_id,
             run_id=(run_id or _new_id()).strip(),
             run_step=0,
         )
 
-        run = Run(
+        return Run(
             name=name,
             context=ctx,
             runner_name=runner_name,
             profile=profile,
-            agents_spec=agents,
+            agents_spec=agents or {},
             task=task,
             ui=ui,
             tool_schemas=tool_schemas,
         )
-
-        return run
 
     def play(self, runs: list["Run"], *, n: int = 1, interval_s: float = 0.0) -> None:
         runs = list(runs or [])
@@ -453,10 +448,16 @@ class Recording:
             rr.set_time("epoch", sequence=int(epoch))
 
             for r in runs:
-                r.step()
+                r.run()
 
             if interval_s:
                 time.sleep(float(interval_s))
+
+    def reset(self, runs: list["Run"]) -> None:
+        for r in runs:
+            for agent_name, agent in r.agents.items():
+                mem = r.memories[agent_name]
+                r.runner.reset(agent, mem)
 
 
 @dataclass
@@ -466,7 +467,7 @@ class Run:
     runner_name: str
     profile: Any
     agents_spec: dict[str, dict[str, Any]]
-    task: Callable[["Run"], None] | None = None
+    task: Callable[["Run"], None]
     ui: Any | None = None
     tool_schemas: list[dict] | None = None
 
@@ -513,10 +514,10 @@ class Run:
             agent_tools=agent_tools,
         )
 
-    def turn(self, agent_name: str, user_message: str):
-        if agent_name not in self.agents:
-            raise KeyError(f"Unknown agent '{agent_name}'. Known={list(self.agents)}")
+    def run(self) -> None:
+        self.task(self)
 
+    def step(self, agent_name: str, user_message: str):
         agent = self.agents[agent_name]
         mem = self.memories[agent_name]
 
@@ -528,11 +529,6 @@ class Run:
             ui=self.ui,
             tool_schemas=self.tool_schemas,
         )
-
-    def step(self) -> None:
-        if not callable(self.task):
-            raise RuntimeError(f"Run '{self.name}' has no task set")
-        self.task(self)
 
 
 def start_recording(
