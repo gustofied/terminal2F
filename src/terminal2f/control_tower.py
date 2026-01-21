@@ -437,15 +437,32 @@ class Recording:
             tool_schemas=tool_schemas,
         )
 
-    def play(self, runs: list["Run"], *, n: int = 1, interval_s: float = 0.0) -> None:
+    def play(
+        self,
+        runs: list["Run"],
+        *,
+        n: int = 1,
+        interval_s: float = 0.0,
+        reset: bool = False,
+        reset_epoch: bool = False,
+        log_resets: bool = True,
+    ) -> None:
         runs = list(runs or [])
         if not runs:
             return
 
         n = max(int(n or 0), 0)
 
+        # Reset once before this play() block
+        if reset:
+            self.reset(runs, log_event=log_resets)
+
         for epoch in range(n):
             rr.set_time("epoch", sequence=int(epoch))
+
+            # Reset before each epoch (fresh episodes)
+            if reset_epoch:
+                self.reset(runs, log_event=log_resets)
 
             for r in runs:
                 r.run()
@@ -453,11 +470,25 @@ class Recording:
             if interval_s:
                 time.sleep(float(interval_s))
 
-    def reset(self, runs: list["Run"]) -> None:
+    def reset(self, runs: list["Run"], *, log_event: bool = True) -> None:
         for r in runs:
+            # Create a bench-step boundary for the reset
+            step = r.context.step()
+
             for agent_name, agent in r.agents.items():
                 mem = r.memories[agent_name]
                 r.runner.reset(agent, mem)
+
+                # Optional: mark boundary in the Rerun logs + reset swarm visuals
+                if log_event:
+                    on_event(
+                        r.context.recording_id,
+                        r.context.run_id,
+                        agent.name,
+                        agent.instance_id,
+                        step,
+                        "⏺ cleared (reset)",
+                    )
 
 
 @dataclass

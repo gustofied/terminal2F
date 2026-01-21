@@ -34,7 +34,7 @@ def main():
     )
 
     recording.play([tools_on], n=3, interval_s=2)
-    recording.play([tools_on, tools_off], n=3, interval_s=2)
+    recording.play([tools_on, tools_off], n=3, interval_s=2, reset_epoch=True)
 
     # Later:
     # recording.evaluate([tools_on, tools_off]) EVALS / BENCHMARKING
