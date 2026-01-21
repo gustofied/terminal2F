@@ -1,6 +1,6 @@
 from terminal2f.agent import Agent
 from terminal2f.agent_profiles import get_profile
-from terminal2f.runners import load
+from terminal2f.runners import get_runner
 from terminal2f.tools import tools
 from terminal2f import control_tower
 import time
@@ -8,7 +8,7 @@ import time
 
 def main():
     profile = get_profile("default") # sticking with profile for now..
-    runner = load("loop")
+    runner = get_runner("loop")
 
     runA = control_tower.start_run(run_id="runA")
     runB = control_tower.start_new_run(runA, run_id="runB")

@@ -8,7 +8,7 @@ from rich.markup import escape
 
 from .agent import Agent
 from .agent_profiles import get_profile
-from .runners import load
+from .runners import get_runner
 from .tools import tools as installed_tools
 from . import control_tower
 
@@ -90,7 +90,7 @@ def run(
     the_profile = get_profile(profile)
 
     agent = Agent(tools_installed=installed_tools, profile=the_profile, name="agentA", instance_id="agentA")
-    runner = load(runner_name)
+    runner = get_runner(runner_name)
     mem = runner.new_memory(agent)
 
     ui = TerminalUI()
@@ -113,7 +113,7 @@ def chat(
     the_profile = get_profile(profile)
 
     agent = Agent(tools_installed=installed_tools, profile=the_profile, name="agentA", instance_id="agentA")
-    runner = load(runner_name)
+    runner = get_runner(runner_name)
     mem = runner.new_memory(agent)
 
     ui = TerminalUI()

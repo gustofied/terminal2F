@@ -16,7 +16,7 @@ class RunnerAPI:
         self._m.reset(agent, memory)
 
 
-def load(name: str) -> RunnerAPI:
+def get_runner(name: str) -> RunnerAPI:
     m = importlib.import_module(f"{__name__}.{name}")
     for fn in ("run_agent", "new_memory", "reset"):
         if not callable(getattr(m, fn, None)):
