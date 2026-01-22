@@ -38,6 +38,7 @@ def main():
 
     # Later:
     # recording.evaluate([tools_on, tools_off]) EVALS / BENCHMARKING
+    # control_tower.evalute(recodig) Rather
     # recording.self_improve() ICL
     # recording.train() RL
 
