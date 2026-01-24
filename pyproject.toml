@@ -12,9 +12,10 @@ dependencies = [
     "mistral-common>=1.8.8",
     "mistralai>=1.10.0",
     "pandas>=2.3.3",
+    "pyarrow>=22.0.0",
     "python-dotenv>=1.2.1",
     "requests>=2.32.5",
-    "rerun-sdk>=0.28.1",
+    "rerun-sdk[datafusion]>=0.28.1",
     "tqdm>=4.67.1",
     "typer>=0.21.1",
 ]

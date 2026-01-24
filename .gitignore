@@ -66,6 +66,7 @@ Thumbs.db
 data/
 *.csv
 *.parquet
+rrd_out/
 
 
 # addy
