@@ -1,0 +1,1959 @@
+This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+mylogger/
+  config.json
+  mylogger.py
+prompts/
+  hi.txt
+  user_txt.txt
+runners/
+  __init__.py
+  fsm.py
+  loop.py
+  pda.py
+  tm.py
+tools/
+  __init__.py
+  code_tools.py
+  payments.py
+  toolsets.py
+__init__.py
+agent_profiles.py
+agent.py
+cli.py
+control_tower.py
+main.py
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path="mylogger/config.json">
+{
+  "version": 1,
+  "disable_existing_loggers": false,
+
+  "filters": {
+    "non_error": { "()": "terminal2f.mylogger.mylogger.NonErrorFilter" }
+  },
+  "loggers": {
+    "httpcore": { "level": "WARNING", "propagate": true },
+    "httpx": { "level": "WARNING", "propagate": true },
+    "asyncio": { "level": "WARNING", "propagate": true }
+  },
+  "formatters": {
+    "console": {
+      "()": "terminal2f.mylogger.mylogger.UTCISOFormatter",
+      "format": "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+    },
+    "json": {
+      "()": "terminal2f.mylogger.mylogger.MyJSONFormatter",
+      "fmt_keys": {
+        "level": "levelname",
+        "logger": "name",
+        "module": "module",
+        "function": "funcName",
+        "line": "lineno",
+        "thread_name": "threadName"
+      }
+    }
+  },
+
+  "handlers": {
+    "file_json": {
+      "class": "logging.handlers.RotatingFileHandler",
+      "level": "DEBUG",
+      "formatter": "json",
+      "filename": "logs/my_app.log.jsonl",
+      "maxBytes": 1048576,
+      "backupCount": 5,
+      "encoding": "utf-8",
+      "delay": true
+    },
+
+    "rerun": {
+      "()": "rerun.LoggingHandler",
+      "level": "DEBUG",
+      "path_prefix": "logs/python"
+    },
+
+    "stderr": {
+      "class": "logging.StreamHandler",
+      "level": "WARNING",
+      "formatter": "console",
+      "stream": "ext://sys.stderr"
+    },
+
+    "stdout": {
+      "class": "logging.StreamHandler",
+      "level": "DEBUG",
+      "formatter": "console",
+      "filters": ["non_error"],
+      "stream": "ext://sys.stdout"
+    }
+  },
+
+  "root": {
+    "level": "DEBUG",
+    "handlers": ["stdout", "stderr", "file_json", "rerun"]
+  }
+}
+</file>
+
+<file path="mylogger/mylogger.py">
+from __future__ import annotations
+
+import datetime as dt
+import json
+import logging
+import logging.config
+from pathlib import Path
+from typing import override
+
+
+LOG_RECORD_BUILTIN_ATTRS = {
+    "args", "asctime", "created", "exc_info", "exc_text", "filename", "funcName",
+    "levelname", "levelno", "lineno", "module", "msecs", "message", "msg", "name",
+    "pathname", "process", "processName", "relativeCreated", "stack_info",
+    "thread", "threadName", "taskName",
+}
+
+
+class UTCISOFormatter(logging.Formatter):
+    @override
+    def formatTime(self, record: logging.LogRecord, datefmt=None) -> str:
+        ts = dt.datetime.fromtimestamp(record.created, tz=dt.timezone.utc)
+        return ts.isoformat(timespec="milliseconds").replace("+00:00", "Z")
+
+
+class MyJSONFormatter(logging.Formatter):
+    def __init__(self, *, fmt_keys: dict[str, str] | None = None):
+        super().__init__()
+        self.fmt_keys = fmt_keys or {}
+
+    @override
+    def format(self, record: logging.LogRecord) -> str:
+        always: dict[str, object] = {
+            "message": record.getMessage(),
+            "timestamp": dt.datetime.fromtimestamp(
+                record.created, tz=dt.timezone.utc
+            ).isoformat(timespec="milliseconds").replace("+00:00", "Z"),
+        }
+        if record.exc_info:
+            always["exc_info"] = self.formatException(record.exc_info)
+        if record.stack_info:
+            always["stack_info"] = self.formatStack(record.stack_info)
+
+        out = {
+            k: (always.pop(v, None) if v in always else getattr(record, v))
+            for k, v in self.fmt_keys.items()
+        }
+        out.update(always)
+
+        for k, v in record.__dict__.items():
+            if k not in LOG_RECORD_BUILTIN_ATTRS:
+                out[k] = v
+
+        return json.dumps(out, ensure_ascii=False, default=str)
+
+
+class NonErrorFilter(logging.Filter):
+    @override
+    def filter(self, record: logging.LogRecord) -> bool:
+        return record.levelno <= logging.INFO
+
+
+def setup_logging(config_path: str = "config.json") -> None:
+    Path("logs").mkdir(parents=True, exist_ok=True)
+
+    cfg = json.loads(Path(config_path).read_text(encoding="utf-8"))
+    logging.config.dictConfig(cfg)
+</file>
+
+<file path="prompts/hi.txt">
+I should use jinja in the future right?
+</file>
+
+<file path="prompts/user_txt.txt">
+I should use jinja in the future right?
+</file>
+
+<file path="runners/__init__.py">
+import importlib
+from typing import Any
+
+
+class RunnerAPI:
+    def __init__(self, mod: Any):
+        self._m = mod
+
+    def __call__(self, *args, **kwargs):
+        return self._m.run_agent(*args, **kwargs)
+
+    def new_memory(self, agent):
+        return self._m.new_memory(agent)
+
+    def reset(self, agent, memory) -> None:
+        self._m.reset(agent, memory)
+
+
+def get_runner(name: str) -> RunnerAPI:
+    m = importlib.import_module(f"{__name__}.{name}")
+    for fn in ("run_agent", "new_memory", "reset"):
+        if not callable(getattr(m, fn, None)):
+            raise AttributeError(f"Runner module '{name}' must define {fn}(...)")
+    return RunnerAPI(m)
+</file>
+
+<file path="runners/fsm.py">
+"""
+FSM
+
+So this is just going to be like a loop runner, just more explicit states, etc. Following Erik's methodology 
+
+"""
+</file>
+
+<file path="runners/loop.py">
+import json
+import logging
+from dataclasses import dataclass, field
+from typing import Any
+
+from .. import control_tower
+from ..control_tower import RunContext
+from ..agent_profiles import AgentProfile, compile_tools, get_profile, tool_name
+from ..tools import names_to_functions
+
+log = logging.getLogger("app.runner")
+
+
+@dataclass
+class RunnerMemory:
+    instance_id: str
+    agent_name: str
+    agent_step: int = 0
+    messages: list[dict] = field(default_factory=list)
+
+
+def new_memory(agent) -> RunnerMemory:
+    iid = getattr(agent, "instance_id", hex(id(agent))[2:])
+    name = getattr(agent, "name", "agent")
+    return RunnerMemory(
+        instance_id=iid,
+        agent_name=name,
+        messages=[{"role": "system", "content": agent.system_message}],
+    )
+
+
+def reset(agent, memory: RunnerMemory) -> None:
+    memory.agent_step = 0
+    memory.messages = [{"role": "system", "content": agent.system_message}]
+
+
+def _usage_prompt_tokens(resp: Any) -> int:
+    usage = getattr(resp, "usage", None)
+    if usage is None:
+        return 0
+    v = getattr(usage, "prompt_tokens", None)
+    if v is not None:
+        return int(v) or 0
+    if isinstance(usage, dict):
+        return int(usage.get("prompt_tokens") or 0)
+    return 0
+
+
+def _schema_names(tool_schemas: list[dict]) -> set[str]:
+    return {tool_name(t) for t in (tool_schemas or [])}
+
+
+def _run_tool(function_name: str, function_params: dict) -> str:
+    fn = names_to_functions.get(function_name)
+    if not callable(fn):
+        return f"error: tool '{function_name}' not found"
+    try:
+        return fn(**(function_params or {}))
+    except Exception as err:
+        return f"error: {err}"
+
+
+def run_agent(
+    agent,
+    user_message: str,
+    *,
+    memory: RunnerMemory,
+    run: RunContext,
+    ui=None,
+    tool_schemas: list[dict] | None = None,
+    context_budget: int | None = None,
+    max_tool_calls: int | None = None,
+):
+    profile: AgentProfile = getattr(agent, "profile", None) or get_profile("default")
+    context_budget = profile.ctx_budget if context_budget is None else context_budget
+    max_tool_calls = profile.max_tool_calls if max_tool_calls is None else int(max_tool_calls)
+
+    recording_id = run.recording_id
+    run_id = run.run_id
+    step = run.step()
+
+    tools_installed = getattr(agent, "tools_installed", None) or []
+
+    tool_names_allowed, tools_exposed = compile_tools(
+        profile=profile,
+        installed_tools=tools_installed,
+        requested_tools=tool_schemas,
+    )
+
+    iid = memory.instance_id
+    name = memory.agent_name
+    msgs = memory.messages
+
+    memory.agent_step += 1
+    agent_step = memory.agent_step
+
+    control_tower.register_agent(recording_id, run_id, name, iid)
+
+    installed_names = sorted(_schema_names(tools_installed))
+    allowed_names = sorted(tool_names_allowed)
+    exposed_names = sorted(_schema_names(tools_exposed))
+
+    control_tower.log_agent_spec(
+        recording_id,
+        run_id,
+        name,
+        iid,
+        step=step,
+        model=getattr(agent, "model", None),
+        max_context_length=getattr(agent, "max_context_length", None),
+        system_message=getattr(agent, "system_message", None),
+        tools_installed=installed_names,
+    )
+
+    msgs.append({"role": "user", "content": user_message})
+    control_tower.on_turn(
+        recording_id,
+        run_id,
+        name,
+        iid,
+        step,
+        agent_step=agent_step,
+        user_message=user_message,
+    )
+
+    def _ui_call(method_name: str, *args):
+        if not ui:
+            return
+        fn = getattr(ui, method_name, None)
+        if callable(fn):
+            fn(*args)
+
+    def _warn_budget(prompt_tokens: int):
+        if context_budget is None or prompt_tokens <= context_budget:
+            return
+        txt = f"⚠️ context budget exceeded: {prompt_tokens}/{context_budget} prompt tokens"
+        control_tower.on_event(recording_id, run_id, name, iid, step, txt)
+        _ui_call("on_event", txt)
+
+    context_window = 0
+    warned = False
+    llm_calls = 0
+    last_prompt_tokens = 0
+
+    tool_calls = 0
+    tool_rounds = 0
+    tool_errors = 0
+    last_tool_name = ""
+    last_tool_error = ""
+
+    response = agent.step(msgs, tools_exposed=tools_exposed)
+    llm_calls += 1
+    pt = _usage_prompt_tokens(response)
+    last_prompt_tokens = pt
+    context_window = max(context_window, pt)
+    if (not warned) and context_budget is not None and pt > context_budget:
+        warned = True
+        _warn_budget(pt)
+
+    assistant = response.choices[0].message.model_dump(exclude_none=True)
+    msgs.append(assistant)
+
+    text = assistant.get("content", "") or ""
+    if text:
+        _ui_call("on_assistant_text", text)
+
+    while assistant.get("tool_calls"):
+        tool_rounds += 1
+
+        for tool_call in assistant["tool_calls"]:
+            tool_calls += 1
+            if tool_calls > max_tool_calls:
+                raise RuntimeError("Max tool calls reached without a final answer.")
+
+            fn_block = tool_call.get("function") or {}
+            function_name = fn_block.get("name") or ""
+            raw_args = fn_block.get("arguments") or "{}"
+            last_tool_name = function_name
+
+            if function_name not in tool_names_allowed:
+                function_params = {}
+                function_result = f"error: tool '{function_name}' not allowed by profile.tool_policy"
+                tool_errors += 1
+                last_tool_error = function_result
+            else:
+                try:
+                    function_params = json.loads(raw_args)
+                    if not isinstance(function_params, dict):
+                        raise ValueError("tool arguments must decode to an object")
+                except Exception as err:
+                    function_params = {}
+                    function_result = f"error: {err}"
+                    tool_errors += 1
+                    last_tool_error = function_result
+                else:
+                    control_tower.on_tool_call(
+                        recording_id, run_id, name, iid, step, function_name, function_params
+                    )
+                    _ui_call("on_tool_call", function_name, function_params)
+                    function_result = _run_tool(function_name, function_params)
+
+                    if (function_result or "").startswith("error:"):
+                        tool_errors += 1
+                        last_tool_error = function_result
+
+            _ui_call("on_tool_result", function_name, function_result)
+            control_tower.on_tool_result(
+                recording_id, run_id, name, iid, step, function_name, function_result
+            )
+
+            msgs.append(
+                {
+                    "role": "tool",
+                    "tool_call_id": tool_call.get("id"),
+                    "name": function_name,
+                    "content": function_result,
+                }
+            )
+
+        response = agent.step(msgs, tools_exposed=tools_exposed)
+        llm_calls += 1
+        pt = _usage_prompt_tokens(response)
+        last_prompt_tokens = pt
+        context_window = max(context_window, pt)
+        if (not warned) and context_budget is not None and pt > context_budget:
+            warned = True
+            _warn_budget(pt)
+
+        assistant = response.choices[0].message.model_dump(exclude_none=True)
+        msgs.append(assistant)
+
+        text = assistant.get("content", "") or ""
+        if text:
+            _ui_call("on_assistant_text", text)
+
+    final_text = assistant.get("content", "") or ""
+    control_tower.on_assistant(recording_id, run_id, name, iid, step, final_text)
+
+    control_tower.on_usage(
+        recording_id,
+        run_id,
+        name,
+        iid,
+        step,
+        context_window,
+        context_limit=agent.max_context_length,
+    )
+
+    control_tower.log_agent_state(
+        recording_id,
+        run_id,
+        name,
+        iid,
+        step=step,
+        agent_step=agent_step,
+        profile_name=profile.name,
+        model=getattr(agent, "model", None),
+        prompt_tokens_last=int(last_prompt_tokens or 0),
+        prompt_tokens_max=int(context_window or 0),
+        context_budget=context_budget,
+        context_limit=getattr(agent, "max_context_length", None),
+        warned_budget=bool(warned),
+        tools_allowed=allowed_names,
+        tools_exposed=exposed_names,
+        tool_calls=int(tool_calls),
+        tool_errors=int(tool_errors),
+        tool_rounds=int(tool_rounds),
+        llm_calls=int(llm_calls),
+        user_chars=len(user_message or ""),
+        assistant_chars=len(final_text or ""),
+        last_tool_name=str(last_tool_name or ""),
+        last_tool_error=str(last_tool_error or ""),
+    )
+
+    return response
+</file>
+
+<file path="runners/pda.py">
+"""
+.This is going to be a stack. A pushdown automata, which is an FSM with a context memory stack, you could say
+, which you will implement again using Erik's mythology and also learnings from my masters. 
+"""
+</file>
+
+<file path="runners/tm.py">
+"""
+Turing machine means read write memory.
+Again, learnings from previous sources, not this time, this new paper I have been reading. 
+"""
+</file>
+
+<file path="tools/__init__.py">
+from .payments import tools as payment_tools, names_to_functions as payment_functions
+from .code_tools import tools as code_tools, names_to_functions as code_functions
+
+tools = [*payment_tools, *code_tools]
+names_to_functions = {**payment_functions, **code_functions}
+</file>
+
+<file path="tools/code_tools.py">
+import glob as globlib
+import os
+import re
+from pathlib import Path
+
+
+def _repo_root() -> Path:
+    return Path(__file__).resolve().parent.parent
+
+
+def _resolve_in_repo(user_path: str) -> Path:
+    root = _repo_root()
+
+    s = (user_path or ".").strip()
+    p = Path(s)
+    candidate = p if p.is_absolute() else (root / p)
+
+    resolved = candidate.resolve(strict=False)
+
+    try:
+        ok = resolved.is_relative_to(root) 
+    except AttributeError:
+        try:
+            resolved.relative_to(root)
+            ok = True
+        except ValueError:
+            ok = False
+
+    if not ok:
+        raise PermissionError("path outside repo")
+
+    return resolved
+
+
+def read(path: str, offset: int = 0, limit: int | None = None) -> str:
+    p = _resolve_in_repo(path)
+
+    offset = max(int(offset or 0), 0)
+    lines = open(p, encoding="utf-8", errors="replace").readlines()
+
+    if limit is None:
+        limit = len(lines)
+    else:
+        limit = max(int(limit or 0), 0)
+
+    selected = lines[offset : offset + limit]
+    return "".join(f"{offset + idx + 1:4}| {line}" for idx, line in enumerate(selected))
+
+
+def write(path: str, content: str) -> str:
+    p = _resolve_in_repo(path)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    with open(p, "w", encoding="utf-8") as f:
+        f.write(content or "")
+    return "ok"
+
+
+def edit(path: str, old: str, new: str, all: bool = False) -> str:
+    p = _resolve_in_repo(path)
+    text = open(p, encoding="utf-8", errors="replace").read()
+
+    if old not in text:
+        return "error: old_string not found"
+
+    count = text.count(old)
+    if (not all) and count > 1:
+        return f"error: old_string appears {count} times, must be unique (use all=true)"
+
+    replacement = text.replace(old, new) if all else text.replace(old, new, 1)
+    with open(p, "w", encoding="utf-8") as f:
+        f.write(replacement)
+    return "ok"
+
+
+def glob(pat: str, path: str = ".") -> str:
+    base = _resolve_in_repo(path)
+    pattern = f"{base}/{pat}".replace("//", "/")
+
+    files = globlib.glob(pattern, recursive=True)
+    files = sorted(
+        files,
+        key=lambda f: os.path.getmtime(f) if os.path.isfile(f) else 0,
+        reverse=True,
+    )
+    return "\n".join(files) or "none"
+
+
+def grep(pat: str, path: str = ".") -> str:
+    base = _resolve_in_repo(path)
+    rx = re.compile(pat)
+
+    hits: list[str] = []
+    for filepath in globlib.glob(f"{base}/**", recursive=True):
+        try:
+            if not os.path.isfile(filepath):
+                continue
+            with open(filepath, encoding="utf-8", errors="replace") as f:
+                for line_num, line in enumerate(f, 1):
+                    if rx.search(line):
+                        hits.append(f"{filepath}:{line_num}:{line.rstrip()}")
+                        if len(hits) >= 50:
+                            return "\n".join(hits)
+        except Exception:
+            pass
+
+    return "\n".join(hits) or "none"
+
+
+def bash(cmd: str) -> str:
+    return "error: bash tool is disabled (locked)"
+
+
+names_to_functions = {
+    "read": read,
+    "write": write,
+    "edit": edit,
+    "glob": glob,
+    "grep": grep,
+    "bash": bash,  # currently commented out
+}
+
+tools = [
+    {
+        "type": "function",
+        "function": {
+            "name": "read",
+            "description": "Read file with line numbers (repo-only)",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "File path (repo-only)"},
+                    "offset": {"type": "integer", "description": "Line offset (0-based)"},
+                    "limit": {"type": "integer", "description": "Max lines to read"},
+                },
+                "required": ["path"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "write",
+            "description": "Write content to file (repo-only)",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "File path (repo-only)"},
+                    "content": {"type": "string", "description": "File content"},
+                },
+                "required": ["path", "content"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "edit",
+            "description": "Replace old with new in file (repo-only; old must be unique unless all=true)",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "File path (repo-only)"},
+                    "old": {"type": "string", "description": "Old string"},
+                    "new": {"type": "string", "description": "New string"},
+                    "all": {"type": "boolean", "description": "Replace all occurrences"},
+                },
+                "required": ["path", "old", "new"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "glob",
+            "description": "Find files by pattern, sorted by mtime (repo-only)",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "pat": {"type": "string", "description": "Glob pattern"},
+                    "path": {"type": "string", "description": "Base path (repo-only)"},
+                },
+                "required": ["pat"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "grep",
+            "description": "Search files for regex pattern (repo-only)",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "pat": {"type": "string", "description": "Regex pattern"},
+                    "path": {"type": "string", "description": "Base path (repo-only)"},
+                },
+                "required": ["pat"],
+            },
+        },
+    },
+    #     {
+    #     "type": "function",
+    #     "function": {
+    #         "name": "bash",
+    #         "description": "Run shell command",
+    #         "parameters": {
+    #             "type": "object",
+    #             "properties": {
+    #                 "cmd": {"type": "string", "description": "Shell command"},
+    #             },
+    #             "required": ["cmd"],
+    #         },
+    #     },
+    # },
+]
+</file>
+
+<file path="tools/payments.py">
+import json
+import pandas as pd
+
+# This was part of the mistral tool demonstration
+
+data = {
+    "transaction_id": ["T1001", "T1002", "T1003", "T1004", "T1005"],
+    "customer_id": ["C001", "C002", "C003", "C002", "C001"],
+    "payment_amount": [125.50, 89.99, 120.00, 54.30, 210.20],
+    "payment_date": ["2021-10-05", "2021-10-06", "2021-10-07", "2021-10-05", "2021-10-08"],
+    "payment_status": ["Paid", "Unpaid", "Paid", "Paid", "Pending"],
+}
+
+df = pd.DataFrame(data)
+
+def retrieve_payment_status(transaction_id: str) -> str:
+    if transaction_id in df.transaction_id.values:
+        status = df[df.transaction_id == transaction_id].payment_status.item()
+        return json.dumps({"status": status})
+    return json.dumps({"error": "transaction id not found."})
+
+def retrieve_payment_date(transaction_id: str) -> str:
+    if transaction_id in df.transaction_id.values:
+        date = df[df.transaction_id == transaction_id].payment_date.item()
+        return json.dumps({"date": date})
+    return json.dumps({"error": "transaction id not found."})
+
+names_to_functions = {
+    "retrieve_payment_status": retrieve_payment_status,
+    "retrieve_payment_date": retrieve_payment_date,
+}
+
+tools = [
+    {
+        "type": "function",
+        "function": {
+            "name": "retrieve_payment_status",
+            "description": "Get payment status of a transaction",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "transaction_id": {"type": "string", "description": "The transaction id."}
+                },
+                "required": ["transaction_id"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "retrieve_payment_date",
+            "description": "Get payment date of a transaction",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "transaction_id": {"type": "string", "description": "The transaction id."}
+                },
+                "required": ["transaction_id"],
+            },
+        },
+    },
+]
+</file>
+
+<file path="tools/toolsets.py">
+# maybe rename from saying toolsets tbh..
+from __future__ import annotations
+
+from typing import FrozenSet
+
+PAYMENTS: FrozenSet[str] = frozenset({"retrieve_payment_status", "retrieve_payment_date"})
+CODE: FrozenSet[str] = frozenset({"read", "write", "edit", "glob", "grep"})
+ALL_TOOLS: FrozenSet[str] = frozenset({"*"})
+NO_TOOLS: FrozenSet[str] = frozenset()
+</file>
+
+<file path="agent_profiles.py">
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Any, FrozenSet
+
+from .tools.toolsets import ALL_TOOLS, NO_TOOLS, PAYMENTS
+
+ToolSchema = dict[str, Any]
+
+
+def tool_name(schema: ToolSchema) -> str:
+    return schema["function"]["name"]
+
+
+@dataclass(frozen=True)
+class ToolPolicy:
+    allowed: FrozenSet[str] = frozenset()
+
+    def allows(self, name: str) -> bool:
+        return bool(name) and ("*" in self.allowed or name in self.allowed)
+
+
+@dataclass(frozen=True)
+class ModelConfig:
+    model: str = "ministral-3b-2512"
+    temperature: float = 0.1
+    max_tokens: int = 1024
+    parallel_tool_calls: bool = False
+
+
+@dataclass(frozen=True)
+class AgentProfile:
+    name: str
+    description: str = ""
+    tool_policy: ToolPolicy = field(default_factory=ToolPolicy)
+    ctx_budget: int | None = 5000
+    max_tool_calls: int = 10
+    model: ModelConfig = field(default_factory=ModelConfig)
+    system_message: str = "Concise coding assistant. profile={profile} cwd={cwd}"
+
+    def render_system_message(self, *, cwd: str) -> str:
+        return self.system_message.format(profile=self.name, cwd=cwd)
+
+
+def compile_tools(
+    *,
+    profile: AgentProfile,
+    installed_tools: list[ToolSchema],
+    requested_tools: list[ToolSchema] | None,
+) -> tuple[set[str], list[ToolSchema]]:
+    installed = installed_tools or []
+    basis = installed if requested_tools is None else (requested_tools or [])
+
+    installed_names = {tool_name(t) for t in installed}
+
+    exposed: list[ToolSchema] = []
+    for t in basis:
+        n = tool_name(t)
+        if n in installed_names and profile.tool_policy.allows(n):
+            exposed.append(t)
+
+    return {tool_name(t) for t in exposed}, exposed
+
+
+PROFILES: dict[str, AgentProfile] = {}
+
+PROFILES["default"] = AgentProfile(
+    name="default",
+    description="payments tools only",
+    tool_policy=ToolPolicy(allowed=PAYMENTS),
+    ctx_budget=5000,
+    max_tool_calls=10,
+    model=ModelConfig(
+        model="ministral-3b-2512",
+        temperature=0.1,
+        max_tokens=1024,
+        parallel_tool_calls=False,
+    ),
+    system_message="Concise coding assistant. profile={profile} cwd={cwd}",
+)
+
+PROFILES["chat_safe"] = AgentProfile(
+    name="chat_safe",
+    description="no tools",
+    tool_policy=ToolPolicy(allowed=NO_TOOLS),
+    ctx_budget=4000,
+    max_tool_calls=0,
+    model=ModelConfig(
+        model="ministral-3b-2512",
+        temperature=0.2,
+        max_tokens=700,
+        parallel_tool_calls=False,
+    ),
+    system_message="Helpful assistant. profile={profile} cwd={cwd}. No tools.",
+)
+
+PROFILES["dev_all_tools"] = AgentProfile(
+    name="dev_all_tools",
+    description="all tools",
+    tool_policy=ToolPolicy(allowed=ALL_TOOLS),
+    ctx_budget=12000,
+    max_tool_calls=12,
+    model=ModelConfig(
+        model="ministral-3b-2512",
+        temperature=0.1,
+        max_tokens=1024,
+        parallel_tool_calls=False,
+    ),
+    system_message="Concise coding assistant. profile={profile} cwd={cwd}. Use tools when helpful.",
+)
+
+
+def get_profile(name: str | None) -> AgentProfile:
+    return PROFILES.get((name or "").strip(), PROFILES["default"])
+</file>
+
+<file path="agent.py">
+import os
+import uuid
+from typing import Any
+
+from dotenv import load_dotenv
+from mistralai import Mistral
+
+from .agent_profiles import AgentProfile, get_profile
+
+load_dotenv()
+
+
+class Agent:
+    def __init__(
+        self,
+        tools_installed,
+        *,
+        profile: AgentProfile | None = None,
+        model: str | None = None,
+        name: str = "agent",
+        instance_id: str | None = None,
+    ):
+        api_key = os.getenv("MISTRAL_API_KEY")
+        if not api_key:
+            raise RuntimeError("Missing MISTRAL_API_KEY in environment")
+
+        self.client = Mistral(api_key=api_key)
+
+        self.profile: AgentProfile = profile or get_profile("default")
+        self.model = model or self.profile.model.model
+
+        self.tools_installed = tools_installed or []
+
+        model_info = self.client.models.retrieve(model_id=self.model)
+        self.max_context_length = model_info.max_context_length
+
+        self.name = name
+        self.instance_id = instance_id or uuid.uuid4().hex[:8]
+        self.system_message = self.profile.render_system_message(cwd=os.getcwd())
+
+    def step(
+        self,
+        messages,
+        *,
+        tools_exposed: list[dict] | None = None,
+    ):
+        tools_exposed = tools_exposed or []
+        profile = self.profile
+
+        kwargs: dict[str, Any] = dict(
+            model=profile.model.model or self.model,
+            messages=messages,
+            temperature=float(profile.model.temperature),
+            max_tokens=int(profile.model.max_tokens),
+        )
+
+        if tools_exposed:
+            kwargs["tools"] = tools_exposed
+            kwargs["tool_choice"] = "auto"
+            kwargs["parallel_tool_calls"] = bool(profile.model.parallel_tool_calls)
+
+        return self.client.chat.complete(**kwargs)
+</file>
+
+<file path="cli.py">
+from pathlib import Path
+import os
+import re
+import typer
+
+from rich.console import Console
+from rich.markup import escape
+
+from .agent import Agent
+from .agent_profiles import get_profile
+from .runners import get_runner
+from .tools import tools as installed_tools
+from . import control_tower
+
+app = typer.Typer(add_completion=False)
+
+
+def _term_width(default: int = 80) -> int:
+    try:
+        return min(os.get_terminal_size().columns, default)
+    except Exception:
+        return default
+
+
+def _render_bold_md(text: str) -> str:
+    out = []
+    last = 0
+    for m in re.finditer(r"\*\*(.+?)\*\*", text):
+        out.append(escape(text[last:m.start()]))
+        out.append(f"[bold]{escape(m.group(1))}[/bold]")
+        last = m.end()
+    out.append(escape(text[last:]))
+    return "".join(out)
+
+
+def _preview_block(s: str, max_len: int) -> str:
+    s = s or ""
+    return s[:max_len] + ("..." if len(s) > max_len else "")
+
+
+def _preview_tool_result(result: str) -> str:
+    lines = (result or "").splitlines() or [""]
+    first = _preview_block(lines[0], 60)
+    if len(lines) > 1:
+        return f"{first} ... +{len(lines) - 1} lines"
+    return first
+
+
+class TerminalUI:
+    def __init__(self):
+        self.console = Console()
+
+    def separator(self):
+        self.console.print("─" * _term_width(), style="dim")
+
+    def on_event(self, text: str):
+        self.console.print(f"\n[yellow]⏺[/] {escape(text)}", markup=True)
+
+    def on_assistant_text(self, text: str):
+        self.console.print(f"\n[cyan]⏺[/] {_render_bold_md(text)}", markup=True)
+
+    def on_tool_call(self, name: str, params: dict):
+        preview = ""
+        if params:
+            first_val = next(iter(params.values()))
+            preview = _preview_block(str(first_val), 50)
+
+        self.console.print(
+            f"\n[green]⏺ {name.capitalize()}[/]([dim]{escape(preview)}[/])",
+            markup=True,
+        )
+
+    def on_tool_result(self, _name: str, result: str):
+        self.console.print(
+            f"  [dim]⎿  {escape(_preview_tool_result(result))}[/]",
+            markup=True,
+        )
+
+
+@app.command()
+def run(
+    file: Path = typer.Argument(..., exists=True, dir_okay=False, readable=True),
+    runner_name: str = typer.Option("loop", help="Runner module (e.g. loop)."),
+    profile: str = typer.Option("default", help="Agent profile preset (default/chat_safe/dev_all_tools)."),
+    spawn: bool = typer.Option(True, help="Spawn rerun viewer."),
+):
+    prompt = file.read_text(encoding="utf-8")
+
+    run_ctx = control_tower.start_run(spawn=spawn)
+    the_profile = get_profile(profile)
+
+    agent = Agent(tools_installed=installed_tools, profile=the_profile, name="agentA", instance_id="agentA")
+    runner = get_runner(runner_name)
+    mem = runner.new_memory(agent)
+
+    ui = TerminalUI()
+    ui.console.print(
+        f"[bold]t2f run[/] | [dim]{agent.model}[/] | [dim]{os.getcwd()}[/] | "
+        f"[dim]profile={the_profile.name}[/] | [dim]recording={run_ctx.recording_id}[/] | [dim]run={run_ctx.run_id}[/]\n"
+    )
+
+    runner(agent, prompt, memory=mem, ui=ui, run=run_ctx)
+    ui.console.print()
+
+
+@app.command()
+def chat(
+    runner_name: str = typer.Option("loop", help="Runner module (e.g. loop)."),
+    profile: str = typer.Option("default", help="Agent profile preset (default/chat_safe/dev_all_tools)."),
+    spawn: bool = typer.Option(True, help="Spawn rerun viewer."),
+):
+    run_ctx = control_tower.start_run(spawn=spawn)
+    the_profile = get_profile(profile)
+
+    agent = Agent(tools_installed=installed_tools, profile=the_profile, name="agentA", instance_id="agentA")
+    runner = get_runner(runner_name)
+    mem = runner.new_memory(agent)
+
+    ui = TerminalUI()
+    ui.console.print(
+        f"[bold]t2f chat[/] | [dim]{agent.model}[/] | [dim]{os.getcwd()}[/] | "
+        f"[dim]profile={the_profile.name}[/] | [dim]recording={run_ctx.recording_id}[/] | [dim]run={run_ctx.run_id}[/]"
+    )
+    ui.console.print("[dim]Commands:[/] /q quit, /c clear\n")
+
+    while True:
+        try:
+            ui.separator()
+            user_input = ui.console.input("[bold blue]❯[/] ").strip()
+            ui.separator()
+
+            if not user_input:
+                continue
+            if user_input in ("/q", "exit", "quit"):
+                break
+
+            if user_input == "/c":
+                step = run_ctx.step()
+                runner.reset(agent, mem)
+                control_tower.on_event(
+                    run_ctx.recording_id,
+                    run_ctx.run_id,
+                    agent.name,
+                    agent.instance_id,
+                    step,
+                    "⏺ cleared",
+                )
+                ui.console.print("[green]⏺ Cleared conversation[/]\n")
+                continue
+
+            runner(agent, user_input, memory=mem, ui=ui, run=run_ctx)
+            ui.console.print()
+
+        except (KeyboardInterrupt, EOFError):
+            break
+
+
+@app.command(name="main")
+def run_main(
+    runner: str = typer.Option("loop", help="Runner module to use for main()."),
+):
+    from .main import main as real_main
+    real_main()
+
+
+if __name__ == "__main__":
+    app()
+</file>
+
+<file path="control_tower.py">
+import hashlib
+import json
+import math
+import threading
+import time
+import uuid
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any, Callable
+
+import rerun as rr
+import rerun.blueprint as rrb
+
+_initialized = False
+_started = False
+_blueprint_sent = False
+
+ROOT = "t2f"
+RUNS_ROOT = f"{ROOT}/runs"
+
+TABLE_ROOT = f"{ROOT}/tables"
+RUN_SPEC_TABLE = f"{TABLE_ROOT}/run_spec"
+AGENT_STATE_TABLE = f"{TABLE_ROOT}/agent_state"
+AGENT_SPEC_TABLE = f"{TABLE_ROOT}/agent_spec"
+
+USER = [80, 160, 255, 255]
+ASSISTANT = [120, 220, 120, 255]
+TOOL = [255, 200, 80, 255]
+EVENT = [180, 180, 180, 255]
+
+IDLE = [160, 160, 160, 255]
+ACTIVE = [120, 220, 120, 255]
+
+_frame = 0
+
+_agents: dict[tuple[str, str, str], dict] = {}
+_spec_logged: set[tuple[str, str, str]] = set()
+_run_spec_logged: set[tuple[str, str]] = set()
+
+_bench_step = 0
+_bench_lock = threading.Lock()
+
+
+def _new_id(n: int = 8) -> str:
+    return uuid.uuid4().hex[: int(n)]
+
+
+def _bench_now() -> int:
+    with _bench_lock:
+        return int(_bench_step)
+
+
+def _tick_bench(delta: int = 1) -> int:
+    global _bench_step
+    d = int(delta or 1)
+    if d <= 0:
+        d = 1
+    with _bench_lock:
+        _bench_step += d
+        rr.set_time("bench_step", sequence=int(_bench_step))
+        return int(_bench_step)
+
+
+@dataclass
+class RunContext:
+    recording_id: str
+    run_id: str
+    run_step: int = 0
+    _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
+
+    def step(self, delta: int = 1) -> int:
+        d = int(delta or 1)
+        if d <= 0:
+            d = 1
+        with self._lock:
+            self.run_step += d
+        return _tick_bench(d)
+
+
+def new_location(center_x, center_y, x, y, angle):
+    cos_a = math.cos(angle)
+    sin_a = math.sin(angle)
+    translated_x = x - center_x
+    translated_y = y - center_y
+    new_x = translated_x * cos_a - translated_y * sin_a + center_x
+    new_y = translated_x * sin_a + translated_y * cos_a + center_y
+    return new_x, new_y
+
+
+def _base(run_id: str, agent_name: str, instance_id: str) -> str:
+    return f"{RUNS_ROOT}/{run_id}/agents/{agent_name}/instances/{instance_id}"
+
+
+def _st(run_id: str, agent_name: str, instance_id: str) -> dict:
+    k = (run_id, agent_name, instance_id)
+    st = _agents.get(k)
+    if st is None:
+        seed = f"{run_id}:{agent_name}:{instance_id}"
+        n = int.from_bytes(
+            hashlib.blake2b(seed.encode(), digest_size=8).digest(), "little"
+        )
+        r = 6.0 + (n % 7) * 1.1
+        a0 = (n % 360) * (math.pi / 180.0)
+        st = _agents[k] = {
+            "n": n,
+            "bx": r * math.cos(a0),
+            "by": r * math.sin(a0),
+            "frac": 0.0,
+            "active_until": -1,
+            "agent_step": 0,
+            "bench_step": 0,
+        }
+    return st
+
+
+def register_agent(recording_id: str, run_id: str, agent_name: str, instance_id: str) -> None:
+    _ = recording_id
+    _st(run_id, agent_name, instance_id)
+
+
+def log_run_spec(
+    recording_id: str,
+    run_id: str,
+    *,
+    name: str,
+    runner_name: str,
+    profile_name: str,
+    agent_models: dict[str, str],
+    agent_tools: dict[str, list[str]],
+) -> None:
+    k = (recording_id, run_id)
+    if k in _run_spec_logged:
+        return
+
+    rr.set_time("bench_step", sequence=_bench_now())
+
+    rr.log(
+        RUN_SPEC_TABLE,
+        rr.AnyValues(
+            recording_id=recording_id,
+            run_id=run_id,
+            run_name=str(name or ""),
+            runner_name=str(runner_name or ""),
+            profile_name=str(profile_name or ""),
+            agents=",".join(sorted(agent_models.keys())),
+            agent_models=json.dumps(agent_models, ensure_ascii=False),
+            agent_tools=json.dumps(agent_tools, ensure_ascii=False),
+            tools_total=int(sum(len(v) for v in agent_tools.values())),
+        ),
+    )
+
+    _run_spec_logged.add(k)
+
+
+def log_agent_spec(
+    recording_id: str,
+    run_id: str,
+    agent_name: str,
+    instance_id: str,
+    *,
+    step: int,
+    model: str | None = None,
+    max_context_length: int | None = None,
+    system_message: str | None = None,
+    tools_installed: list[str] | None = None,
+) -> None:
+    k = (run_id, agent_name, instance_id)
+    if k in _spec_logged:
+        return
+
+    rr.set_time("bench_step", sequence=int(step))
+
+    sm = system_message or ""
+    sm_preview = sm[:300] + ("…" if len(sm) > 300 else "")
+    sm_hash = (
+        hashlib.blake2b(sm.encode("utf-8"), digest_size=8).hexdigest() if sm else ""
+    )
+
+    rr.log(
+        AGENT_SPEC_TABLE,
+        rr.AnyValues(
+            recording_id=recording_id,
+            run_id=run_id,
+            agent_name=agent_name,
+            instance_id=instance_id,
+            agent_key=f"{agent_name}:{instance_id}",
+            model=model or "",
+            max_context_length=int(max_context_length or 0),
+            system_message_preview=sm_preview,
+            system_message_hash=sm_hash,
+            tools_installed=",".join(sorted(tools_installed or [])),
+        ),
+    )
+    _spec_logged.add(k)
+
+
+def log_agent_state(
+    recording_id: str,
+    run_id: str,
+    agent_name: str,
+    instance_id: str,
+    *,
+    step: int,
+    agent_step: int,
+    profile_name: str = "",
+    model: str | None = None,
+    prompt_tokens_last: int = 0,
+    prompt_tokens_max: int = 0,
+    context_budget: int | None = None,
+    context_limit: int | None = None,
+    warned_budget: bool = False,
+    tools_allowed: list[str] | None = None,
+    tools_exposed: list[str] | None = None,
+    tool_calls: int = 0,
+    tool_errors: int = 0,
+    tool_rounds: int = 0,
+    llm_calls: int = 0,
+    user_chars: int = 0,
+    assistant_chars: int = 0,
+    last_tool_name: str = "",
+    last_tool_error: str = "",
+) -> None:
+    rr.set_time("bench_step", sequence=int(step))
+
+    cl = int(context_limit or 0)
+    frac = float(prompt_tokens_max / cl) if cl > 0 else 0.0
+
+    rr.log(
+        AGENT_STATE_TABLE,
+        rr.AnyValues(
+            recording_id=recording_id,
+            run_id=run_id,
+            bench_step=int(step),
+            profile_name=str(profile_name or ""),
+            agent_name=agent_name,
+            instance_id=instance_id,
+            agent_key=f"{agent_name}:{instance_id}",
+            agent_step=int(agent_step),
+            model=model or "",
+            prompt_tokens_last=int(prompt_tokens_last),
+            prompt_tokens_max=int(prompt_tokens_max),
+            context_budget=int(context_budget) if context_budget is not None else -1,
+            context_limit=int(context_limit or 0),
+            context_frac=float(frac),
+            warned_budget=bool(warned_budget),
+            tools_allowed=",".join(sorted(tools_allowed or [])),
+            tools_exposed=",".join(sorted(tools_exposed or [])),
+            tool_calls=int(tool_calls),
+            tool_errors=int(tool_errors),
+            tool_rounds=int(tool_rounds),
+            llm_calls=int(llm_calls),
+            user_chars=int(user_chars),
+            assistant_chars=int(assistant_chars),
+            last_tool_name=str(last_tool_name or ""),
+            last_tool_error=str((last_tool_error or "")[:300]),
+        ),
+    )
+
+
+def _draw(frame: int):
+    cx = cy = 0.0
+    angle = frame * 0.05
+
+    pts, cols, rads, labels = [], [], [], []
+    for (run_id, name, iid), st in list(_agents.items()):
+        x, y = new_location(cx, cy, st["bx"], st["by"], angle)
+
+        base = 0.04 + 0.25 * st["frac"]
+        pulse = 0.025 * math.sin(frame * (0.15 + (st["n"] % 10) * 0.03))
+        rad = max(base + pulse, 1.01)
+
+        pts.append([x, y])
+        cols.append(ACTIVE if frame <= st["active_until"] else IDLE)
+        rads.append(rad)
+
+        bench_step = int(st.get("bench_step", 0))
+        agent_step = int(st.get("agent_step", 0))
+        labels.append(f"{run_id} | {name}:{iid} | bench={bench_step} | agent={agent_step}")
+
+    rr.log(
+        f"{ROOT}/swarm/points",
+        rr.Points2D(pts, colors=cols, radii=rads, labels=labels, show_labels=True),
+    )
+
+
+def _anim():
+    global _frame
+    while True:
+        rr.set_time("frame", sequence=_frame)
+        if _agents:
+            _draw(_frame)
+        _frame += 1
+        time.sleep(1 / 30)
+
+
+def _send_default_blueprint() -> None:
+    global _blueprint_sent
+    if _blueprint_sent:
+        return
+
+    bp = rrb.Blueprint(
+        rrb.Grid(
+            rrb.Spatial2DView(
+                origin=f"{ROOT}/swarm",
+                name="Swarm",
+                contents=f"{ROOT}/swarm/**",
+            ),
+            rrb.TextLogView(
+                origin=f"{RUNS_ROOT}",
+                name="Run logs",
+                contents=f"{RUNS_ROOT}/**",
+            ),
+            rrb.TimeSeriesView(
+                origin=RUNS_ROOT,
+                name="Usage",
+                contents=[f"+ {RUNS_ROOT}/**/usage/context_length"],
+            ),
+            rrb.DataframeView(
+                origin=f"{TABLE_ROOT}",
+                name="Tables (DF)",
+                query=rrb.archetypes.DataframeQuery(
+                    timeline="bench_step",
+                    apply_latest_at=True,
+                ),
+            ),
+            grid_columns=2,
+            name="t2f dashboard",
+        ),
+        collapse_panels=True,
+    )
+
+    rr.send_blueprint(bp)
+    _blueprint_sent = True
+
+
+def init(
+    app_id: str = "the_agent_logs",
+    *,
+    recording_id: str,
+    spawn: bool = True,
+    send_blueprint: bool = True,
+    log_config_path: str | None = None,
+) -> None:
+    global _initialized, _started
+
+    if _initialized:
+        return
+
+    rr.init(app_id, recording_id=recording_id, spawn=spawn)
+
+    rr.log(
+        f"{ROOT}/swarm/origin",
+        rr.Boxes2D(
+            mins=[-1, -1],
+            sizes=[2, 2],
+            labels=["terminal2F"],
+            show_labels=True,
+        ),
+        static=True,
+    )
+
+    if send_blueprint:
+        _send_default_blueprint()
+
+    if not _started:
+        _started = True
+        threading.Thread(target=_anim, daemon=True).start()
+
+    if log_config_path is None:
+        default_cfg = Path(__file__).resolve().parent / "mylogger" / "config.json"
+        if default_cfg.is_file():
+            log_config_path = str(default_cfg)
+
+    if log_config_path:
+        from .mylogger.mylogger import setup_logging
+        setup_logging(log_config_path)
+
+    _initialized = True
+
+
+def start_run(
+    *,
+    app_id: str = "the_agent_logs",
+    spawn: bool = True,
+    send_blueprint: bool = True,
+    recording_id: str | None = None,
+    run_id: str | None = None,
+) -> RunContext:
+    rid = (recording_id or _new_id()).strip()
+    init(app_id=app_id, recording_id=rid, spawn=spawn, send_blueprint=send_blueprint)
+
+    the_run_id = (run_id or _new_id()).strip()
+    return RunContext(recording_id=rid, run_id=the_run_id, run_step=0)
+
+
+def start_new_run(parent: RunContext, *, run_id: str | None = None) -> RunContext:
+    return RunContext(
+        recording_id=parent.recording_id,
+        run_id=(run_id or _new_id()).strip(),
+        run_step=0,
+    )
+
+
+@dataclass
+class Recording:
+    recording_id: str
+    app_id: str = "the_agent_logs"
+    spawn: bool = True
+    send_blueprint: bool = True
+
+    def add_run(
+        self,
+        *,
+        name: str,
+        profile,
+        runner_name: str = "loop",
+        agents: dict[str, dict[str, Any]] | None = None,
+        task: Callable[["Run"], None],
+        run_id: str | None = None,
+        ui: Any | None = None,
+        tool_schemas: list[dict] | None = None,
+    ) -> "Run":
+        ctx = RunContext(
+            recording_id=self.recording_id,
+            run_id=(run_id or _new_id()).strip(),
+            run_step=0,
+        )
+
+        return Run(
+            name=name,
+            context=ctx,
+            runner_name=runner_name,
+            profile=profile,
+            agents_spec=agents or {},
+            task=task,
+            ui=ui,
+            tool_schemas=tool_schemas,
+        )
+
+    def play(
+        self,
+        runs: list["Run"],
+        *,
+        n: int = 1,
+        interval_s: float = 0.0,
+        reset: bool = False,
+        reset_epoch: bool = False,
+        log_resets: bool = True,
+    ) -> None:
+        runs = list(runs or [])
+        if not runs:
+            return
+
+        n = max(int(n or 0), 0)
+
+        # Reset once before this play() block
+        if reset:
+            self.reset(runs, log_event=log_resets)
+
+        for epoch in range(n):
+            rr.set_time("epoch", sequence=int(epoch))
+
+            # Reset before each epoch (fresh episodes)
+            if reset_epoch:
+                self.reset(runs, log_event=log_resets)
+
+            for r in runs:
+                r.run()
+
+            if interval_s:
+                time.sleep(float(interval_s))
+
+    def reset(self, runs: list["Run"], *, log_event: bool = True) -> None:
+        for r in runs:
+            # Create a bench-step boundary for the reset
+            step = r.context.step()
+
+            for agent_name, agent in r.agents.items():
+                mem = r.memories[agent_name]
+                r.runner.reset(agent, mem)
+
+                # Optional: mark boundary in the Rerun logs + reset swarm visuals
+                if log_event:
+                    on_event(
+                        r.context.recording_id,
+                        r.context.run_id,
+                        agent.name,
+                        agent.instance_id,
+                        step,
+                        "⏺ cleared (reset)",
+                    )
+
+
+@dataclass
+class Run:
+    name: str
+    context: RunContext
+    runner_name: str
+    profile: Any
+    agents_spec: dict[str, dict[str, Any]]
+    task: Callable[["Run"], None]
+    ui: Any | None = None
+    tool_schemas: list[dict] | None = None
+
+    def __post_init__(self):
+        from .agent import Agent
+        from .runners import get_runner
+        from .agent_profiles import tool_name
+
+        self.runner = get_runner(self.runner_name)
+
+        self.agents: dict[str, Any] = {}
+        self.memories: dict[str, Any] = {}
+
+        agent_models: dict[str, str] = {}
+        agent_tools: dict[str, list[str]] = {}
+
+        for agent_name, spec in (self.agents_spec or {}).items():
+            tools_installed = spec.get("tools") or []
+            instance_id = spec.get("instance_id") or agent_name
+            model = spec.get("model")
+
+            agent = Agent(
+                tools_installed=tools_installed,
+                profile=self.profile,
+                model=model,
+                name=agent_name,
+                instance_id=instance_id,
+            )
+            mem = self.runner.new_memory(agent)
+
+            self.agents[agent_name] = agent
+            self.memories[agent_name] = mem
+
+            agent_models[agent_name] = str(getattr(agent, "model", "") or "")
+            agent_tools[agent_name] = sorted([tool_name(t) for t in (tools_installed or [])])
+
+        log_run_spec(
+            self.context.recording_id,
+            self.context.run_id,
+            name=self.name,
+            runner_name=self.runner_name,
+            profile_name=getattr(self.profile, "name", "") or "",
+            agent_models=agent_models,
+            agent_tools=agent_tools,
+        )
+
+    def run(self) -> None:
+        self.task(self)
+
+    def step(self, agent_name: str, user_message: str):
+        agent = self.agents[agent_name]
+        mem = self.memories[agent_name]
+
+        return self.runner(
+            agent,
+            user_message,
+            memory=mem,
+            run=self.context,
+            ui=self.ui,
+            tool_schemas=self.tool_schemas,
+        )
+
+
+def start_recording(
+    *,
+    recording_id: str,
+    app_id: str = "the_agent_logs",
+    spawn: bool = True,
+    send_blueprint: bool = True,
+) -> Recording:
+    init(
+        app_id=app_id,
+        recording_id=recording_id,
+        spawn=spawn,
+        send_blueprint=send_blueprint,
+    )
+
+    return Recording(
+        recording_id=recording_id,
+        app_id=app_id,
+        spawn=spawn,
+        send_blueprint=send_blueprint,
+    )
+
+
+def on_event(
+    recording_id: str,
+    run_id: str,
+    agent_name: str,
+    instance_id: str,
+    step: int,
+    text: str,
+) -> None:
+    rr.set_time("bench_step", sequence=int(step))
+    rr.log(
+        f"{_base(run_id, agent_name, instance_id)}/events",
+        rr.TextLog(text, level=rr.TextLogLevel.INFO, color=EVENT),
+    )
+
+    if "cleared" in (text or "").lower():
+        st = _st(run_id, agent_name, instance_id)
+        st["frac"] = 0.0
+        st["active_until"] = -1
+        st["agent_step"] = 0
+        st["bench_step"] = int(step)
+
+
+def on_turn(
+    recording_id: str,
+    run_id: str,
+    agent_name: str,
+    instance_id: str,
+    step: int,
+    *,
+    agent_step: int,
+    user_message: str,
+) -> None:
+    rr.set_time("bench_step", sequence=int(step))
+    rr.log(
+        f"{_base(run_id, agent_name, instance_id)}/conversation",
+        rr.TextLog(f"user: {user_message}", level=rr.TextLogLevel.INFO, color=USER),
+    )
+    st = _st(run_id, agent_name, instance_id)
+    st["agent_step"] = int(agent_step)
+    st["bench_step"] = int(step)
+    st["active_until"] = _frame + 20
+
+
+def on_tool_call(
+    recording_id: str,
+    run_id: str,
+    agent_name: str,
+    instance_id: str,
+    step: int,
+    function_name: str,
+    function_params: dict,
+) -> None:
+    rr.set_time("bench_step", sequence=int(step))
+    rr.log(
+        f"{_base(run_id, agent_name, instance_id)}/tool_calls",
+        rr.TextLog(
+            f"{function_name}({function_params})", level=rr.TextLogLevel.INFO, color=TOOL
+        ),
+    )
+    st = _st(run_id, agent_name, instance_id)
+    st["bench_step"] = int(step)
+
+
+def on_tool_result(
+    recording_id: str,
+    run_id: str,
+    agent_name: str,
+    instance_id: str,
+    step: int,
+    function_name: str,
+    function_result: str,
+) -> None:
+    rr.set_time("bench_step", sequence=int(step))
+    rr.log(
+        f"{_base(run_id, agent_name, instance_id)}/tool_results",
+        rr.TextLog(f"{function_name} -> {function_result}", level=rr.TextLogLevel.INFO, color=TOOL),
+    )
+    st = _st(run_id, agent_name, instance_id)
+    st["bench_step"] = int(step)
+
+
+def on_assistant(
+    recording_id: str,
+    run_id: str,
+    agent_name: str,
+    instance_id: str,
+    step: int,
+    content: str,
+) -> None:
+    rr.set_time("bench_step", sequence=int(step))
+    rr.log(
+        f"{_base(run_id, agent_name, instance_id)}/conversation",
+        rr.TextLog(f"assistant: {content}", level=rr.TextLogLevel.INFO, color=ASSISTANT),
+    )
+    st = _st(run_id, agent_name, instance_id)
+    st["bench_step"] = int(step)
+
+
+def on_usage(
+    recording_id: str,
+    run_id: str,
+    agent_name: str,
+    instance_id: str,
+    step: int,
+    prompt_tokens: int,
+    *,
+    context_limit: int,
+) -> None:
+    rr.set_time("bench_step", sequence=int(step))
+    rr.log(
+        f"{_base(run_id, agent_name, instance_id)}/usage/context_length",
+        rr.Scalars(prompt_tokens),
+    )
+    st = _st(run_id, agent_name, instance_id)
+    st["frac"] = min(prompt_tokens / max(context_limit, 1), 1.0)
+    st["bench_step"] = int(step)
+</file>
+
+<file path="main.py">
+from terminal2f import control_tower
+from terminal2f.agent_profiles import get_profile
+from terminal2f.tools import tools
+
+
+def task(run):
+    run.step("agentA", "What is the payment status for T1001?")
+    run.step("agentB", "What is the payment date for T1002?")
+
+
+def main():
+    recording = control_tower.start_recording(recording_id="exp_ab_eval", spawn=True)
+
+    tools_on = recording.add_run(
+        name="tools_on",
+        profile=get_profile("default"),
+        runner_name="loop",
+        agents={
+            "agentA": {"tools": tools},
+            "agentB": {"tools": tools},
+        },
+        task=task,
+    )
+
+    tools_off = recording.add_run(
+        name="tools_off",
+        profile=get_profile("chat_safe"),
+        runner_name="loop",
+        agents={
+            "agentA": {"tools": []},
+            "agentB": {"tools": []},
+        },
+        task=task,
+    )
+
+    recording.play([tools_on], n=3, interval_s=2)
+    recording.play([tools_on, tools_off], n=3, interval_s=2, reset_epoch=True)
+
+    # Later:
+    # recording.evaluate([tools_on, tools_off]) EVALS / BENCHMARKING
+    # control_tower.evalute(recodig) Rather
+    # recording.self_improve() ICL
+    # recording.train() RL
+
+
+if __name__ == "__main__":
+    main()
+</file>
+
+</files>

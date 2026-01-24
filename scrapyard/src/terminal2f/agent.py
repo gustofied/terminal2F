@@ -2,13 +2,13 @@ import os
 import uuid
 from typing import Any
 
-from dotenv import load_dotenv
 from mistralai import Mistral
 
 from .agent_profiles import AgentProfile, get_profile
 
-load_dotenv()
+from dotenv import load_dotenv  
 
+load_dotenv()
 
 class Agent:
     def __init__(
@@ -28,7 +28,6 @@ class Agent:
 
         self.profile: AgentProfile = profile or get_profile("default")
         self.model = model or self.profile.model.model
-
         self.tools_installed = tools_installed or []
 
         model_info = self.client.models.retrieve(model_id=self.model)
@@ -38,17 +37,12 @@ class Agent:
         self.instance_id = instance_id or uuid.uuid4().hex[:8]
         self.system_message = self.profile.render_system_message(cwd=os.getcwd())
 
-    def step(
-        self,
-        messages,
-        *,
-        tools_exposed: list[dict] | None = None,
-    ):
+    def step(self, messages, *, tools_exposed: list[dict] | None = None):
         tools_exposed = tools_exposed or []
         profile = self.profile
 
         kwargs: dict[str, Any] = dict(
-            model=profile.model.model or self.model,
+            model=self.model,
             messages=messages,
             temperature=float(profile.model.temperature),
             max_tokens=int(profile.model.max_tokens),

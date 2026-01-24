@@ -1,47 +1,16 @@
-from terminal2f import control_tower
-from terminal2f.agent_profiles import get_profile
-from terminal2f.tools import tools
-
-
-def task(run):
-    run.step("agentA", "What is the payment status for T1001?")
-    run.step("agentB", "What is the payment date for T1002?")
-
+from matplotlib.pylab import record
+import numpy as np
+import rerun as rr
+import time
 
 def main():
-    recording = control_tower.start_recording(recording_id="exp_ab_eval", spawn=True)
-
-    tools_on = recording.add_run(
-        name="tools_on",
-        profile=get_profile("default"),
-        runner_name="loop",
-        agents={
-            "agentA": {"tools": tools},
-            "agentB": {"tools": tools},
-        },
-        task=task,
-    )
-
-    tools_off = recording.add_run(
-        name="tools_off",
-        profile=get_profile("chat_safe"),
-        runner_name="loop",
-        agents={
-            "agentA": {"tools": []},
-            "agentB": {"tools": []},
-        },
-        task=task,
-    )
-
-    recording.play([tools_on], n=3, interval_s=2)
-    recording.play([tools_on, tools_off], n=3, interval_s=2, reset_epoch=True)
-
-    # Later:
-    # recording.evaluate([tools_on, tools_off]) EVALS / BENCHMARKING
-    # control_tower.evalute(recodig) Rather
-    # recording.self_improve() ICL
-    # recording.train() RL
-
-
+    print("Hello World")
+    for x in range(0, 10):
+        run_1 = rr.RecordingStream("Testing me")
+        run_1.spawn()
+        run_1.log("x", rr.TextLog("hello")) 
+        time.sleep(5)
+    
 if __name__ == "__main__":
     main()
+

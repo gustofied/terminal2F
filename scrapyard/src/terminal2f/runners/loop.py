@@ -1,12 +1,11 @@
 import json
 import logging
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Optional
 
-from .. import control_tower
-from ..control_tower import RunContext
 from ..agent_profiles import AgentProfile, compile_tools, get_profile, tool_name
 from ..tools import names_to_functions
+from ..telemetry_rerun import SegmentContext
 
 log = logging.getLogger("app.runner")
 
@@ -60,12 +59,23 @@ def _run_tool(function_name: str, function_params: dict) -> str:
         return f"error: {err}"
 
 
+def _tool_result_is_error(s: str) -> bool:
+    s = s or ""
+    if s.startswith("error:"):
+        return True
+    try:
+        obj = json.loads(s)
+        return isinstance(obj, dict) and "error" in obj
+    except Exception:
+        return False
+
+
 def run_agent(
     agent,
     user_message: str,
     *,
     memory: RunnerMemory,
-    run: RunContext,
+    ctx: Optional[SegmentContext] = None,
     ui=None,
     tool_schemas: list[dict] | None = None,
     context_budget: int | None = None,
@@ -75,12 +85,7 @@ def run_agent(
     context_budget = profile.ctx_budget if context_budget is None else context_budget
     max_tool_calls = profile.max_tool_calls if max_tool_calls is None else int(max_tool_calls)
 
-    recording_id = run.recording_id
-    run_id = run.run_id
-    step = run.step()
-
     tools_installed = getattr(agent, "tools_installed", None) or []
-
     tool_names_allowed, tools_exposed = compile_tools(
         profile=profile,
         installed_tools=tools_installed,
@@ -94,34 +99,28 @@ def run_agent(
     memory.agent_step += 1
     agent_step = memory.agent_step
 
-    control_tower.register_agent(recording_id, run_id, name, iid)
+    step = ctx.step() if ctx else agent_step
+    rec = ctx.recorder if ctx else None
 
     installed_names = sorted(_schema_names(tools_installed))
     allowed_names = sorted(tool_names_allowed)
     exposed_names = sorted(_schema_names(tools_exposed))
 
-    control_tower.log_agent_spec(
-        recording_id,
-        run_id,
-        name,
-        iid,
-        step=step,
-        model=getattr(agent, "model", None),
-        max_context_length=getattr(agent, "max_context_length", None),
-        system_message=getattr(agent, "system_message", None),
-        tools_installed=installed_names,
-    )
+    if rec:
+        rec.agent_spec(
+            name,
+            iid,
+            profile=profile.name,
+            model=str(getattr(agent, "model", "") or ""),
+            tools_installed=installed_names,
+            tools_allowed=allowed_names,
+            tools_exposed=exposed_names,
+        )
 
     msgs.append({"role": "user", "content": user_message})
-    control_tower.on_turn(
-        recording_id,
-        run_id,
-        name,
-        iid,
-        step,
-        agent_step=agent_step,
-        user_message=user_message,
-    )
+
+    if rec:
+        rec.turn(name, iid, user_message, step=step)
 
     def _ui_call(method_name: str, *args):
         if not ui:
@@ -134,7 +133,8 @@ def run_agent(
         if context_budget is None or prompt_tokens <= context_budget:
             return
         txt = f"⚠️ context budget exceeded: {prompt_tokens}/{context_budget} prompt tokens"
-        control_tower.on_event(recording_id, run_id, name, iid, step, txt)
+        if rec:
+            rec.event(txt)
         _ui_call("on_event", txt)
 
     context_window = 0
@@ -145,11 +145,10 @@ def run_agent(
     tool_calls = 0
     tool_rounds = 0
     tool_errors = 0
-    last_tool_name = ""
-    last_tool_error = ""
 
     response = agent.step(msgs, tools_exposed=tools_exposed)
     llm_calls += 1
+
     pt = _usage_prompt_tokens(response)
     last_prompt_tokens = pt
     context_window = max(context_window, pt)
@@ -163,6 +162,8 @@ def run_agent(
     text = assistant.get("content", "") or ""
     if text:
         _ui_call("on_assistant_text", text)
+        if rec:
+            rec.assistant(name, iid, text, step=step)
 
     while assistant.get("tool_calls"):
         tool_rounds += 1
@@ -170,43 +171,48 @@ def run_agent(
         for tool_call in assistant["tool_calls"]:
             tool_calls += 1
             if tool_calls > max_tool_calls:
-                raise RuntimeError("Max tool calls reached without a final answer.")
+                msg = f"error: max_tool_calls reached ({max_tool_calls})"
+                if rec:
+                    rec.event(msg)
+                raise RuntimeError(msg)
 
             fn_block = tool_call.get("function") or {}
             function_name = fn_block.get("name") or ""
-            raw_args = fn_block.get("arguments") or "{}"
-            last_tool_name = function_name
+            raw_args = fn_block.get("arguments") or {}
 
             if function_name not in tool_names_allowed:
                 function_params = {}
                 function_result = f"error: tool '{function_name}' not allowed by profile.tool_policy"
                 tool_errors += 1
-                last_tool_error = function_result
             else:
                 try:
-                    function_params = json.loads(raw_args)
+                    if isinstance(raw_args, str):
+                        function_params = json.loads(raw_args or "{}")
+                    elif isinstance(raw_args, dict):
+                        function_params = raw_args
+                    else:
+                        function_params = {}
+
                     if not isinstance(function_params, dict):
-                        raise ValueError("tool arguments must decode to an object")
+                        raise ValueError("tool arguments must be an object")
                 except Exception as err:
                     function_params = {}
                     function_result = f"error: {err}"
                     tool_errors += 1
-                    last_tool_error = function_result
                 else:
-                    control_tower.on_tool_call(
-                        recording_id, run_id, name, iid, step, function_name, function_params
-                    )
+                    if rec:
+                        rec.tool_call(name, iid, function_name, function_params, step=step)
                     _ui_call("on_tool_call", function_name, function_params)
+
                     function_result = _run_tool(function_name, function_params)
 
-                    if (function_result or "").startswith("error:"):
+                    if _tool_result_is_error(function_result):
                         tool_errors += 1
-                        last_tool_error = function_result
 
             _ui_call("on_tool_result", function_name, function_result)
-            control_tower.on_tool_result(
-                recording_id, run_id, name, iid, step, function_name, function_result
-            )
+
+            if rec:
+                rec.tool_result(name, iid, function_name, function_result, step=step)
 
             msgs.append(
                 {
@@ -219,9 +225,11 @@ def run_agent(
 
         response = agent.step(msgs, tools_exposed=tools_exposed)
         llm_calls += 1
+
         pt = _usage_prompt_tokens(response)
         last_prompt_tokens = pt
         context_window = max(context_window, pt)
+
         if (not warned) and context_budget is not None and pt > context_budget:
             warned = True
             _warn_budget(pt)
@@ -232,44 +240,12 @@ def run_agent(
         text = assistant.get("content", "") or ""
         if text:
             _ui_call("on_assistant_text", text)
+            if rec:
+                rec.assistant(name, iid, text, step=step)
 
     final_text = assistant.get("content", "") or ""
-    control_tower.on_assistant(recording_id, run_id, name, iid, step, final_text)
 
-    control_tower.on_usage(
-        recording_id,
-        run_id,
-        name,
-        iid,
-        step,
-        context_window,
-        context_limit=agent.max_context_length,
-    )
-
-    control_tower.log_agent_state(
-        recording_id,
-        run_id,
-        name,
-        iid,
-        step=step,
-        agent_step=agent_step,
-        profile_name=profile.name,
-        model=getattr(agent, "model", None),
-        prompt_tokens_last=int(last_prompt_tokens or 0),
-        prompt_tokens_max=int(context_window or 0),
-        context_budget=context_budget,
-        context_limit=getattr(agent, "max_context_length", None),
-        warned_budget=bool(warned),
-        tools_allowed=allowed_names,
-        tools_exposed=exposed_names,
-        tool_calls=int(tool_calls),
-        tool_errors=int(tool_errors),
-        tool_rounds=int(tool_rounds),
-        llm_calls=int(llm_calls),
-        user_chars=len(user_message or ""),
-        assistant_chars=len(final_text or ""),
-        last_tool_name=str(last_tool_name or ""),
-        last_tool_error=str(last_tool_error or ""),
-    )
+    if rec:
+        rec.usage(name, iid, int(last_prompt_tokens or 0), step=step)
 
     return response
