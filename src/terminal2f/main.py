@@ -10,21 +10,21 @@ import rerun as rr
 
 # ------------------- DATA SETUP
 
-EXPERIMENT_NAME = "LOOP_AGENT" # AIGHT
-RUN_ID = time.strftime("%Y-%m-%d_rund9") # RATHER SAY VERSION?
-EXPERIMENT = f"{EXPERIMENT_NAME}/{RUN_ID}"
+EXPERIMENT_NAME = "LOOP_AGENT"
+RUN_ID = time.strftime("%Y-%m-%d_rund9")
+
+DATASET_NAME = f"{EXPERIMENT_NAME}/{RUN_ID}"
 
 LOGS_DIR = Path("logs")
 
-RECORDINGS_DIR = LOGS_DIR / "recordings" / EXPERIMENT_NAME / RUN_ID # saving the rerun recordings, for debug and replay
-RECORDINGS_DIR.mkdir(parents=True, exist_ok=True) # for analytics and more
+RECORDINGS_DIR = LOGS_DIR / "recordings" / EXPERIMENT_NAME / RUN_ID
+RECORDINGS_DIR.mkdir(parents=True, exist_ok=True)
 
 METRICS_DIR = LOGS_DIR / "metrics"
-
-# ARTEFACT_STORE = 
-# Metrics can be partqut, if im going with artefact store i guess.
+METRICS_DIR.mkdir(parents=True, exist_ok=True)
 
 
+# ------------------- METRICS TABLE
 
 METRICS_TABLE_NAME = "eval_metrics"
 METRICS_SCHEMA = pa.schema(
@@ -45,7 +45,7 @@ def log_variant_rrd(segment_id: str, variant: str) -> str:
     rrd_path = RECORDINGS_DIR / f"{segment_id}__{variant}.rrd"
 
     rec = rr.RecordingStream(
-        application_id=EXPERIMENT,
+        application_id=DATASET_NAME,
         recording_id=segment_id,
     )
     rec.save(str(rrd_path))
@@ -83,9 +83,8 @@ def get_or_create_dataset(client: rr.catalog.CatalogClient, name: str) -> rr.cat
     return client.get_dataset(name=name)
 
 
-def ensure_leaderboard_table(client: rr.catalog.CatalogClient, root: Path) -> rr.catalog.TableEntry:
-    storage_dir = root / "metrics" / f"{METRICS_TABLE_NAME}.lance"
-    storage_dir.parent.mkdir(parents=True, exist_ok=True)
+def ensure_metrics_table(client: rr.catalog.CatalogClient) -> rr.catalog.TableEntry:
+    storage_dir = METRICS_DIR / f"{METRICS_TABLE_NAME}.lance"
     storage_url = storage_dir.absolute().as_uri()
 
     try:
@@ -106,7 +105,7 @@ def ensure_leaderboard_table(client: rr.catalog.CatalogClient, root: Path) -> rr
     return table
 
 
-def append_leaderboard_row(
+def append_metrics_row(
     table: rr.catalog.TableEntry,
     *,
     experiment: str,
@@ -135,9 +134,9 @@ def run_experiment() -> None:
 
     with rr.server.Server() as server:
         client = server.client()
-        dataset = get_or_create_dataset(client, EXPERIMENT)
+        dataset = get_or_create_dataset(client, DATASET_NAME)
 
-        leaderboard = ensure_leaderboard_table(client, LOGS_DIR)
+        metrics_table = ensure_metrics_table(client)
 
         rrd_uris: list[str] = []
         rrd_layers: list[str] = []
@@ -152,9 +151,9 @@ def run_experiment() -> None:
                 rrd_uris.append(rrd_uri)
                 rrd_layers.append(variant)
 
-                append_leaderboard_row(
-                    leaderboard,
-                    experiment=EXPERIMENT,
+                append_metrics_row(
+                    metrics_table,
+                    experiment=EXPERIMENT_NAME,
                     run_id=RUN_ID,
                     segment_id=segment_id,
                     variant=variant,
@@ -170,7 +169,7 @@ def run_experiment() -> None:
         handle.wait()
 
         # Example query
-        batches = client.ctx.sql("SELECT * FROM eval_metrics LIMIT 10").collect()
+        batches = client.ctx.sql(f"SELECT * FROM {METRICS_TABLE_NAME} LIMIT 10").collect()
         for b in batches:
             print(b.to_pandas())
 
@@ -188,12 +187,12 @@ def run_sql(sql: str) -> None:
     """
     Lightweight CLI query runner:
     - starts a tiny local server
-    - registers/opens the leaderboard table
+    - registers/opens the eval_metrics table
     - runs SQL against client.ctx
     """
     with rr.server.Server() as server:
         client = server.client()
-        ensure_leaderboard_table(client, LOGS_DIR)
+        ensure_metrics_table(client)
 
         batches = client.ctx.sql(sql).collect()
         for b in batches:
