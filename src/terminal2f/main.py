@@ -10,18 +10,20 @@ import rerun as rr
 
 # ------------------- DATA SETUP
 
-EXPERIMENT_NAME = "LOOP_AGENT"
-RUN_ID = time.strftime("%Y-%m-%d_rund9")
-
-DATASET_NAME = f"{EXPERIMENT_NAME}/{RUN_ID}"
+EXPERIMENT_NAME = "LOOP_AGENT" # AIGHT
+RUN_ID = time.strftime("%Y-%m-%d_rund229") # RATHER SAY VERSION?
+EXPERIMENT = f"{EXPERIMENT_NAME}/{RUN_ID}"
 
 LOGS_DIR = Path("logs")
 
-RECORDINGS_DIR = LOGS_DIR / "recordings" / EXPERIMENT_NAME / RUN_ID
-RECORDINGS_DIR.mkdir(parents=True, exist_ok=True)
+RECORDINGS_DIR = LOGS_DIR / "recordings" / EXPERIMENT_NAME / RUN_ID # saving the rerun recordings, for debug and replay
+RECORDINGS_DIR.mkdir(parents=True, exist_ok=True) # for analytics and more
 
 METRICS_DIR = LOGS_DIR / "metrics"
 METRICS_DIR.mkdir(parents=True, exist_ok=True)
+
+# ARTEFACT_STORE = 
+# Metrics can be partqut, if im going with artefact store i guess.
 
 
 # ------------------- METRICS TABLE
@@ -29,7 +31,7 @@ METRICS_DIR.mkdir(parents=True, exist_ok=True)
 METRICS_TABLE_NAME = "eval_metrics"
 METRICS_SCHEMA = pa.schema(
     [
-        ("experiment", pa.string()),
+        ("experiment_name", pa.string()),
         ("run_id", pa.string()),
         ("segment_id", pa.string()),
         ("variant", pa.string()),
@@ -45,12 +47,12 @@ def log_variant_rrd(segment_id: str, variant: str) -> str:
     rrd_path = RECORDINGS_DIR / f"{segment_id}__{variant}.rrd"
 
     rec = rr.RecordingStream(
-        application_id=DATASET_NAME,
+        application_id=EXPERIMENT,
         recording_id=segment_id,
     )
     rec.save(str(rrd_path))
 
-    rec.log("prompt", rr.TextLog(f"solve case={segment_id} variant={variant}", level=TextLogLevel.DEBUG))
+    rec.log("prompt", rr.TextLog(f"solve case={segment_id} variant={variant}", level=rr.TextLogLevel.DEBUG))
     rec.log("answer", rr.TextLog(f"hello from {variant} @ {segment_id}"))
     rec.log("debug/value", rr.Scalars([float(np.random.randn())]))
 
@@ -108,7 +110,7 @@ def ensure_metrics_table(client: rr.catalog.CatalogClient) -> rr.catalog.TableEn
 def append_metrics_row(
     table: rr.catalog.TableEntry,
     *,
-    experiment: str,
+    experiment_name: str,
     run_id: str,
     segment_id: str,
     variant: str,
@@ -118,7 +120,7 @@ def append_metrics_row(
     success: bool,
 ) -> None:
     table.append(
-        experiment=experiment,
+        experiment_name=experiment_name,
         run_id=run_id,
         segment_id=segment_id,
         variant=variant,
@@ -134,7 +136,7 @@ def run_experiment() -> None:
 
     with rr.server.Server() as server:
         client = server.client()
-        dataset = get_or_create_dataset(client, DATASET_NAME)
+        dataset = get_or_create_dataset(client, EXPERIMENT)
 
         metrics_table = ensure_metrics_table(client)
 
@@ -153,7 +155,7 @@ def run_experiment() -> None:
 
                 append_metrics_row(
                     metrics_table,
-                    experiment=EXPERIMENT_NAME,
+                    experiment_name=EXPERIMENT_NAME,
                     run_id=RUN_ID,
                     segment_id=segment_id,
                     variant=variant,
