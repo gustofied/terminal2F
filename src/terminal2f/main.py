@@ -2,29 +2,60 @@ import time
 from pathlib import Path
 
 import numpy as np
+import pyarrow as pa
 import rerun as rr
 
-from terminal2f.infra.query_engine import make_ctx
-from terminal2f.infra.metrics_store import MetricsStore
 
-
+# -----------------------------
+# Experiment naming
+# -----------------------------
 EXPERIMENT = "tool_usage_math"
-TRIAL_ID = time.strftime("%Y-%m-%d_run05")
+TRIAL_ID = time.strftime("%Y-%m-%d_run06")
 DATASET_NAME = f"experiments/{EXPERIMENT}/{TRIAL_ID}"
 
 OUT_DIR = Path("rrd_out") / EXPERIMENT / TRIAL_ID
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
-LOGS_DIR = Path("logs")  # your app-owned metrics storage root
+LOGS_DIR = Path("logs")  # where the leaderboard Lance dataset lives
 
 
+# -----------------------------
+# Catalog table schema (leaderboard)
+# -----------------------------
+LEADERBOARD_TABLE_NAME = "leaderboard"
+LEADERBOARD_SCHEMA = pa.schema(
+    [
+        ("experiment", pa.string()),
+        ("trial_id", pa.string()),
+        ("segment_id", pa.string()),
+        ("variant", pa.string()),
+        ("tokens", pa.int64()),
+        ("tool_calls", pa.int64()),
+        ("steps", pa.int64()),
+        ("success", pa.bool_()),
+    ]
+)
+
+
+def _as_uri(path: Path) -> str:
+    return path.absolute().as_uri()
+
+
+# -----------------------------
+# RRD logging
+# -----------------------------
 def log_variant_rrd(segment_id: str, variant: str) -> str:
+    """
+    Creates ONE RRD file for (segment_id, variant).
+    Uses the same entity paths across variants so layered A/B compares cleanly.
+    """
     rrd_path = OUT_DIR / f"{segment_id}__{variant}.rrd"
 
     rec = rr.RecordingStream(
         application_id=DATASET_NAME,
         recording_id=segment_id,
     )
+
     rec.save(str(rrd_path))
 
     rec.log("prompt", rr.TextLog(f"solve case={segment_id} variant={variant}"))
@@ -35,6 +66,9 @@ def log_variant_rrd(segment_id: str, variant: str) -> str:
 
 
 def live_preview_case(segment_id: str, viewer_started: bool) -> bool:
+    """
+    Optional: show one "case" live in the Viewer while the script runs.
+    """
     preview = rr.RecordingStream(
         application_id=f"preview/{EXPERIMENT}/{TRIAL_ID}",
         recording_id=segment_id,
@@ -52,17 +86,94 @@ def live_preview_case(segment_id: str, viewer_started: bool) -> bool:
     return viewer_started
 
 
+# -----------------------------
+# Catalog helpers
+# -----------------------------
+def get_or_create_dataset(client: rr.catalog.CatalogClient, name: str) -> rr.catalog.DatasetEntry:
+    try:
+        client.create_dataset(name)
+    except rr.catalog.AlreadyExistsError:
+        pass
+    return client.get_dataset(name=name)
+
+
+def ensure_leaderboard_table(client: rr.catalog.CatalogClient, root: Path) -> rr.catalog.TableEntry:
+    """
+    Ensure the leaderboard catalog table exists and is queryable via client.ctx.
+
+    Rerun 0.28.x behavior:
+    - create_table(...) creates a NEW Lance dataset directory at the url. :contentReference[oaicite:5]{index=5}
+    - if the Lance dir already exists, you must register_table(...) instead. :contentReference[oaicite:6]{index=6}
+    - get_table(name=...) raises LookupError if not found (observed in practice).
+    - TableEntry.reader() registers the table with DataFusion for SQL queries. :contentReference[oaicite:7]{index=7}
+    """
+    storage_dir = root / "metrics" / f"{LEADERBOARD_TABLE_NAME}.lance"
+    storage_dir.parent.mkdir(parents=True, exist_ok=True)
+    storage_url = _as_uri(storage_dir)
+
+    # Try fetch from catalog
+    try:
+        table = client.get_table(name=LEADERBOARD_TABLE_NAME)
+    except LookupError:
+        table = None
+
+    if table is None:
+        # If disk already has a Lance dataset, register it; else create it
+        if storage_dir.exists():
+            client.register_table(name=LEADERBOARD_TABLE_NAME, url=storage_url)  # :contentReference[oaicite:8]{index=8}
+        else:
+            client.create_table(  # :contentReference[oaicite:9]{index=9}
+                name=LEADERBOARD_TABLE_NAME,
+                schema=LEADERBOARD_SCHEMA,
+                url=storage_url,
+            )
+
+        table = client.get_table(name=LEADERBOARD_TABLE_NAME)
+
+    # Make it queryable in client.ctx
+    table.reader()  # :contentReference[oaicite:10]{index=10}
+    return table
+
+
+def append_leaderboard_row(
+    table: rr.catalog.TableEntry,
+    *,
+    experiment: str,
+    trial_id: str,
+    segment_id: str,
+    variant: str,
+    tokens: int,
+    tool_calls: int,
+    steps: int,
+    success: bool,
+) -> None:
+    """
+    Append one row to the leaderboard using TableEntry.append. :contentReference[oaicite:11]{index=11}
+    """
+    table.append(  # :contentReference[oaicite:12]{index=12}
+        experiment=experiment,
+        trial_id=trial_id,
+        segment_id=segment_id,
+        variant=variant,
+        tokens=int(tokens),
+        tool_calls=int(tool_calls),
+        steps=int(steps),
+        success=bool(success),
+    )
+
+
+# -----------------------------
+# Main
+# -----------------------------
 def main():
     viewer_started = False
 
-    # ---- YOUR ENGINE ----
-    ctx = make_ctx()
-    metrics = MetricsStore(root=LOGS_DIR, ctx=ctx)
-
-    # ---- RERUN DATASET SERVER (optional but nice UX) ----
     with rr.server.Server() as server:
         client = server.client()
-        dataset = client.create_dataset(DATASET_NAME)  # newer API sometimes exists
+
+        dataset = get_or_create_dataset(client, DATASET_NAME)
+
+        leaderboard = ensure_leaderboard_table(client, LOGS_DIR)
 
         rrd_uris: list[str] = []
         rrd_layers: list[str] = []
@@ -77,8 +188,8 @@ def main():
                 rrd_uris.append(rrd_uri)
                 rrd_layers.append(variant)
 
-                # ---- APPEND METRICS TO YOUR OWN TABLE ----
-                metrics.append_row(
+                append_leaderboard_row(
+                    leaderboard,
                     experiment=EXPERIMENT,
                     trial_id=TRIAL_ID,
                     segment_id=segment_id,
@@ -91,15 +202,14 @@ def main():
 
             time.sleep(0.2)
 
-        # Register recordings into rerun dataset as layers
-        handle = dataset.register(rrd_uris, layer_name=rrd_layers)
+        # Register RRDs as layers (supports list URIs + list layer names). :contentReference[oaicite:13]{index=13}
+        handle = dataset.register(rrd_uris, layer_name=rrd_layers)  # :contentReference[oaicite:14]{index=14}
         handle.wait()
 
-        # ---- QUERY YOUR METRICS WITH DATAFUSION ----
-        metrics.register_in_datafusion()
+        # Query via catalog-owned DataFusion context. :contentReference[oaicite:15]{index=15}
+        ctx = client.ctx  # :contentReference[oaicite:16]{index=16}
 
-        # Example: leaderboard summary
-        result = ctx.sql(
+        result_batches = ctx.sql(
             f"""
             SELECT
               experiment,
@@ -109,7 +219,7 @@ def main():
               AVG(CAST(success AS DOUBLE)) AS success_rate,
               AVG(tokens) AS avg_tokens,
               AVG(tool_calls) AS avg_tool_calls
-            FROM {metrics.table_name}
+            FROM {LEADERBOARD_TABLE_NAME}
             WHERE experiment = '{EXPERIMENT}' AND trial_id = '{TRIAL_ID}'
             GROUP BY experiment, trial_id, variant
             ORDER BY variant
@@ -117,7 +227,7 @@ def main():
         ).collect()
 
         print("\n=== Leaderboard summary ===")
-        for batch in result:
+        for batch in result_batches:
             print(batch.to_pandas())
 
         addr = server.address()
