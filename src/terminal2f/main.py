@@ -9,29 +9,31 @@ import numpy as np
 import pyarrow as pa
 import rerun as rr
 from rerun.components import TextLogLevel
-
+from datetime import datetime, timezone
 
 # ------------------- DATA SETUP
 
-EXPERIMENT_NAME = "LOOP_AGENT"  # experiment family (thing you study)
-VERSION_ID = "v1"               # v1 / v2 / v3 (candidate you compare)
-RUN_ID = time.strftime("%Y-%m-%d_%H-%M-%S")  # unique attempt (rerun-safe)
+EXPERIMENT_FAMILY = "TOOLS_VS_NOTOOLS"  # Experiment family 
+VERSION_ID = "v1"      # Specific version of that experiment
+EXPERIMENT = f"{EXPERIMENT_FAMILY}/{VERSION_ID}" # (this is *The* Experiment you are doing) The experiment is dervied from famliy and version
+RUN_ID = datetime.now(timezone.utc).strftime("%Y-%m-%d_%H-%M-%S_%f")[:-3]  # A run of the expeiment, unqiue at time.. (can tighten up this at some point)
 
-# ✅ Stable dataset per (experiment/version)
-DATASET_NAME = f"{EXPERIMENT_NAME}/{VERSION_ID}"
 
 LOGS_DIR = Path("logs")
 
-# Saved Rerun recordings (.rrd) for replay/debug (still stored per run)
-RECORDINGS_DIR = LOGS_DIR / "recordings" / EXPERIMENT_NAME / VERSION_ID / RUN_ID
+# replay of all unqiue episode, per agent, per task, per rollout etc..
+# replay / debug
+# same blueprint per dataset..
+RECORDINGS_DIR = LOGS_DIR / "recordings" / EXPERIMENT_FAMILY / VERSION_ID / RUN_ID 
 RECORDINGS_DIR.mkdir(parents=True, exist_ok=True)
 
-# Catalog tables (Lance-backed) for analytics/SQL
-METRICS_DIR = LOGS_DIR / "metrics"
-METRICS_DIR.mkdir(parents=True, exist_ok=True)
+# tables for anaytlics, metrics, evals, training..
+# lance tables..
+TABLES_DIR = LOGS_DIR / "tables"
+TABLES_DIR.mkdir(parents=True, exist_ok=True)
 
 
-# ------------------- TABLES (NEW STRUCTURE)
+# ------------------- DATA MODEL
 
 RUNS_TABLE_NAME = "runs"
 EVAL_CORE_TABLE_NAME = "eval_core"
@@ -40,7 +42,7 @@ EVAL_CHOMSKY_TABLE_NAME = "eval_chomsky"
 
 RUNS_SCHEMA = pa.schema(
     [
-        ("experiment_name", pa.string()),
+        ("experiment_family", pa.string()),
         ("version_id", pa.string()),
         ("run_id", pa.string()),
         ("mode", pa.string()),              # "eval" | "train"
@@ -57,7 +59,7 @@ RUNS_SCHEMA = pa.schema(
 EVAL_CORE_SCHEMA = pa.schema(
     [
         # join keys (universal)
-        ("experiment_name", pa.string()),
+        ("experiment_family", pa.string()),
         ("version_id", pa.string()),
         ("run_id", pa.string()),
         ("segment_id", pa.string()),
@@ -75,7 +77,7 @@ EVAL_CORE_SCHEMA = pa.schema(
 EVAL_CHOMSKY_SCHEMA = pa.schema(
     [
         # join keys (same as eval_core)
-        ("experiment_name", pa.string()),
+        ("experiment_family", pa.string()),
         ("version_id", pa.string()),
         ("run_id", pa.string()),
         ("segment_id", pa.string()),
@@ -143,19 +145,19 @@ def ensure_all_tables(client: rr.catalog.CatalogClient) -> None:
         client,
         name=RUNS_TABLE_NAME,
         schema=RUNS_SCHEMA,
-        storage_dir=METRICS_DIR / f"{RUNS_TABLE_NAME}.lance",
+        storage_dir=TABLES_DIR / f"{RUNS_TABLE_NAME}.lance",
     )
     ensure_table(
         client,
         name=EVAL_CORE_TABLE_NAME,
         schema=EVAL_CORE_SCHEMA,
-        storage_dir=METRICS_DIR / f"{EVAL_CORE_TABLE_NAME}.lance",
+        storage_dir=TABLES_DIR / f"{EVAL_CORE_TABLE_NAME}.lance",
     )
     ensure_table(
         client,
         name=EVAL_CHOMSKY_TABLE_NAME,
         schema=EVAL_CHOMSKY_SCHEMA,
-        storage_dir=METRICS_DIR / f"{EVAL_CHOMSKY_TABLE_NAME}.lance",
+        storage_dir=TABLES_DIR / f"{EVAL_CHOMSKY_TABLE_NAME}.lance",
     )
 
 
@@ -165,7 +167,7 @@ def log_variant_rrd(segment_id: str, layer: str) -> str:
 
     # recording_id becomes dataset segment_id when you register the rrd into a dataset
     rec = rr.RecordingStream(
-        application_id=f"{EXPERIMENT_NAME}/{VERSION_ID}",
+        application_id=f"{EXPERIMENT_FAMILY}/{VERSION_ID}",
         recording_id=segment_id,
     )
     rec.save(str(rrd_path))
@@ -187,7 +189,7 @@ def live_preview_episode(
     with episodes separated by entity paths.
     """
     preview = rr.RecordingStream(
-        application_id=f"preview/{EXPERIMENT_NAME}/{VERSION_ID}",
+        application_id=f"preview/{EXPERIMENT_FAMILY}/{VERSION_ID}",
         recording_id=RUN_ID,  # constant → ONE viewer recording
     )
 
@@ -206,7 +208,7 @@ def live_preview_episode(
 def append_run_row(
     runs_table: rr.catalog.TableEntry,
     *,
-    experiment_name: str,
+    experiment_family: str,
     version_id: str,
     run_id: str,
     mode: str,
@@ -219,7 +221,7 @@ def append_run_row(
     config_json: Optional[str] = None,
 ) -> None:
     runs_table.append(
-        experiment_name=experiment_name,
+        experiment_family=experiment_family,
         version_id=version_id,
         run_id=run_id,
         mode=mode,
@@ -236,7 +238,7 @@ def append_run_row(
 def append_eval_core_row(
     eval_core: rr.catalog.TableEntry,
     *,
-    experiment_name: str,
+    experiment_family: str,
     version_id: str,
     run_id: str,
     segment_id: str,
@@ -249,7 +251,7 @@ def append_eval_core_row(
     score: Optional[float] = None,
 ) -> None:
     eval_core.append(
-        experiment_name=experiment_name,
+        experiment_family=experiment_family,
         version_id=version_id,
         run_id=run_id,
         segment_id=segment_id,
@@ -266,7 +268,7 @@ def append_eval_core_row(
 def append_eval_chomsky_row(
     eval_chomsky: rr.catalog.TableEntry,
     *,
-    experiment_name: str,
+    experiment_family: str,
     version_id: str,
     run_id: str,
     segment_id: str,
@@ -285,7 +287,7 @@ def append_eval_chomsky_row(
     risk_score: Optional[float] = None,
 ) -> None:
     eval_chomsky.append(
-        experiment_name=experiment_name,
+        experiment_family=experiment_family,
         version_id=version_id,
         run_id=run_id,
         segment_id=segment_id,
@@ -325,26 +327,26 @@ def run_experiment() -> None:
         client = server.client()
 
         # ✅ Stable dataset per experiment/version
-        dataset = get_or_create_dataset(client, DATASET_NAME)
+        dataset = get_or_create_dataset(client, EXPERIMENT)
 
         # ✅ Ensure tables
         runs_table = ensure_table(
             client,
             name=RUNS_TABLE_NAME,
             schema=RUNS_SCHEMA,
-            storage_dir=METRICS_DIR / f"{RUNS_TABLE_NAME}.lance",
+            storage_dir=TABLES_DIR / f"{RUNS_TABLE_NAME}.lance",
         )
         eval_core = ensure_table(
             client,
             name=EVAL_CORE_TABLE_NAME,
             schema=EVAL_CORE_SCHEMA,
-            storage_dir=METRICS_DIR / f"{EVAL_CORE_TABLE_NAME}.lance",
+            storage_dir=TABLES_DIR / f"{EVAL_CORE_TABLE_NAME}.lance",
         )
         eval_chomsky = ensure_table(
             client,
             name=EVAL_CHOMSKY_TABLE_NAME,
             schema=EVAL_CHOMSKY_SCHEMA,
-            storage_dir=METRICS_DIR / f"{EVAL_CHOMSKY_TABLE_NAME}.lance",
+            storage_dir=TABLES_DIR / f"{EVAL_CHOMSKY_TABLE_NAME}.lance",
         )
 
         rrd_uris: list[str] = []
@@ -376,7 +378,7 @@ def run_experiment() -> None:
                 # ✅ Universal metrics (always)
                 append_eval_core_row(
                     eval_core,
-                    experiment_name=EXPERIMENT_NAME,
+                    experiment_family=EXPERIMENT_FAMILY,
                     version_id=VERSION_ID,
                     run_id=RUN_ID,
                     segment_id=segment_id,
@@ -392,7 +394,7 @@ def run_experiment() -> None:
                 # ✅ Chomsky/automata instrumentation (your research focus)
                 append_eval_chomsky_row(
                     eval_chomsky,
-                    experiment_name=EXPERIMENT_NAME,
+                    experiment_family=EXPERIMENT_FAMILY,
                     version_id=VERSION_ID,
                     run_id=RUN_ID,
                     segment_id=segment_id,
@@ -420,7 +422,7 @@ def run_experiment() -> None:
         ended_at = time.time()
         append_run_row(
             runs_table,
-            experiment_name=EXPERIMENT_NAME,
+            experiment_family=EXPERIMENT_FAMILY,
             version_id=VERSION_ID,
             run_id=RUN_ID,
             mode=MODE,
@@ -449,7 +451,7 @@ def run_experiment() -> None:
 
         print(f"\n✅ Dataset server address: {addr}")
         print(f"Open Viewer with:\n  rerun connect 127.0.0.1:{port}\n")
-        print(f"Dataset name: {DATASET_NAME}")
+        print(f"Dataset name: {EXPERIMENT}")
         print(f"Run ID: {RUN_ID}")
         print("Press Ctrl+C to stop…")
 
