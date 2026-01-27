@@ -1,13 +1,12 @@
-from __future__ import annotations
-
-import argparse
+import argparse # rather type
 import time
 from pathlib import Path
-from typing import Optional
+
 
 import numpy as np
 import pyarrow as pa
 import rerun as rr
+import rerun.catalog as catalog # Catalog SDK
 from datetime import datetime, timezone
 
 # ------------------- DATA SETUP
@@ -34,7 +33,7 @@ TABLES_DIR.mkdir(parents=True, exist_ok=True)
 
 # ------------------- DATA MODEL
 
-RUNS_TABLE_NAME = "runs" # rename or better later to clear mental model
+RUNS_TABLE_NAME = "runs" # rename or better later to clear le mental model
 EPISODE_METRICS_TABLE_NAME = "episode_metrics"
 
 
@@ -432,7 +431,7 @@ def sql_repl() -> None:
 
 
 def main():
-    parser = argparse.ArgumentParser(prog="t2f")
+    parser = argparse.ArgumentParser(prog="t2f") # opt in to typer in the future..
     sub = parser.add_subparsers(dest="cmd", required=False)
 
     sub_sql = sub.add_parser("sql", help="Run a SQL query against the catalog tables")
