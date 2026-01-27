@@ -1,21 +1,19 @@
-import argparse # rather type
+import argparse  # rather type
 import time
 from pathlib import Path
-
 
 import numpy as np
 import pyarrow as pa
 import rerun as rr
-import rerun.catalog as catalog # Catalog SDK
+import rerun.catalog as catalog  # Catalog SDK
 from datetime import datetime, timezone
 
 # ------------------- DATA SETUP
 
 EXPERIMENT_FAMILY = "TOOLS_VS_NOTOOLS"  # Experiment family
-VERSION_ID = "v1"      # Specific version of that experiment
-EXPERIMENT = f"{EXPERIMENT_FAMILY}/{VERSION_ID}" # (this is *The* Experiment you are doing) The experiment is dervied from famliy and version
+VERSION_ID = "v1"  # Specific version of that experiment
+EXPERIMENT = f"{EXPERIMENT_FAMILY}/{VERSION_ID}"  # (this is *The* Experiment you are doing) The experiment is dervied from famliy and version
 RUN_ID = datetime.now(timezone.utc).strftime("%Y-%m-%d_%H-%M-%S_%f")[:-3]  # A run of the expeiment, unqiue at time.. (can tighten up this at some point)
-
 
 LOGS_DIR = Path("logs")
 
@@ -30,12 +28,10 @@ RECORDINGS_DIR.mkdir(parents=True, exist_ok=True)
 TABLES_DIR = LOGS_DIR / "tables"
 TABLES_DIR.mkdir(parents=True, exist_ok=True)
 
-
 # ------------------- DATA MODEL
 
-RUNS_TABLE_NAME = "runs" # rename or better later to clear le mental model
+RUNS_TABLE_NAME = "runs"  # rename or better later to clear le mental model
 EPISODE_METRICS_TABLE_NAME = "episode_metrics"
-
 
 RUNS_SCHEMA = pa.schema(
     [
@@ -53,7 +49,7 @@ EPISODE_METRIC_SCHEMA = pa.schema(
         ("version_id", pa.string()),
         ("run_id", pa.string()),
         ("suite_name", pa.string()),
-        ("task_id", pa.string()), # episode id, fixy later
+        ("task_id", pa.string()),  # episode id, fixy later
         ("segment_id", pa.string()),
         ("layer", pa.string()),
         ("rrd_uri", pa.string()),
@@ -62,7 +58,9 @@ EPISODE_METRIC_SCHEMA = pa.schema(
         ("wall_time_ms", pa.int64()),
     ]
 )
+
 # ------------------- HELPERS
+
 
 def get_or_create_dataset(client: rr.catalog.CatalogClient, name: str) -> rr.catalog.DatasetEntry:
     """Catalog dataset entry."""
@@ -97,7 +95,7 @@ def ensure_table(
             client.create_table(name=name, schema=schema, url=storage_url)
         table = client.get_table(name=name)
 
-    table.reader()  
+    table.reader()
     return table
 
 
@@ -115,6 +113,7 @@ def ensure_all_tables(client: rr.catalog.CatalogClient) -> None:
         schema=EPISODE_METRIC_SCHEMA,
         storage_dir=TABLES_DIR / f"{EPISODE_METRICS_TABLE_NAME}.lance",
     )
+
 
 def log_variant_rrd(segment_id: str, layer: str) -> str:
     """Write one .rrd file for (segment_id, layer) and return its file:// URI."""
@@ -136,29 +135,13 @@ def log_variant_rrd(segment_id: str, layer: str) -> str:
     return rrd_path.absolute().as_uri()
 
 
-def live_preview_episode(
-    episode_id: str,
-    viewer_started: bool,
-) -> bool:
+def live_preview_episode(preview: rr.RecordingStream, episode_id: str) -> None:
     """
     ✅ One live recording per run (clean dashboard),
     with episodes separated by entity paths.
     """
-    preview = rr.RecordingStream(
-        application_id=f"preview/{EXPERIMENT_FAMILY}/{VERSION_ID}",
-        recording_id=RUN_ID,  # constant → ONE viewer recording
-    )
-
-    if not viewer_started:
-        preview.spawn()
-        viewer_started = True
-    else:
-        preview.connect_grpc()
-
     preview.log(f"episodes/{episode_id}/ab/A/answer", rr.TextLog(f"(preview) A answer for {episode_id}"))
     preview.log(f"episodes/{episode_id}/ab/B/answer", rr.TextLog(f"(preview) B answer for {episode_id}"))
-
-    return viewer_started
 
 
 def append_run_row(
@@ -209,11 +192,10 @@ def append_episode_metric_row(
     )
 
 
-
 # ------------------- MAIN EXPERIMENT
 
+
 def run_experiment() -> None:
-    viewer_started = False
     started_at = time.time()
 
     with rr.server.Server() as server:
@@ -235,10 +217,14 @@ def run_experiment() -> None:
             storage_dir=TABLES_DIR / f"{EPISODE_METRICS_TABLE_NAME}.lance",
         )
 
-        rrd_uris: list[str] = []
-        rrd_layers: list[str] = []
-
         SUITE_NAME = "demo_suite_10"  # ✅ benchmark/split name, not experiment name
+
+        # One live preview recording per run (Tier 0)
+        preview = rr.RecordingStream(
+            application_id=f"preview/{EXPERIMENT_FAMILY}/{VERSION_ID}",
+            recording_id=RUN_ID,  # constant → ONE viewer recording
+        )
+        preview.spawn()
 
         for i in range(10):
             task_id = f"ep_{i:06d}"
@@ -246,15 +232,16 @@ def run_experiment() -> None:
             # ✅ stable segment identity for cross-run comparisons
             segment_id = f"{SUITE_NAME}/{task_id}"
 
-            viewer_started = live_preview_episode(task_id, viewer_started)
+            live_preview_episode(preview, task_id)
 
             for layer in ["A", "B"]:  # later: ["tools", "no_tools"] etc
                 t0 = time.time()
                 rrd_uri = log_variant_rrd(segment_id, layer)
-                elapsed_ms = int((time.time() - t0) * 1000)
 
-                rrd_uris.append(rrd_uri)
-                rrd_layers.append(layer)
+                # Register immediately (Tier 1 canonical)
+                dataset.register(rrd_uri, layer_name=layer)
+
+                elapsed_ms = int((time.time() - t0) * 1000)
 
                 tokens = int(np.random.randint(50, 200))
                 success = bool(np.random.rand() > 0.3)
@@ -275,10 +262,6 @@ def run_experiment() -> None:
                 )
 
             time.sleep(0.25)
-
-        # register the recordings as layers within their segments
-        handle = dataset.register(rrd_uris, layer_name=rrd_layers)
-        handle.wait()
 
         ended_at = time.time()
         append_run_row(
@@ -431,7 +414,7 @@ def sql_repl() -> None:
 
 
 def main():
-    parser = argparse.ArgumentParser(prog="t2f") # opt in to typer in the future..
+    parser = argparse.ArgumentParser(prog="t2f")  # opt in to typer in the future..
     sub = parser.add_subparsers(dest="cmd", required=False)
 
     sub_sql = sub.add_parser("sql", help="Run a SQL query against the catalog tables")
