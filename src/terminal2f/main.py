@@ -17,9 +17,8 @@ EXPERIMENT = f"{EXPERIMENT_FAMILY}/{VERSION_ID}"  # stable dataset name
 
 LOGS_DIR = Path("logs")
 TABLES_DIR = LOGS_DIR / "tables"  # stable across all runs
-
-# Register progress while running (dataset-connect UX)
-REGISTER_EVERY_N_TASKS = 2
+ 
+REGISTER_EVERY_N_TASKS = 2 # want to remove this
 
 # ------------------- DATA MODEL
 
@@ -223,7 +222,7 @@ def log_variant_rrd(recordings_dir: Path, problem_id: str, episode_id: str, vari
         "prompt",
         rr.TextLog(
             f"solve problem={problem_id} episode={episode_id} variant={variant}",
-            level=rr.TextLogLevel.DEBUG,
+
         ),
     )
     rec.log(

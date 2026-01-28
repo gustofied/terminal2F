@@ -19,6 +19,7 @@ dependencies = [
     "rerun-sdk[datafusion]>=0.28.1",
     "tqdm>=4.67.1",
     "typer>=0.21.1",
+    "ulid-py>=1.1.0",
 ]
 
 [project.scripts]
