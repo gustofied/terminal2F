@@ -18,6 +18,9 @@ EXPERIMENT = f"{EXPERIMENT_FAMILY}/{VERSION_ID}"  # stable dataset name
 LOGS_DIR = Path("logs")
 TABLES_DIR = LOGS_DIR / "tables"  # stable across all runs
 
+# Register progress while running (dataset-connect UX)
+REGISTER_EVERY_N_TASKS = 2
+
 # ------------------- DATA MODEL
 
 RUNS_TABLE_NAME = "runs"
@@ -40,7 +43,8 @@ EPISODE_METRIC_SCHEMA = pa.schema(
         ("run_id", pa.string()),
         ("suite_name", pa.string()),
         ("task_id", pa.string()),  # stable task key within suite
-        ("episode_id", pa.string()),  # unique attempt id (UUID) per (problem, run)
+        ("trial_id", pa.string()),  # shared across A/B
+        ("episode_id", pa.string()),  # unique per (trial, variant)
         ("problem_id", pa.string()),  # stable problem id (suite/task)
         ("variant", pa.string()),  # A/B
         ("rrd_uri", pa.string()),  # artifact pointer
@@ -58,18 +62,58 @@ def make_run_id() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%d_%H-%M-%S_%f")[:-3]
 
 
-def reset_dataset(client: catalog.CatalogClient, name: str) -> catalog.DatasetEntry:
+def dataset_is_empty(dataset: catalog.DatasetEntry) -> bool:
+    """
+    Best-effort emptiness check for a dataset.
+    We treat "any segment rows exist" as non-empty.
+    """
+    # Prefer 0.28+ API: segment_table()
+    try:
+        if hasattr(dataset, "segment_table"):
+            batches = dataset.segment_table().collect()  
+            for b in batches:
+                if b.num_rows > 0:
+                    return False
+            return True
+    except Exception:
+        pass
+
+    # Fallback: partition_ids() (older APIs)
+    try:
+        if hasattr(dataset, "segment_ids"):
+            return len(dataset.segment_ids()) == 0
+        if hasattr(dataset, "partition_ids"):
+            return len(dataset.partition_ids()) == 0
+    except Exception:
+        pass
+
+    # Last resort: manifest() (may be large, but should work)
+    try:
+        if hasattr(dataset, "manifest"):
+            batches = dataset.manifest().collect()
+            for b in batches:
+                if b.num_rows > 0:
+                    return False
+            return True
+    except Exception:
+        pass
+
+    # Conservative default: assume not empty if we cannot prove emptiness
+    return False
+
+
+def reset_dataset(client: catalog.CatalogClient, name: str, *, fallback_name: str) -> tuple[catalog.DatasetEntry, str]:
     """
     Hard-reset a dataset name to be an empty workspace snapshot.
-
-    This makes `name` behave like "the current run's dataset".
+    If we cannot guarantee emptiness, fall back to a unique dataset name.
     """
+    delete_ok = True
     try:
         client.get_dataset(name=name).delete()
     except LookupError:
         pass
     except Exception as e:
-        # Don't fail a run just because delete didn't work.
+        delete_ok = False
         print(f"⚠️  Warning: failed to delete dataset '{name}': {e}")
 
     try:
@@ -77,7 +121,28 @@ def reset_dataset(client: catalog.CatalogClient, name: str) -> catalog.DatasetEn
     except catalog.AlreadyExistsError:
         pass
 
-    return client.get_dataset(name=name)
+    ds = client.get_dataset(name=name)
+
+    # Verify emptiness; if not empty, do NOT pretend we're clean.
+    if dataset_is_empty(ds):
+        return ds, name
+
+    # Fall back to a per-run dataset name (keeps you safe + debuggable).
+    print(
+        f"⚠️  Warning: dataset '{name}' is not empty after reset "
+        f"(delete_ok={delete_ok}). Using fallback dataset '{fallback_name}'."
+    )
+
+    actual_fallback = fallback_name
+    try:
+        client.create_dataset(actual_fallback)
+    except catalog.AlreadyExistsError:
+        # Ensure uniqueness if somehow already exists
+        actual_fallback = f"{fallback_name}__{uuid.uuid4().hex[:8]}"
+        client.create_dataset(actual_fallback)
+
+    fallback_ds = client.get_dataset(name=actual_fallback)
+    return fallback_ds, actual_fallback
 
 
 def ensure_table(
@@ -104,6 +169,22 @@ def ensure_table(
         else:
             client.create_table(name=name, schema=schema, url=storage_url)
         table = client.get_table(name=name)
+    else:
+        # Safety check: ensure required columns exist (avoid silent schema mismatch).
+        try:
+            existing_schema = table.to_arrow_reader().schema
+            existing_cols = {f.name for f in existing_schema}
+            expected_cols = {f.name for f in schema}
+            missing = sorted(expected_cols - existing_cols)
+            if missing:
+                raise RuntimeError(
+                    f"Table '{name}' is missing required columns {missing}. "
+                    f"Expected at least: {sorted(expected_cols)}. Found: {sorted(existing_cols)}. "
+                    f"Delete or migrate the existing Lance table at: {storage_dir}"
+                )
+        except Exception as e:
+            # If we can't introspect schema, fail loudly rather than corrupting data.
+            raise RuntimeError(f"Failed to validate schema for table '{name}': {e}") from e
 
     # Ensure DataFusion registration is active.
     table.reader()
@@ -128,7 +209,7 @@ def ensure_all_tables(client: catalog.CatalogClient) -> None:
 
 def log_variant_rrd(recordings_dir: Path, problem_id: str, episode_id: str, variant: str) -> str:
     """Write one .rrd file for (problem_id, episode_id, variant) and return its file:// URI."""
-    rrd_path = recordings_dir / problem_id / f"{episode_id}__{variant}.rrd"
+    rrd_path = recordings_dir / problem_id / f"{episode_id}.rrd"
     rrd_path.parent.mkdir(parents=True, exist_ok=True)
 
     rec = rr.RecordingStream(
@@ -137,18 +218,19 @@ def log_variant_rrd(recordings_dir: Path, problem_id: str, episode_id: str, vari
     )
     rec.save(str(rrd_path))
 
+    # Variant separation is handled by dataset layer_name=variant, so don't prefix entity paths with variant.
     rec.log(
-        f"{variant}/prompt",
+        "prompt",
         rr.TextLog(
             f"solve problem={problem_id} episode={episode_id} variant={variant}",
             level=rr.TextLogLevel.DEBUG,
         ),
     )
     rec.log(
-        f"{variant}/answer",
+        "answer",
         rr.TextLog(f"hello from {variant} @ {problem_id} (episode={episode_id})"),
     )
-    rec.log(f"{variant}/debug/value", rr.Scalars([float(np.random.randn())]))
+    rec.log("debug/value", rr.Scalars([float(np.random.randn())]))
 
     return rrd_path.absolute().as_uri()
 
@@ -188,6 +270,7 @@ def append_episode_metric_row(
     run_id: str,
     suite_name: str,
     task_id: str,
+    trial_id: str,
     episode_id: str,
     problem_id: str,
     variant: str,
@@ -202,6 +285,7 @@ def append_episode_metric_row(
         run_id=run_id,
         suite_name=suite_name,
         task_id=task_id,
+        trial_id=trial_id,
         episode_id=episode_id,
         problem_id=problem_id,
         variant=variant,
@@ -236,7 +320,11 @@ def run_experiment() -> None:
         client = server.client()
 
         dataset_name = EXPERIMENT  # single stable dataset name (workspace snapshot)
-        dataset = reset_dataset(client, dataset_name)  # ✅ hard reset per run
+        dataset, dataset_name = reset_dataset(
+            client,
+            dataset_name,
+            fallback_name=f"{EXPERIMENT}/__broken_reset__/{run_id}",
+        )
 
         runs_table = ensure_table(
             client,
@@ -274,12 +362,14 @@ def run_experiment() -> None:
             for i in range(10):
                 task_id = f"ep_{i:06d}"
                 problem_id = f"{SUITE_NAME}/{task_id}"  # stable across runs
-                episode_id = str(uuid.uuid4())
+                trial_id = str(uuid.uuid4())  # shared across A/B
 
                 live_preview_episode(preview_a, preview_b, problem_id)
 
                 for variant in ["A", "B"]:
+                    episode_id = str(uuid.uuid4())  # unique per (trial, variant)
                     t0 = time.time()
+
                     rrd_uri = log_variant_rrd(recordings_dir, problem_id, episode_id, variant)
                     pending_by_variant[variant].append(rrd_uri)
 
@@ -295,6 +385,7 @@ def run_experiment() -> None:
                         run_id=run_id,
                         suite_name=SUITE_NAME,
                         task_id=task_id,
+                        trial_id=trial_id,
                         episode_id=episode_id,
                         problem_id=problem_id,
                         variant=variant,
@@ -303,6 +394,14 @@ def run_experiment() -> None:
                         success=success,
                         wall_time_ms=elapsed_ms,
                     )
+
+                # Publish progress to dataset while running (dataset-connect UX)
+                if REGISTER_EVERY_N_TASKS > 0 and (i + 1) % REGISTER_EVERY_N_TASKS == 0:
+                    try:
+                        register_pending(dataset, pending_by_variant)
+                        pending_by_variant = {"A": [], "B": []}  # clear only after success
+                    except Exception as e:
+                        print(f"⚠️  Warning: failed to register progress update: {e}")
 
                 time.sleep(0.25)
 
@@ -317,7 +416,7 @@ def run_experiment() -> None:
         finally:
             ended_at_eval = time.time()
 
-            # ✅ Always publish partial progress to the workspace dataset.
+            # ✅ Always publish remaining progress to the workspace dataset.
             try:
                 register_pending(dataset, pending_by_variant)
             except Exception as e:
