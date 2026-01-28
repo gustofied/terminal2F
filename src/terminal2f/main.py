@@ -50,9 +50,9 @@ EPISODE_METRIC_SCHEMA = pa.schema(
         ("run_id", pa.string()),
         ("suite_name", pa.string()),
         ("task_id", pa.string()),  # episode id, fixy later
-        ("segment_id", pa.string()),
-        ("layer", pa.string()),
-        ("rrd_uri", pa.string()),
+        ("segment_id", pa.string()),  # stable problem id (suite/task) in Option S
+        ("layer", pa.string()),  # A/B
+        ("rrd_uri", pa.string()),  # immutable artifact pointer
         ("tokens", pa.int64()),
         ("success", pa.bool_()),
         ("wall_time_ms", pa.int64()),
@@ -135,13 +135,13 @@ def log_variant_rrd(segment_id: str, layer: str) -> str:
     return rrd_path.absolute().as_uri()
 
 
-def live_preview_episode(preview: rr.RecordingStream, episode_id: str) -> None:
+def live_preview_episode(preview_a: rr.RecordingStream, preview_b: rr.RecordingStream, episode_id: str) -> None:
     """
-    ✅ One live recording per run (clean dashboard),
-    with episodes separated by entity paths.
+    ✅ Two live recordings per run (one per variant),
+    so variants are separated by recording_id (no fake layers).
     """
-    preview.log(f"episodes/{episode_id}/ab/A/answer", rr.TextLog(f"(preview) A answer for {episode_id}"))
-    preview.log(f"episodes/{episode_id}/ab/B/answer", rr.TextLog(f"(preview) B answer for {episode_id}"))
+    preview_a.log(f"episodes/{episode_id}/answer", rr.TextLog(f"(preview) A answer for {episode_id}"))
+    preview_b.log(f"episodes/{episode_id}/answer", rr.TextLog(f"(preview) B answer for {episode_id}"))
 
 
 def append_run_row(
@@ -201,7 +201,8 @@ def run_experiment() -> None:
     with rr.server.Server() as server:
         client = server.client()
 
-        dataset = get_or_create_dataset(client, EXPERIMENT)
+        dataset_name = EXPERIMENT  # Option S: stable dataset (latest snapshot index)
+        dataset = get_or_create_dataset(client, dataset_name)
 
         runs_table = ensure_table(
             client,
@@ -219,27 +220,35 @@ def run_experiment() -> None:
 
         SUITE_NAME = "demo_suite_10"  # ✅ benchmark/split name, not experiment name
 
-        # One live preview recording per run (Tier 0)
-        preview = rr.RecordingStream(
+        # Two live preview recordings per run (Tier 0), separated by recording_id
+        preview_a = rr.RecordingStream(
             application_id=f"preview/{EXPERIMENT_FAMILY}/{VERSION_ID}",
-            recording_id=RUN_ID,  # constant → ONE viewer recording
+            recording_id=f"{RUN_ID}/A",
         )
-        preview.spawn()
+        preview_a.spawn()
+
+        preview_b = rr.RecordingStream(
+            application_id=f"preview/{EXPERIMENT_FAMILY}/{VERSION_ID}",
+            recording_id=f"{RUN_ID}/B",
+        )
+        preview_b.spawn()
+
+        # Batch registration (0.28): collect URIs during the hot loop, register + wait once per layer
+        pending_by_layer: dict[str, list[str]] = {"A": [], "B": []}
 
         for i in range(10):
             task_id = f"ep_{i:06d}"
 
-            # ✅ stable segment identity for cross-run comparisons
+            # ✅ stable segment identity for cross-run comparisons (Option S)
             segment_id = f"{SUITE_NAME}/{task_id}"
 
-            live_preview_episode(preview, task_id)
+            live_preview_episode(preview_a, preview_b, segment_id)
 
             for layer in ["A", "B"]:  # later: ["tools", "no_tools"] etc
                 t0 = time.time()
                 rrd_uri = log_variant_rrd(segment_id, layer)
 
-                # Register immediately (Tier 1 canonical)
-                dataset.register(rrd_uri, layer_name=layer)
+                pending_by_layer[layer].append(rrd_uri)
 
                 elapsed_ms = int((time.time() - t0) * 1000)
 
@@ -262,6 +271,14 @@ def run_experiment() -> None:
                 )
 
             time.sleep(0.25)
+
+        # Register batched (Tier 1 canonical) and wait once per layer (0.28)
+        handles = []
+        for layer, uris in pending_by_layer.items():
+            if uris:
+                handles.append(dataset.register(uris, layer_name=layer))
+        for h in handles:
+            h.wait()
 
         ended_at = time.time()
         append_run_row(
@@ -288,7 +305,7 @@ def run_experiment() -> None:
 
         print(f"\n✅ Dataset server address: {addr}")
         print(f"Open Viewer with:\n  rerun connect 127.0.0.1:{port}\n")
-        print(f"Dataset name: {EXPERIMENT}")
+        print(f"Dataset name: {dataset_name}")
         print(f"Run ID: {RUN_ID}")
         print("Press Ctrl+C to stop…")
 
