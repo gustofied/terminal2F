@@ -1,37 +1,25 @@
-import argparse  # rather type
+import argparse  # rather typer (later)
 import time
 from pathlib import Path
 import uuid
-
+from datetime import datetime, timezone
+import rerun.catalog as catalog
 import numpy as np
 import pyarrow as pa
 import rerun as rr
-import rerun.catalog as catalog  # Catalog SDK
-from datetime import datetime, timezone
 
 # ------------------- DATA SETUP
 
 EXPERIMENT_FAMILY = "TOOLS_VS_NOTOOLS"  # Experiment family
 VERSION_ID = "v1"  # Specific version of that experiment
-EXPERIMENT = f"{EXPERIMENT_FAMILY}/{VERSION_ID}"  # (this is *The* Experiment you are doing) The experiment is dervied from famliy and version
-RUN_ID = datetime.now(timezone.utc).strftime("%Y-%m-%d_%H-%M-%S_%f")[:-3]  # A run of the expeiment, unqiue at time.. (can tighten up this at some point)
+EXPERIMENT = f"{EXPERIMENT_FAMILY}/{VERSION_ID}"  # stable dataset name
 
 LOGS_DIR = Path("logs")
-
-# replay of all unqiue episode, per agent, per task, per rollout etc..
-# replay / debug
-# same blueprint per dataset..
-RECORDINGS_DIR = LOGS_DIR / "recordings" / EXPERIMENT_FAMILY / VERSION_ID / RUN_ID
-RECORDINGS_DIR.mkdir(parents=True, exist_ok=True)
-
-# tables for anaytlics, metrics, evals, training..
-# lance tables..
-TABLES_DIR = LOGS_DIR / "tables"
-TABLES_DIR.mkdir(parents=True, exist_ok=True)
+TABLES_DIR = LOGS_DIR / "tables"  # stable across all runs
 
 # ------------------- DATA MODEL
 
-RUNS_TABLE_NAME = "runs"  # rename or better later to clear le mental model
+RUNS_TABLE_NAME = "runs"
 EPISODE_METRICS_TABLE_NAME = "episode_metrics"
 
 RUNS_SCHEMA = pa.schema(
@@ -50,11 +38,11 @@ EPISODE_METRIC_SCHEMA = pa.schema(
         ("version_id", pa.string()),
         ("run_id", pa.string()),
         ("suite_name", pa.string()),
-        ("task_id", pa.string()),  # episode id, fixy later
+        ("task_id", pa.string()),  # stable task key within suite
         ("episode_id", pa.string()),  # unique attempt id (UUID) per (problem, run)
-        ("problem_id", pa.string()),  # stable problem id (suite/task) in Option S
+        ("problem_id", pa.string()),  # stable problem id (suite/task)
         ("variant", pa.string()),  # A/B
-        ("rrd_uri", pa.string()),  # immutable artifact pointer
+        ("rrd_uri", pa.string()),  # artifact pointer
         ("tokens", pa.int64()),
         ("success", pa.bool_()),
         ("wall_time_ms", pa.int64()),
@@ -62,6 +50,11 @@ EPISODE_METRIC_SCHEMA = pa.schema(
 )
 
 # ------------------- HELPERS
+
+
+def make_run_id() -> str:
+    # millisecond precision UTC timestamp
+    return datetime.now(timezone.utc).strftime("%Y-%m-%d_%H-%M-%S_%f")[:-3]
 
 
 def get_or_create_dataset(client: rr.catalog.CatalogClient, name: str) -> rr.catalog.DatasetEntry:
@@ -83,6 +76,9 @@ def ensure_table(
     """
     Create or register a Lance-backed table and register it with DataFusion (client.ctx).
     """
+    # Avoid import-time side effects: only create dirs when we actually need them.
+    storage_dir.parent.mkdir(parents=True, exist_ok=True)
+
     storage_url = storage_dir.absolute().as_uri()
 
     try:
@@ -97,6 +93,7 @@ def ensure_table(
             client.create_table(name=name, schema=schema, url=storage_url)
         table = client.get_table(name=name)
 
+    # Ensure DataFusion registration is active.
     table.reader()
     return table
 
@@ -117,9 +114,9 @@ def ensure_all_tables(client: rr.catalog.CatalogClient) -> None:
     )
 
 
-def log_variant_rrd(problem_id: str, episode_id: str, variant: str) -> str:
+def log_variant_rrd(recordings_dir: Path, problem_id: str, episode_id: str, variant: str) -> str:
     """Write one .rrd file for (problem_id, episode_id, variant) and return its file:// URI."""
-    rrd_path = RECORDINGS_DIR / problem_id / f"{episode_id}__{variant}.rrd"
+    rrd_path = recordings_dir / problem_id / f"{episode_id}__{variant}.rrd"
     rrd_path.parent.mkdir(parents=True, exist_ok=True)
 
     rec = rr.RecordingStream(
@@ -128,21 +125,29 @@ def log_variant_rrd(problem_id: str, episode_id: str, variant: str) -> str:
     )
     rec.save(str(rrd_path))
 
-    rec.log(f"{variant}/prompt", rr.TextLog(f"solve problem={problem_id} episode={episode_id} variant={variant}", level=rr.TextLogLevel.DEBUG))
-    rec.log(f"{variant}/answer", rr.TextLog(f"hello from {variant} @ {problem_id} (episode={episode_id})"))
+    rec.log(
+        f"{variant}/prompt",
+        rr.TextLog(
+            f"solve problem={problem_id} episode={episode_id} variant={variant}",
+            level=rr.TextLogLevel.DEBUG,
+        ),
+    )
+    rec.log(
+        f"{variant}/answer",
+        rr.TextLog(f"hello from {variant} @ {problem_id} (episode={episode_id})"),
+    )
     rec.log(f"{variant}/debug/value", rr.Scalars([float(np.random.randn())]))
 
     return rrd_path.absolute().as_uri()
 
 
-
-def live_preview_episode(preview_a: rr.RecordingStream, preview_b: rr.RecordingStream, episode_id: str) -> None:
+def live_preview_episode(preview_a: rr.RecordingStream, preview_b: rr.RecordingStream, problem_id: str) -> None:
     """
-    ✅ Two live recordings per run (one per variant),
-    so variants are separated by recording_id (no fake layers).
+    Two live recordings per run (one per variant),
+    so variants are separated by recording_id.
     """
-    preview_a.log(f"episodes/{episode_id}/answer", rr.TextLog(f"(preview) A answer for {episode_id}"))
-    preview_b.log(f"episodes/{episode_id}/answer", rr.TextLog(f"(preview) B answer for {episode_id}"))
+    preview_a.log(f"episodes/{problem_id}/answer", rr.TextLog(f"(preview) A answer for {problem_id}"))
+    preview_b.log(f"episodes/{problem_id}/answer", rr.TextLog(f"(preview) B answer for {problem_id}"))
 
 
 def append_run_row(
@@ -199,12 +204,17 @@ def append_episode_metric_row(
 
 
 def run_experiment() -> None:
+    # ✅ run-specific stuff belongs here (not at import time)
+    run_id = make_run_id()
+    recordings_dir = LOGS_DIR / "recordings" / EXPERIMENT_FAMILY / VERSION_ID / run_id
+    recordings_dir.mkdir(parents=True, exist_ok=True)
+
     started_at = time.time()
 
     with rr.server.Server() as server:
         client = server.client()
 
-        dataset_name = EXPERIMENT  # Option S: stable dataset (latest snapshot index)
+        dataset_name = EXPERIMENT  # stable dataset (latest snapshot index)
         dataset = get_or_create_dataset(client, dataset_name)
 
         runs_table = ensure_table(
@@ -213,7 +223,6 @@ def run_experiment() -> None:
             schema=RUNS_SCHEMA,
             storage_dir=TABLES_DIR / f"{RUNS_TABLE_NAME}.lance",
         )
-
         episode_metrics = ensure_table(
             client,
             name=EPISODE_METRICS_TABLE_NAME,
@@ -221,102 +230,102 @@ def run_experiment() -> None:
             storage_dir=TABLES_DIR / f"{EPISODE_METRICS_TABLE_NAME}.lance",
         )
 
-        SUITE_NAME = "demo_suite_10"  # ✅ benchmark/split name, not experiment name
+        SUITE_NAME = "demo_suite_10"  # benchmark/split name
 
         # Two live preview recordings per run (Tier 0), separated by recording_id
         preview_a = rr.RecordingStream(
             application_id=f"preview/{EXPERIMENT_FAMILY}/{VERSION_ID}",
-            recording_id=f"{RUN_ID}/A",
+            recording_id=f"{run_id}/A",
         )
         preview_a.spawn()
 
         preview_b = rr.RecordingStream(
             application_id=f"preview/{EXPERIMENT_FAMILY}/{VERSION_ID}",
-            recording_id=f"{RUN_ID}/B",
+            recording_id=f"{run_id}/B",
         )
-        preview_b.connect_grpc()
+        preview_b.spawn()
 
-        # Batch registration (0.28): collect URIs during the hot loop, register + wait once per variant
         pending_by_variant: dict[str, list[str]] = {"A": [], "B": []}
 
-        for i in range(10):
-            task_id = f"ep_{i:06d}"
+        try:
+            for i in range(10):
+                task_id = f"ep_{i:06d}"
+                problem_id = f"{SUITE_NAME}/{task_id}"  # stable across runs
+                episode_id = str(uuid.uuid4())
 
-            # ✅ stable problem identity for cross-run comparisons (Option S)
-            problem_id = f"{SUITE_NAME}/{task_id}"
+                live_preview_episode(preview_a, preview_b, problem_id)
 
-            episode_id = str(uuid.uuid4())
+                for variant in ["A", "B"]:
+                    t0 = time.time()
+                    rrd_uri = log_variant_rrd(recordings_dir, problem_id, episode_id, variant)
+                    pending_by_variant[variant].append(rrd_uri)
 
-            live_preview_episode(preview_a, preview_b, problem_id)
+                    elapsed_ms = int((time.time() - t0) * 1000)
 
-            for variant in ["A", "B"]:
-                t0 = time.time()
-                rrd_uri = log_variant_rrd(problem_id, episode_id, variant)
+                    tokens = int(np.random.randint(50, 200))
+                    success = bool(np.random.rand() > 0.3)
 
-                pending_by_variant[variant].append(rrd_uri)
+                    append_episode_metric_row(
+                        episode_metrics,
+                        experiment_family=EXPERIMENT_FAMILY,
+                        version_id=VERSION_ID,
+                        run_id=run_id,
+                        suite_name=SUITE_NAME,
+                        task_id=task_id,
+                        episode_id=episode_id,
+                        problem_id=problem_id,
+                        variant=variant,
+                        rrd_uri=rrd_uri,
+                        tokens=tokens,
+                        success=success,
+                        wall_time_ms=elapsed_ms,
+                    )
 
-                elapsed_ms = int((time.time() - t0) * 1000)
+                time.sleep(0.25)
 
-                tokens = int(np.random.randint(50, 200))
-                success = bool(np.random.rand() > 0.3)
+            # Register batched (Tier 1 canonical) and wait once per variant
+            handles = []
+            for variant, uris in pending_by_variant.items():
+                if uris:
+                    handles.append(dataset.register(uris, layer_name=variant))
+            for h in handles:
+                h.wait()
 
-                append_episode_metric_row(
-                    episode_metrics,
-                    experiment_family=EXPERIMENT_FAMILY,
-                    version_id=VERSION_ID,
-                    run_id=RUN_ID,
-                    suite_name=SUITE_NAME,
-                    task_id=task_id,
-                    episode_id=episode_id,
-                    problem_id=problem_id,
-                    variant=variant,
-                    rrd_uri=rrd_uri,
-                    tokens=tokens,
-                    success=success,
-                    wall_time_ms=elapsed_ms,
-                )
+            print("\n--- runs sample ---")
+            batches = client.ctx.sql(f"SELECT * FROM {RUNS_TABLE_NAME} LIMIT 10").collect()
+            for b in batches:
+                print(b.to_pandas())
 
-            time.sleep(0.25)
+            print("\n--- episode_metrics sample ---")
+            batches = client.ctx.sql(f"SELECT * FROM {EPISODE_METRICS_TABLE_NAME} LIMIT 10").collect()
+            for b in batches:
+                print(b.to_pandas())
 
-        # Register batched (Tier 1 canonical) and wait once per variant (0.28)
-        handles = []
-        for variant, uris in pending_by_variant.items():
-            if uris:
-                handles.append(dataset.register(uris, layer_name=variant))
-        for h in handles:
-            h.wait()
+            addr = server.address()
+            port = addr.rsplit(":", 1)[-1]
 
-        ended_at = time.time()
-        append_run_row(
-            runs_table,
-            experiment_family=EXPERIMENT_FAMILY,
-            version_id=VERSION_ID,
-            run_id=RUN_ID,
-            started_at=started_at,
-            ended_at=ended_at,
-        )
+            print(f"\n✅ Dataset server address: {addr}")
+            print(f"Open Viewer with:\n  rerun connect 127.0.0.1:{port}\n")
+            print(f"Dataset name: {dataset_name}")
+            print(f"Run ID: {run_id}")
+            print("Press Ctrl+C to stop…")
 
-        print("\n--- eval_core sample ---")
-        batches = client.ctx.sql(f"SELECT * FROM {RUNS_TABLE_NAME} LIMIT 10").collect()
-        for b in batches:
-            print(b.to_pandas())
+            while True:
+                time.sleep(1)
 
-        print("\n--- eval_chomsky sample ---")
-        batches = client.ctx.sql(f"SELECT * FROM {EPISODE_METRICS_TABLE_NAME} LIMIT 10").collect()
-        for b in batches:
-            print(b.to_pandas())
+        except KeyboardInterrupt:
+            pass
 
-        addr = server.address()
-        port = addr.rsplit(":", 1)[-1]
-
-        print(f"\n✅ Dataset server address: {addr}")
-        print(f"Open Viewer with:\n  rerun connect 127.0.0.1:{port}\n")
-        print(f"Dataset name: {dataset_name}")
-        print(f"Run ID: {RUN_ID}")
-        print("Press Ctrl+C to stop…")
-
-        while True:
-            time.sleep(1)
+        finally:
+            ended_at = time.time()
+            append_run_row(
+                runs_table,
+                experiment_family=EXPERIMENT_FAMILY,
+                version_id=VERSION_ID,
+                run_id=run_id,
+                started_at=started_at,
+                ended_at=ended_at,
+            )
 
 
 def run_sql(sql: str) -> None:
@@ -373,7 +382,6 @@ def sql_repl() -> None:
                 return
 
             if q == ".tables":
-                # Try information_schema (DataFusion often provides it)
                 try:
                     batches = client.ctx.sql(
                         "SELECT table_name "
@@ -390,7 +398,6 @@ def sql_repl() -> None:
                     if not printed:
                         raise RuntimeError("no tables returned")
                 except Exception:
-                    # Fallback to known table names
                     print("\n".join([RUNS_TABLE_NAME, EPISODE_METRICS_TABLE_NAME]))
                 continue
 
@@ -436,8 +443,8 @@ def sql_repl() -> None:
                 print(f"sql error: {e}")
 
 
-def main():
-    parser = argparse.ArgumentParser(prog="t2f")  # opt in to typer in the future..
+def main() -> None:
+    parser = argparse.ArgumentParser(prog="t2f")
     sub = parser.add_subparsers(dest="cmd", required=False)
 
     sub_sql = sub.add_parser("sql", help="Run a SQL query against the catalog tables")
