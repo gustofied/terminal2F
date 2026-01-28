@@ -1,6 +1,7 @@
 import argparse  # rather type
 import time
 from pathlib import Path
+import uuid
 
 import numpy as np
 import pyarrow as pa
@@ -50,8 +51,9 @@ EPISODE_METRIC_SCHEMA = pa.schema(
         ("run_id", pa.string()),
         ("suite_name", pa.string()),
         ("task_id", pa.string()),  # episode id, fixy later
-        ("segment_id", pa.string()),  # stable problem id (suite/task) in Option S
-        ("layer", pa.string()),  # A/B
+        ("episode_id", pa.string()),  # unique attempt id (UUID) per (problem, run)
+        ("problem_id", pa.string()),  # stable problem id (suite/task) in Option S
+        ("variant", pa.string()),  # A/B
         ("rrd_uri", pa.string()),  # immutable artifact pointer
         ("tokens", pa.int64()),
         ("success", pa.bool_()),
@@ -115,24 +117,23 @@ def ensure_all_tables(client: rr.catalog.CatalogClient) -> None:
     )
 
 
-def log_variant_rrd(segment_id: str, layer: str) -> str:
-    """Write one .rrd file for (segment_id, layer) and return its file:// URI."""
-    rrd_path = RECORDINGS_DIR / f"{segment_id}__{layer}.rrd"
+def log_variant_rrd(problem_id: str, episode_id: str, variant: str) -> str:
+    """Write one .rrd file for (problem_id, episode_id, variant) and return its file:// URI."""
+    rrd_path = RECORDINGS_DIR / problem_id / f"{episode_id}__{variant}.rrd"
     rrd_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # recording_id becomes dataset segment_id when you register the rrd into a dataset
     rec = rr.RecordingStream(
         application_id=f"{EXPERIMENT_FAMILY}/{VERSION_ID}",
-        recording_id=segment_id,
+        recording_id=problem_id,  # stays stable for Option S dataset segment
     )
     rec.save(str(rrd_path))
 
-    # toy logs (replace with real episode trace)
-    rec.log("prompt", rr.TextLog(f"solve segment={segment_id} layer={layer}", level=rr.TextLogLevel.DEBUG))
-    rec.log("answer", rr.TextLog(f"hello from {layer} @ {segment_id}"))
-    rec.log("debug/value", rr.Scalars([float(np.random.randn())]))
+    rec.log(f"{variant}/prompt", rr.TextLog(f"solve problem={problem_id} episode={episode_id} variant={variant}", level=rr.TextLogLevel.DEBUG))
+    rec.log(f"{variant}/answer", rr.TextLog(f"hello from {variant} @ {problem_id} (episode={episode_id})"))
+    rec.log(f"{variant}/debug/value", rr.Scalars([float(np.random.randn())]))
 
     return rrd_path.absolute().as_uri()
+
 
 
 def live_preview_episode(preview_a: rr.RecordingStream, preview_b: rr.RecordingStream, episode_id: str) -> None:
@@ -170,8 +171,9 @@ def append_episode_metric_row(
     run_id: str,
     suite_name: str,
     task_id: str,
-    segment_id: str,
-    layer: str,
+    episode_id: str,
+    problem_id: str,
+    variant: str,
     rrd_uri: str,
     tokens: int,
     success: bool,
@@ -183,8 +185,9 @@ def append_episode_metric_row(
         run_id=run_id,
         suite_name=suite_name,
         task_id=task_id,
-        segment_id=segment_id,
-        layer=layer,
+        episode_id=episode_id,
+        problem_id=problem_id,
+        variant=variant,
         rrd_uri=rrd_uri,
         tokens=int(tokens),
         success=bool(success),
@@ -231,24 +234,26 @@ def run_experiment() -> None:
             application_id=f"preview/{EXPERIMENT_FAMILY}/{VERSION_ID}",
             recording_id=f"{RUN_ID}/B",
         )
-        preview_b.spawn()
+        preview_b.connect_grpc()
 
-        # Batch registration (0.28): collect URIs during the hot loop, register + wait once per layer
-        pending_by_layer: dict[str, list[str]] = {"A": [], "B": []}
+        # Batch registration (0.28): collect URIs during the hot loop, register + wait once per variant
+        pending_by_variant: dict[str, list[str]] = {"A": [], "B": []}
 
         for i in range(10):
             task_id = f"ep_{i:06d}"
 
-            # ✅ stable segment identity for cross-run comparisons (Option S)
-            segment_id = f"{SUITE_NAME}/{task_id}"
+            # ✅ stable problem identity for cross-run comparisons (Option S)
+            problem_id = f"{SUITE_NAME}/{task_id}"
 
-            live_preview_episode(preview_a, preview_b, segment_id)
+            episode_id = str(uuid.uuid4())
 
-            for layer in ["A", "B"]:  # later: ["tools", "no_tools"] etc
+            live_preview_episode(preview_a, preview_b, problem_id)
+
+            for variant in ["A", "B"]:
                 t0 = time.time()
-                rrd_uri = log_variant_rrd(segment_id, layer)
+                rrd_uri = log_variant_rrd(problem_id, episode_id, variant)
 
-                pending_by_layer[layer].append(rrd_uri)
+                pending_by_variant[variant].append(rrd_uri)
 
                 elapsed_ms = int((time.time() - t0) * 1000)
 
@@ -262,8 +267,9 @@ def run_experiment() -> None:
                     run_id=RUN_ID,
                     suite_name=SUITE_NAME,
                     task_id=task_id,
-                    segment_id=segment_id,
-                    layer=layer,
+                    episode_id=episode_id,
+                    problem_id=problem_id,
+                    variant=variant,
                     rrd_uri=rrd_uri,
                     tokens=tokens,
                     success=success,
@@ -272,11 +278,11 @@ def run_experiment() -> None:
 
             time.sleep(0.25)
 
-        # Register batched (Tier 1 canonical) and wait once per layer (0.28)
+        # Register batched (Tier 1 canonical) and wait once per variant (0.28)
         handles = []
-        for layer, uris in pending_by_layer.items():
+        for variant, uris in pending_by_variant.items():
             if uris:
-                handles.append(dataset.register(uris, layer_name=layer))
+                handles.append(dataset.register(uris, layer_name=variant))
         for h in handles:
             h.wait()
 
