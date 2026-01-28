@@ -3,10 +3,11 @@ import time
 from pathlib import Path
 import uuid
 from datetime import datetime, timezone
-import rerun.catalog as catalog
+
 import numpy as np
 import pyarrow as pa
 import rerun as rr
+import rerun.catalog as catalog
 
 # ------------------- DATA SETUP
 
@@ -57,28 +58,39 @@ def make_run_id() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%d_%H-%M-%S_%f")[:-3]
 
 
-def get_or_create_dataset(client: rr.catalog.CatalogClient, name: str) -> rr.catalog.DatasetEntry:
-    """Catalog dataset entry."""
+def reset_dataset(client: catalog.CatalogClient, name: str) -> catalog.DatasetEntry:
+    """
+    Hard-reset a dataset name to be an empty workspace snapshot.
+
+    This makes `name` behave like "the current run's dataset".
+    """
+    try:
+        client.get_dataset(name=name).delete()
+    except LookupError:
+        pass
+    except Exception as e:
+        # Don't fail a run just because delete didn't work.
+        print(f"⚠️  Warning: failed to delete dataset '{name}': {e}")
+
     try:
         client.create_dataset(name)
-    except rr.catalog.AlreadyExistsError:
+    except catalog.AlreadyExistsError:
         pass
+
     return client.get_dataset(name=name)
 
 
 def ensure_table(
-    client: rr.catalog.CatalogClient,
+    client: catalog.CatalogClient,
     *,
     name: str,
     schema: pa.Schema,
     storage_dir: Path,
-) -> rr.catalog.TableEntry:
+) -> catalog.TableEntry:
     """
     Create or register a Lance-backed table and register it with DataFusion (client.ctx).
     """
-    # Avoid import-time side effects: only create dirs when we actually need them.
     storage_dir.parent.mkdir(parents=True, exist_ok=True)
-
     storage_url = storage_dir.absolute().as_uri()
 
     try:
@@ -98,7 +110,7 @@ def ensure_table(
     return table
 
 
-def ensure_all_tables(client: rr.catalog.CatalogClient) -> None:
+def ensure_all_tables(client: catalog.CatalogClient) -> None:
     """Ensure all expected tables exist and are registered with client.ctx."""
     ensure_table(
         client,
@@ -121,7 +133,7 @@ def log_variant_rrd(recordings_dir: Path, problem_id: str, episode_id: str, vari
 
     rec = rr.RecordingStream(
         application_id=f"{EXPERIMENT_FAMILY}/{VERSION_ID}",
-        recording_id=problem_id,  # stays stable for Option S dataset segment
+        recording_id=problem_id,  # stays stable: dataset segment_id = problem_id
     )
     rec.save(str(rrd_path))
 
@@ -151,7 +163,7 @@ def live_preview_episode(preview_a: rr.RecordingStream, preview_b: rr.RecordingS
 
 
 def append_run_row(
-    runs_table: rr.catalog.TableEntry,
+    runs_table: catalog.TableEntry,
     *,
     experiment_family: str,
     version_id: str,
@@ -169,7 +181,7 @@ def append_run_row(
 
 
 def append_episode_metric_row(
-    episode_metrics: rr.catalog.TableEntry,
+    episode_metrics: catalog.TableEntry,
     *,
     experiment_family: str,
     version_id: str,
@@ -200,11 +212,20 @@ def append_episode_metric_row(
     )
 
 
+def register_pending(dataset: catalog.DatasetEntry, pending_by_variant: dict[str, list[str]]) -> None:
+    """Register whatever we have produced so far into the workspace dataset (batched), then wait."""
+    handles = []
+    for variant, uris in pending_by_variant.items():
+        if uris:
+            handles.append(dataset.register(uris, layer_name=variant))
+    for h in handles:
+        h.wait()
+
+
 # ------------------- MAIN EXPERIMENT
 
 
 def run_experiment() -> None:
-    # ✅ run-specific stuff belongs here (not at import time)
     run_id = make_run_id()
     recordings_dir = LOGS_DIR / "recordings" / EXPERIMENT_FAMILY / VERSION_ID / run_id
     recordings_dir.mkdir(parents=True, exist_ok=True)
@@ -214,8 +235,8 @@ def run_experiment() -> None:
     with rr.server.Server() as server:
         client = server.client()
 
-        dataset_name = EXPERIMENT  # stable dataset (latest snapshot index)
-        dataset = get_or_create_dataset(client, dataset_name)
+        dataset_name = EXPERIMENT  # single stable dataset name (workspace snapshot)
+        dataset = reset_dataset(client, dataset_name)  # ✅ hard reset per run
 
         runs_table = ensure_table(
             client,
@@ -246,6 +267,8 @@ def run_experiment() -> None:
         preview_b.spawn()
 
         pending_by_variant: dict[str, list[str]] = {"A": [], "B": []}
+        interrupted = False
+        ended_at_eval: float | None = None
 
         try:
             for i in range(10):
@@ -283,49 +306,64 @@ def run_experiment() -> None:
 
                 time.sleep(0.25)
 
-            # Register batched (Tier 1 canonical) and wait once per variant
-            handles = []
-            for variant, uris in pending_by_variant.items():
-                if uris:
-                    handles.append(dataset.register(uris, layer_name=variant))
-            for h in handles:
-                h.wait()
-
-            print("\n--- runs sample ---")
-            batches = client.ctx.sql(f"SELECT * FROM {RUNS_TABLE_NAME} LIMIT 10").collect()
-            for b in batches:
-                print(b.to_pandas())
-
-            print("\n--- episode_metrics sample ---")
-            batches = client.ctx.sql(f"SELECT * FROM {EPISODE_METRICS_TABLE_NAME} LIMIT 10").collect()
-            for b in batches:
-                print(b.to_pandas())
-
-            addr = server.address()
-            port = addr.rsplit(":", 1)[-1]
-
-            print(f"\n✅ Dataset server address: {addr}")
-            print(f"Open Viewer with:\n  rerun connect 127.0.0.1:{port}\n")
-            print(f"Dataset name: {dataset_name}")
-            print(f"Run ID: {run_id}")
-            print("Press Ctrl+C to stop…")
-
-            while True:
-                time.sleep(1)
-
         except KeyboardInterrupt:
-            pass
+            interrupted = True
+
+        except Exception as e:
+            # Still publish whatever we managed to generate.
+            print(f"⚠️  Run crashed mid-loop: {e}")
+            interrupted = True
 
         finally:
-            ended_at = time.time()
+            ended_at_eval = time.time()
+
+            # ✅ Always publish partial progress to the workspace dataset.
+            try:
+                register_pending(dataset, pending_by_variant)
+            except Exception as e:
+                print(f"⚠️  Warning: failed to register pending dataset updates: {e}")
+
+            # ✅ Record the run lifecycle (end time = when compute ended, not when you stop viewing).
             append_run_row(
                 runs_table,
                 experiment_family=EXPERIMENT_FAMILY,
                 version_id=VERSION_ID,
                 run_id=run_id,
                 started_at=started_at,
-                ended_at=ended_at,
+                ended_at=ended_at_eval,
             )
+
+        # Optional: samples
+        try:
+            print("\n--- runs sample ---")
+            batches = client.ctx.sql(f"SELECT * FROM {RUNS_TABLE_NAME} ORDER BY started_at_unix_s DESC LIMIT 10").collect()
+            for b in batches:
+                print(b.to_pandas())
+
+            print("\n--- episode_metrics sample ---")
+            batches = client.ctx.sql(f"SELECT * FROM {EPISODE_METRICS_TABLE_NAME} ORDER BY run_id DESC LIMIT 10").collect()
+            for b in batches:
+                print(b.to_pandas())
+        except Exception as e:
+            print(f"⚠️  Warning: failed to query sample tables: {e}")
+
+        addr = server.address()
+        port = addr.rsplit(":", 1)[-1]
+
+        print(f"\n✅ Dataset server address: {addr}")
+        print(f"Open Viewer with:\n  rerun connect 127.0.0.1:{port}\n")
+        print(f"Dataset name: {dataset_name}")
+        print(f"Run ID: {run_id}")
+        if interrupted:
+            print("⚠️  Run was interrupted; dataset shows partial progress.")
+        print("Press Ctrl+C to stop the server…")
+
+        # Keep the server alive for inspection (Ctrl+C now stops the server, not the eval loop).
+        try:
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            pass
 
 
 def run_sql(sql: str) -> None:
