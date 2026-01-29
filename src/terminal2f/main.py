@@ -2,45 +2,11 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import ulid
 import rerun as rr
-import rerun.catalog as catalog # maybe lower casey
+import rerun.catalog as catalog 
 import datetime
 import time
 from pathlib import Path
 import uuid
-
-# days = pa.array([1, 12, 17, 23, 28], type=pa.int8())
-# months = pa.array([1, 2, 3, 5, 7], type=pa.int8())
-# years = pa.array([1990, 2000, 1995, 2000, 1995], type=pa.int16())
-# birthdays_table = pa.table(
-#     [days, months, years],
-#     ["days", "months", "years"])
-# print(birthdays_table)
-
-# pq.write_table(birthdays_table, "learning.paquet")
-
-# print("- - - - - ")
-
-# arr = pa.array([1, 2, 3, 4, 6])
-# print(arr.type)
-
-# arr = arr.cast(pa.int8())
-# print(arr.type)
-
-# schema = pa.schema([
-#     ("col1", pa.int8()),
-#     ("col2", pa.string()),
-#     ("col3", pa.float64())
-# ])
-
-# print(schema)
-
-# table = pa.table([
-#     [1, 4, 6],
-#     ["a", "d", "f"], 
-#     [4.30, 3.30, 4.00]
-# ],schema=schema)
-
-# print(table)
 
 # data, data-model, datus
 
@@ -77,22 +43,11 @@ EXPERIMENTS_METRICS_SCHEMA: pa.Schema = pa.schema(
     ]
 
 )
+
 # helpies
 
 def make_run_id() -> str: 
     return str(ulid.new()) # unsure if ulid is what I should do here but aight for now
-
-
-now = datetime.datetime.now(datetime.timezone.utc)
-
-# run_example_table: pa.Table = pa.table([
-#     ["tools", "no-tools", "my-tools"],
-#     ["v1", "v1", "v1"],
-#     [make_run_id(), make_run_id(), make_run_id()],
-#     [now, now, now], 
-#     [now, now, now], 
-# ], schema=EXPERIMENTS_RUN_SCHEMA)
-
 
 def reset_dataset(client, name: str):
     try:
@@ -140,7 +95,7 @@ run_id = make_run_id()
 recordings_dir = LOGS_DIR / "recordings" / EXPERIMENT_FAMILY / VERSION_ID / run_id
 recordings_dir.mkdir(parents=True, exist_ok=True)
 
-with rr.server.Server() as server:
+with rr.server.Server(port=9876) as server:
     print(server.address())
     client = server.client()
 
