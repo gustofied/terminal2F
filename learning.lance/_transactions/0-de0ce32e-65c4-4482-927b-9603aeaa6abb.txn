@@ -1,4 +1,0 @@
-$de0ce32e-65c4-4482-927b-9603aeaa6abb²¡3experiment_family ÿÿÿÿÿÿÿÿÿ*string08Zdefault.
-version_id ÿÿÿÿÿÿÿÿÿ*string08Zdefault*run_id ÿÿÿÿÿÿÿÿÿ*string08Zdefault2start ÿÿÿÿÿÿÿÿÿ*timestamp:s:UTC08Zdefault0end ÿÿÿÿÿÿÿÿÿ*timestamp:s:UTC08Zdefault-	rrd_uri_a ÿÿÿÿÿÿÿÿÿ*string08Zdefault-	rrd_uri_b ÿÿÿÿÿÿÿÿÿ*string08Zdefault"'
-lance.auto_cleanup.older_than14days"!
-lance.auto_cleanup.interval20

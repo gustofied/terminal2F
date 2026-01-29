@@ -8,11 +8,14 @@ import time
 from pathlib import Path
 import uuid
 
+EXPERIMENT_FAMILY = "TOOLS_VS_NOTOOLS"  # Experiment family
+VERSION_ID = "v1"  # Specific version of that experiment
+EXPERIMENT = f"{EXPERIMENT_FAMILY}/{VERSION_ID}"  # stable dataset name¨
+LOGS_DIR = Path("logs")
+TABLES_DIR = LOGS_DIR / "tables"  # stable across all runs
+STORAGE_DIR = LOGS_DIR / "storage"
+
 # data, data-model, datus
-
-storage_path = Path("learning.lance").absolute()
-storage_url = storage_path.as_uri()
-
 
 EXPERIMENTS_RUN_SCHEMA: pa.Schema = pa.schema([
     ("experiment_family", pa.string()),
@@ -43,11 +46,7 @@ EXPERIMENTS_METRICS_SCHEMA: pa.Schema = pa.schema(
     ]
 
 )
-
 # helpies
-
-def make_run_id() -> str: 
-    return str(ulid.new()) # unsure if ulid is what I should do here but aight for now
 
 def reset_dataset(client, name: str):
     try:
@@ -66,11 +65,6 @@ def make_table(client: catalog.CatalogClient, name: str, schema: pa.Schema, path
         client.create_table(name=name, schema=schema, url=url)
     return client.get_table(name=name)
 
-
-
-EXPERIMENT_FAMILY = "TOOLS_VS_NOTOOLS"  # Experiment family
-VERSION_ID = "v1"  # Specific version of that experiment
-
 #write an eppsiode which the layers will use / epsiode / variants
 def write_episode_rrd(recordings_dir: Path, *, problem_id: str, episode_id: str, variant: str) -> str:
     rrd_path = recordings_dir / problem_id / f"{episode_id}.rrd"
@@ -88,28 +82,21 @@ def write_episode_rrd(recordings_dir: Path, *, problem_id: str, episode_id: str,
     return rrd_path.absolute().as_uri()
 
 
-EXPERIMENT = f"{EXPERIMENT_FAMILY}/{VERSION_ID}"  # stable dataset name
-LOGS_DIR = Path("logs")
-TABLES_DIR = LOGS_DIR / "tables"  # stable across all runs
-run_id = make_run_id()
-recordings_dir = LOGS_DIR / "recordings" / EXPERIMENT_FAMILY / VERSION_ID / run_id
-recordings_dir.mkdir(parents=True, exist_ok=True)
-
 with rr.server.Server(port=9876) as server:
     print(server.address())
     client = server.client()
 
     dataset = reset_dataset(client, EXPERIMENT)
+    
+    runs_table = make_table(client, "experiment_run", EXPERIMENTS_RUN_SCHEMA, STORAGE_DIR)
 
-    runs_table = make_table(client, "experiment_run", EXPERIMENTS_RUN_SCHEMA, storage_path)
-
-    run_id = make_run_id()
+    run_id = str(ulid.new())
     now = datetime.datetime.now(datetime.timezone.utc)
 
     recordings_dir = LOGS_DIR / "recordings" / EXPERIMENT_FAMILY / VERSION_ID / run_id
     recordings_dir.mkdir(parents=True, exist_ok=True)
 
-    # one segment per run (just for this test)
+    # one segment per run (just for this test) #test/suite
     problem_id = f"layer_test/{run_id}"
 
     rrd_uri_a = write_episode_rrd(recordings_dir, problem_id=problem_id, episode_id=str(uuid.uuid4()), variant="A")
@@ -130,14 +117,9 @@ with rr.server.Server(port=9876) as server:
     )
 
     print(runs_table.reader())
-
-    # for b in client.ctx.sql("SELECT * FROM experiment_run").collect():
-    #     print(b.to_pandas())
-
-        
     print(server.address())
-
     print(rrd_uri_a)  
+    print(dataset.schema())
 
 
     try:
