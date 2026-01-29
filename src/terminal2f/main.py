@@ -10,9 +10,9 @@ import uuid
 
 EXPERIMENT_FAMILY = "TOOLS_VS_NOTOOLS"  # Experiment family
 VERSION_ID = "v1"  # Specific version of that experiment
-EXPERIMENT = f"{EXPERIMENT_FAMILY}/{VERSION_ID}"  # stable dataset name¨
+EXPERIMENT = f"{EXPERIMENT_FAMILY}/{VERSION_ID}"  # stable dataset name
 LOGS_DIR = Path("logs")
-TABLES_DIR = LOGS_DIR / "tables"  # stable across all runs
+TABLES_DIR = LOGS_DIR / "tables"  
 STORAGE_DIR = LOGS_DIR / "storage"
 
 # data, data-model, datus
@@ -23,8 +23,6 @@ EXPERIMENTS_RUN_SCHEMA: pa.Schema = pa.schema([
     ("run_id", pa.string()),
     ("start", pa.timestamp("s", tz="UTC")),
     ("end", pa.timestamp("s", tz="UTC")),
-    ("rrd_uri_a", pa.string()),
-    ("rrd_uri_b", pa.string()),
 ])
 
 EXPERIMENTS_METRICS_SCHEMA: pa.Schema = pa.schema(
@@ -46,6 +44,7 @@ EXPERIMENTS_METRICS_SCHEMA: pa.Schema = pa.schema(
     ]
 
 )
+
 # helpies
 
 def reset_dataset(client, name: str):
@@ -56,14 +55,15 @@ def reset_dataset(client, name: str):
     client.create_dataset(name)
     return client.get_dataset(name=name)
 
-def make_table(client: catalog.CatalogClient, name: str, schema: pa.Schema, path: Path) -> catalog.TableEntry:
-    path = path.absolute()
+def make_table(client: catalog.CatalogClient, name: str, schema: pa.Schema) -> catalog.TableEntry:
+    path = TABLES_DIR.absolute()
     url = path.as_uri()
     if path.exists():
         client.register_table(name=name, url=url)
     else:
         client.create_table(name=name, schema=schema, url=url)
     return client.get_table(name=name)
+
 
 #write an eppsiode which the layers will use / epsiode / variants
 def write_episode_rrd(recordings_dir: Path, *, problem_id: str, episode_id: str, variant: str) -> str:
@@ -88,7 +88,7 @@ with rr.server.Server(port=9876) as server:
 
     dataset = reset_dataset(client, EXPERIMENT)
     
-    runs_table = make_table(client, "experiment_run", EXPERIMENTS_RUN_SCHEMA, STORAGE_DIR)
+    runs_table = make_table(client, "experiment_run", EXPERIMENTS_RUN_SCHEMA)
 
     run_id = str(ulid.new())
     now = datetime.datetime.now(datetime.timezone.utc)
@@ -112,8 +112,6 @@ with rr.server.Server(port=9876) as server:
         run_id=run_id,
         start=now,
         end=now,
-        rrd_uri_a=rrd_uri_a,
-        rrd_uri_b=rrd_uri_b,
     )
 
     print(runs_table.reader())
