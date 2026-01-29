@@ -182,6 +182,8 @@ with rr.server.Server() as server:
         
     print(server.address())
 
+    print(rrd_uri_a)  
+
 
     try:
         while True:
