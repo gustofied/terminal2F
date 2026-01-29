@@ -2,7 +2,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import ulid
 import rerun as rr
-import rerun.catalog as Catalog # maybe lower casey
+import rerun.catalog as catalog # maybe lower casey
 import datetime
 import time
 from pathlib import Path
@@ -102,7 +102,7 @@ def reset_dataset(client, name: str):
     client.create_dataset(name)
     return client.get_dataset(name=name)
 
-def make_table(client: Catalog.CatalogClient, name: str, schema: pa.Schema, path: Path) -> Catalog.TableEntry:
+def make_table(client: catalog.CatalogClient, name: str, schema: pa.Schema, path: Path) -> catalog.TableEntry:
     path = path.absolute()
     url = path.as_uri()
     if path.exists():
