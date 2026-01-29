@@ -10,10 +10,10 @@ import uuid
 
 EXPERIMENT_FAMILY = "TOOLS_VS_NOTOOLS"  # Experiment family
 VERSION_ID = "v1"  # Specific version of that experiment
-EXPERIMENT = f"{EXPERIMENT_FAMILY}/{VERSION_ID}"  # stable dataset name
+EXPERIMENT = f"{EXPERIMENT_FAMILY}/{VERSION_ID}"  
 LOGS_DIR = Path("logs")
 TABLES_DIR = LOGS_DIR / "tables"  
-STORAGE_DIR = LOGS_DIR / "storage"
+STORAGE_DIR = LOGS_DIR / "storage" # store recordings here
 
 # data, data-model, datus
 
@@ -25,29 +25,32 @@ EXPERIMENTS_RUN_SCHEMA: pa.Schema = pa.schema([
     ("end", pa.timestamp("s", tz="UTC")),
 ])
 
-EXPERIMENTS_METRICS_SCHEMA: pa.Schema = pa.schema(
 
-    [
-        ("experiment_family", pa.string()),
-        ("version_id", pa.string()),
-        ("run_id", pa.string()),
-        ("suite_name", pa.string()),
-        ("task_id", pa.string()),  # stable task key within suite
-        ("trial_id", pa.string()),  # shared across A/B
-        ("episode_id", pa.string()),  # unique per (trial, variant)
-        ("problem_id", pa.string()),  # stable problem id / task / rollout (suite/task)
-        ("variant", pa.string()),  # A/B
-        ("rrd_uri", pa.string()),  # rrd rerun recording pointer
-        ("tokens", pa.int64()),
-        ("success", pa.bool_()),
-        ("wall_time_ms", pa.int64()),
-    ]
+# not in use right now
 
-)
+# EXPERIMENTS_METRICS_SCHEMA: pa.Schema = pa.schema(
+
+#     [
+#         ("experiment_family", pa.string()),
+#         ("version_id", pa.string()),
+#         ("run_id", pa.string()),
+#         ("suite_name", pa.string()),
+#         ("task_id", pa.string()),  # stable task key within suite
+#         ("trial_id", pa.string()),  # shared across A/B
+#         ("episode_id", pa.string()),  # unique per (trial, variant)
+#         ("problem_id", pa.string()),  # stable problem id / task / rollout (suite/task)
+#         ("variant", pa.string()),  # A/B
+#         ("rrd_uri", pa.string()),  # rrd rerun recording pointer
+#         ("tokens", pa.int64()),
+#         ("success", pa.bool_()),
+#         ("wall_time_ms", pa.int64()),
+#     ]
+
+# )
 
 # helpies
 
-def reset_dataset(client, name: str):
+def init_dataset(client, name: str):
     try:
         client.get_dataset(name=name).delete()
     except LookupError:
@@ -55,7 +58,7 @@ def reset_dataset(client, name: str):
     client.create_dataset(name)
     return client.get_dataset(name=name)
 
-def make_table(client: catalog.CatalogClient, name: str, schema: pa.Schema) -> catalog.TableEntry:
+def get_or_make_table(client: catalog.CatalogClient, name: str, schema: pa.Schema) -> catalog.TableEntry:
     path = TABLES_DIR.absolute()
     url = path.as_uri()
     if path.exists():
@@ -63,7 +66,6 @@ def make_table(client: catalog.CatalogClient, name: str, schema: pa.Schema) -> c
     else:
         client.create_table(name=name, schema=schema, url=url)
     return client.get_table(name=name)
-
 
 #write an eppsiode which the layers will use / epsiode / variants
 def write_episode_rrd(recordings_dir: Path, *, problem_id: str, episode_id: str, variant: str) -> str:
@@ -86,9 +88,11 @@ with rr.server.Server(port=9876) as server:
     print(server.address())
     client = server.client()
 
-    dataset = reset_dataset(client, EXPERIMENT)
-    
-    runs_table = make_table(client, "experiment_run", EXPERIMENTS_RUN_SCHEMA)
+    # dataset is the workspace, it's the current view
+    dataset = init_dataset(client, EXPERIMENT)
+
+    # runs table
+    runs_table = get_or_make_table(client, "runs", EXPERIMENTS_RUN_SCHEMA)
 
     run_id = str(ulid.new())
     now = datetime.datetime.now(datetime.timezone.utc)
