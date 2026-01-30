@@ -13,8 +13,11 @@ EXPERIMENT = f"{EXPERIMENT_FAMILY}/{VERSION_ID}"
 LOGS_DIR = Path("logs")
 TABLES_DIR = LOGS_DIR / "tables"
 STORAGE_DIR = LOGS_DIR / "storage"  # store recordings here
-
 RECORDINGS = STORAGE_DIR / "recordings" / EXPERIMENT_FAMILY / VERSION_ID / "runs"
+
+# SUPER TIGHT FLAG:
+MODE = "record"  # "record" or "load"
+LOAD_RUN_ID = ""  # set this when MODE="load", e.g. "01J..."
 
 # data, data-model, datus
 
@@ -25,10 +28,20 @@ EXPERIMENTS_RUN_SCHEMA: pa.Schema = pa.schema(
         ("run_id", pa.string()),
         ("start", pa.timestamp("s", tz="UTC")),
         ("end", pa.timestamp("s", tz="UTC")),
-        ("rrd_uri", pa.string()),
+        ("root_rrd_uri", pa.string()),  # REAL POINTER: run root (file://.../runs/<run_id>/)
     ]
 )
 
+EXPERIMENTS_EPISODES_SCHEMA: pa.Schema = pa.schema(
+    [
+        ("experiment_family", pa.string()),
+        ("version_id", pa.string()),
+        ("run_id", pa.string()),
+        ("episode_id", pa.string()),
+        ("layer", pa.string()),
+        ("rrd_uri", pa.string()),  # pointer to the concrete file
+    ]
+)
 
 # helpies
 
@@ -41,10 +54,8 @@ def init_dataset(client, name: str):
     return client.get_dataset(name=name)
 
 
-def get_or_make_table(
-    client: catalog.CatalogClient, name: str, schema: pa.Schema
-) -> catalog.TableEntry:
-    path = TABLES_DIR.absolute()
+def get_or_make_table(client: catalog.CatalogClient, name: str, schema: pa.Schema) -> catalog.TableEntry:
+    path = (TABLES_DIR / name).absolute()
     url = path.as_uri()
     if path.exists():
         client.register_table(name=name, url=url)
@@ -73,6 +84,15 @@ def write_episode_rrd(*, run_id: str, episode_id: str, variant: str) -> str:
     return rrd_path.absolute().as_uri()
 
 
+def load_run_into_dataset(dataset, *, run_id: str):
+    run_dir = RECORDINGS / run_id
+    episodes_dir = run_dir / "episodes"
+
+    for p in sorted(episodes_dir.rglob("*.rrd")):
+        layer = p.stem  # "A" from "A.rrd"
+        dataset.register(p.absolute().as_uri(), layer_name=layer).wait()
+
+
 with rr.server.Server(port=9876) as server:
     client = server.client()
 
@@ -82,41 +102,89 @@ with rr.server.Server(port=9876) as server:
     # runs table
     runs_table = get_or_make_table(client, "runs", EXPERIMENTS_RUN_SCHEMA)
 
-    run_id = str(ulid.new())
-    now = datetime.datetime.now(datetime.timezone.utc)
+    # episodes table
+    episodes_table = get_or_make_table(client, "episodes", EXPERIMENTS_EPISODES_SCHEMA)
 
-    # --- Option 1: sequential episodes episode_1..episode_10 (kept for reference) ---
-    # for i in range(1, 11):
-    #     episode_id = f"episode_{i}"
-    #
-    #     rrd_uri_a = write_episode_rrd(run_id=run_id, episode_id=episode_id, variant="A")
-    #     rrd_uri_b = write_episode_rrd(run_id=run_id, episode_id=episode_id, variant="B")
-    #
-    #     dataset.register(rrd_uri_a, layer_name="A").wait()
-    #     dataset.register(rrd_uri_b, layer_name="B").wait()
+    if MODE == "load":
+        run_id = LOAD_RUN_ID
+        load_run_into_dataset(dataset, run_id=run_id)
 
-    # --- Option 2: task benchmarking task_1..task_5 with A/B variants (active) ---
-    for i in range(1, 6):
-        episode_id = f"task_{i}"
+    else:
+        run_id = str(ulid.new())
+        now = datetime.datetime.now(datetime.timezone.utc)
 
-        rrd_uri_a = write_episode_rrd(run_id=run_id, episode_id=episode_id, variant="A")
-        rrd_uri_b = write_episode_rrd(run_id=run_id, episode_id=episode_id, variant="B")
+        # --- Option 1: sequential episodes episode_1..episode_10 (kept for reference) ---
+        # for i in range(1, 11):
+        #     episode_id = f"episode_{i}"
+        #
+        #     rrd_uri_a = write_episode_rrd(run_id=run_id, episode_id=episode_id, variant="A")
+        #     rrd_uri_b = write_episode_rrd(run_id=run_id, episode_id=episode_id, variant="B")
+        #
+        #     dataset.register(rrd_uri_a, layer_name="A").wait()
+        #     dataset.register(rrd_uri_b, layer_name="B").wait()
+        #
+        #     episodes_table.append(
+        #         experiment_family=EXPERIMENT_FAMILY,
+        #         version_id=VERSION_ID,
+        #         run_id=run_id,
+        #         episode_id=episode_id,
+        #         layer="A",
+        #         rrd_uri=rrd_uri_a,
+        #     )
+        #     episodes_table.append(
+        #         experiment_family=EXPERIMENT_FAMILY,
+        #         version_id=VERSION_ID,
+        #         run_id=run_id,
+        #         episode_id=episode_id,
+        #         layer="B",
+        #         rrd_uri=rrd_uri_b,
+        #     )
 
-        dataset.register(rrd_uri_a, layer_name="A").wait()
-        dataset.register(rrd_uri_b, layer_name="B").wait()
+        # --- Option 2: task benchmarking task_1..task_5 with A/B variants (active) ---
+        for i in range(1, 6):
+            episode_id = f"task_{i}"
 
-    runs_table.append(
-        experiment_family=EXPERIMENT_FAMILY,
-        version_id=VERSION_ID,
-        run_id=run_id,
-        start=now,
-        end=now,
-        rrd_uri="https://www.youtube.com/watch?v=IOijfCTQPGQ",
-    )
+            rrd_uri_a = write_episode_rrd(run_id=run_id, episode_id=episode_id, variant="A")
+            rrd_uri_b = write_episode_rrd(run_id=run_id, episode_id=episode_id, variant="B")
+
+            dataset.register(rrd_uri_a, layer_name="A").wait()
+            dataset.register(rrd_uri_b, layer_name="B").wait()
+
+            episodes_table.append(
+                experiment_family=EXPERIMENT_FAMILY,
+                version_id=VERSION_ID,
+                run_id=run_id,
+                episode_id=episode_id,
+                layer="A",
+                rrd_uri=rrd_uri_a,
+            )
+            episodes_table.append(
+                experiment_family=EXPERIMENT_FAMILY,
+                version_id=VERSION_ID,
+                run_id=run_id,
+                episode_id=episode_id,
+                layer="B",
+                rrd_uri=rrd_uri_b,
+            )
+
+        # REAL POINTER: store run root directory (like W&B run page root)
+        run_root_uri = (RECORDINGS / run_id).absolute().as_uri()
+
+        runs_table.append(
+            experiment_family=EXPERIMENT_FAMILY,
+            version_id=VERSION_ID,
+            run_id=run_id,
+            start=now,
+            end=now,
+            root_rrd_uri=run_root_uri,
+        )
 
     print(runs_table.reader())
     print(server.address())
     print(dataset.schema())
+    print(episodes_table.reader())
+
+    
 
     try:
         while True:
