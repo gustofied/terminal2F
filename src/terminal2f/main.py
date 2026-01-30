@@ -5,7 +5,6 @@ import rerun.catalog as catalog
 import datetime
 import time
 from pathlib import Path
-import uuid
 
 EXPERIMENT_FAMILY = "TOOLS_VS_NOTOOLS"  # Experiment family
 VERSION_ID = "v1"  # Specific version of that experiment
@@ -14,6 +13,8 @@ LOGS_DIR = Path("logs")
 TABLES_DIR = LOGS_DIR / "tables"
 STORAGE_DIR = LOGS_DIR / "storage"  # store recordings here
 RECORDINGS = STORAGE_DIR / "recordings" / EXPERIMENT_FAMILY / VERSION_ID / "runs"
+# in the future RECORDINGS_ROOT = "s3://my-bucket/terminal2f/recordings"
+
 
 # SUPER TIGHT FLAG:
 MODE = "record"  # "record" or "load"
@@ -28,7 +29,6 @@ EXPERIMENTS_RUN_SCHEMA: pa.Schema = pa.schema(
         ("run_id", pa.string()),
         ("start", pa.timestamp("s", tz="UTC")),
         ("end", pa.timestamp("s", tz="UTC")),
-        ("root_rrd_uri", pa.string()),  # REAL POINTER: run root (file://.../runs/<run_id>/)
     ]
 )
 
@@ -39,7 +39,6 @@ EXPERIMENTS_EPISODES_SCHEMA: pa.Schema = pa.schema(
         ("run_id", pa.string()),
         ("episode_id", pa.string()),
         ("layer", pa.string()),
-        ("rrd_uri", pa.string()),  # pointer to the concrete file
     ]
 )
 
@@ -129,7 +128,6 @@ with rr.server.Server(port=9876) as server:
         #         run_id=run_id,
         #         episode_id=episode_id,
         #         layer="A",
-        #         rrd_uri=rrd_uri_a,
         #     )
         #     episodes_table.append(
         #         experiment_family=EXPERIMENT_FAMILY,
@@ -137,7 +135,6 @@ with rr.server.Server(port=9876) as server:
         #         run_id=run_id,
         #         episode_id=episode_id,
         #         layer="B",
-        #         rrd_uri=rrd_uri_b,
         #     )
 
         # --- Option 2: task benchmarking task_1..task_5 with A/B variants (active) ---
@@ -156,7 +153,6 @@ with rr.server.Server(port=9876) as server:
                 run_id=run_id,
                 episode_id=episode_id,
                 layer="A",
-                rrd_uri=rrd_uri_a,
             )
             episodes_table.append(
                 experiment_family=EXPERIMENT_FAMILY,
@@ -164,11 +160,7 @@ with rr.server.Server(port=9876) as server:
                 run_id=run_id,
                 episode_id=episode_id,
                 layer="B",
-                rrd_uri=rrd_uri_b,
             )
-
-        # REAL POINTER: store run root directory (like W&B run page root)
-        run_root_uri = (RECORDINGS / run_id).absolute().as_uri()
 
         runs_table.append(
             experiment_family=EXPERIMENT_FAMILY,
@@ -176,15 +168,12 @@ with rr.server.Server(port=9876) as server:
             run_id=run_id,
             start=now,
             end=now,
-            root_rrd_uri=run_root_uri,
         )
 
     print(runs_table.reader())
     print(server.address())
     print(dataset.schema())
     print(episodes_table.reader())
-
-    
 
     try:
         while True:
