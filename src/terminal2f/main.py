@@ -14,13 +14,16 @@ TABLES_DIR = LOGS_DIR / "tables"
 STORAGE_DIR = LOGS_DIR / "storage"  # store recordings here
 RECORDINGS = STORAGE_DIR / "recordings" / EXPERIMENT_FAMILY / VERSION_ID / "runs"
 # in the future RECORDINGS_ROOT = "s3://my-bucket/terminal2f/recordings"
-
-
 # SUPER TIGHT FLAG:
-MODE = "record"  # "record" or "load"
-LOAD_RUN_ID = ""  # set this when MODE="load", e.g. "01J..."
+MODE = "load"  # "record" or "load"
+LOAD_RUN_ID = "01KG7RQHSFH5HX3GC8Y42K0485"  # set this when MODE="load", e.g. "01J..."
 
-# data, data-model, datus
+TASKS = {
+    "task_1": {"prompt": "Add 2+2", "expected": "4"},
+    "task_2": {"prompt": "Reverse 'abc'", "expected": "cba"},
+    "task_3": {"prompt": "Uppercase 'hello'", "expected": "HELLO"},
+    "task_4": {"prompt": "Count letters in 'banana'", "expected": "6"},
+}
 
 EXPERIMENTS_RUN_SCHEMA: pa.Schema = pa.schema(
     [
@@ -38,11 +41,13 @@ EXPERIMENTS_EPISODES_SCHEMA: pa.Schema = pa.schema(
         ("version_id", pa.string()),
         ("run_id", pa.string()),
         ("episode_id", pa.string()),
-        ("layer", pa.string()),
+        ("layer", pa.string()),  # variant name ("Base"/"A"/"B"/etc)
+        ("total_return", pa.float64()),
+        ("steps", pa.int64()),
+        ("done", pa.bool_()),
     ]
 )
 
-# helpies
 
 def init_dataset(client, name: str):
     try:
@@ -55,111 +60,206 @@ def init_dataset(client, name: str):
 
 def get_or_make_table(client: catalog.CatalogClient, name: str, schema: pa.Schema) -> catalog.TableEntry:
     path = (TABLES_DIR / name).absolute()
+    path.mkdir(parents=True, exist_ok=True)
     url = path.as_uri()
-    if path.exists():
-        client.register_table(name=name, url=url)
-    else:
-        client.create_table(name=name, schema=schema, url=url)
-    return client.get_table(name=name)
+
+    try:
+        return client.get_table(name=name)
+    except LookupError:
+        if any(path.iterdir()):
+            client.register_table(name=name, url=url)
+        else:
+            client.create_table(name=name, schema=schema, url=url)
+        return client.get_table(name=name)
 
 
-# write an episode which the layers will use:
-# recordings/<family>/<version>/runs/<run_id>/episodes/<episode_id>/<variant>.rrd
-def write_episode_rrd(*, run_id: str, episode_id: str, variant: str) -> str:
-    episode_dir = RECORDINGS / run_id / "episodes" / episode_id
-    episode_dir.mkdir(parents=True, exist_ok=True)
+class Episode:
+    # recordings/<family>/<version>/runs/<run_id>/episodes/<episode_id>/<variant>.rrd
+    def __init__(self, *, run_id: str, episode_id: str, variants: tuple[str, ...]):
+        self.run_id = run_id
+        self.episode_id = episode_id
+        self.variants = variants
+        self.episode_dir = RECORDINGS / run_id / "episodes" / episode_id
+        self._paths: dict[str, Path] = {}
+        self._recs: dict[str, rr.RecordingStream] = {}
 
-    rrd_path = episode_dir / f"{variant}.rrd"
+    def __enter__(self):
+        self.episode_dir.mkdir(parents=True, exist_ok=True)
+        for v in self.variants:
+            p = self.episode_dir / f"{v}.rrd"
+            rec = rr.RecordingStream(
+                application_id=f"{EXPERIMENT_FAMILY}/{VERSION_ID}",
+                recording_id=self.episode_id,  # segment id comes from here
+            )
+            rec.save(str(p))
+            self._paths[v] = p
+            self._recs[v] = rec
 
-    rec = rr.RecordingStream(
-        application_id=f"{EXPERIMENT_FAMILY}/{VERSION_ID}",
-        recording_id=episode_id,  # segment id comes from here
-    )
-    rec.save(rrd_path)
+            # Shared properties only (must not conflict across variants/layers).
+            with rec:
+                rr.send_recording_name(f"{self.episode_id}/{v}")
+                rr.send_property("run_id", rr.AnyValues(value=[self.run_id]))
+                rr.send_property("episode_id", rr.AnyValues(value=[self.episode_id]))
 
-    rec.log("prompt", rr.TextLog(f"episode={episode_id} variant={variant}"))
-    rec.log("answer", rr.TextLog(f"hello from {variant} @ {episode_id}"))
+        return self
 
-    return rrd_path.absolute().as_uri()
+    def recording(self, variant: str) -> rr.RecordingStream:
+        return self._recs[variant]
+
+    def prefix(self, variant: str) -> str:
+        return f"variants/{variant}"
+
+    def __exit__(self, exc_type, exc, tb):
+        for rec in self._recs.values():
+            rec.flush()
+            rec.disconnect()
+        return False
+
+
+def index_episode(
+    episodes_table: catalog.TableEntry,
+    *,
+    run_id: str,
+    episode_id: str,
+    variants: tuple[str, ...],
+    metrics_by_variant: dict[str, tuple[float, int, bool]],
+):
+    for v in variants:
+        total_return, steps, done = metrics_by_variant[v]
+        episodes_table.append(
+            experiment_family=EXPERIMENT_FAMILY,
+            version_id=VERSION_ID,
+            run_id=run_id,
+            episode_id=episode_id,
+            layer=v,
+            total_return=float(total_return),
+            steps=int(steps),
+            done=bool(done),
+        )
 
 
 def load_run_into_dataset(dataset, *, run_id: str):
     run_dir = RECORDINGS / run_id
-    episodes_dir = run_dir / "episodes"
+    for p in sorted(run_dir.rglob("*.rrd")):
+        dataset.register(p.absolute().as_uri(), layer_name=p.stem).wait()
 
-    for p in sorted(episodes_dir.rglob("*.rrd")):
-        layer = p.stem  # "A" from "A.rrd"
-        dataset.register(p.absolute().as_uri(), layer_name=layer).wait()
+
+# --- RL-style demo runner (env/task owns the actual logging content) ---
+
+
+class DummyEnv:
+    def __init__(self):
+        self.state = 0
+
+    def reset(self, *, seed: int) -> int:
+        self.state = seed % 10
+        return self.state
+
+    def step(self, action: int) -> tuple[int, float, bool]:
+        self.state = (self.state * 3 + action) % 10
+        reward = float(self.state) / 10.0
+        done = self.state == 0
+        return self.state, reward, done
+
+
+def policy_a(obs: int, step: int) -> int:
+    return 0
+
+
+def policy_b(obs: int, step: int) -> int:
+    return 1 if (obs + step) % 2 == 0 else 0
+
+
+POLICIES = {"A": policy_a, "B": policy_b}
+
+
+def run_rl_episode(*, seed: int, horizon: int, policy, root: str) -> tuple[float, int, bool]:
+    env = DummyEnv()
+    obs = env.reset(seed=seed)
+
+    rr.log(f"{root}/meta/policy", rr.TextLog(getattr(policy, "__name__", "policy")))
+    rr.log(f"{root}/meta/seed", rr.Scalars(float(seed)))
+    rr.log(f"{root}/meta/horizon", rr.Scalars(float(horizon)))
+
+    total = 0.0
+    steps = 0
+    done = False
+
+    for step in range(horizon):
+        steps = step + 1
+        rr.set_time("env_step", sequence=step)
+
+        action = int(policy(obs, step))
+        next_obs, reward, done = env.step(action)
+        total += reward
+
+        rr.log(f"{root}/obs", rr.Scalars(float(obs)))
+        rr.log(f"{root}/action", rr.Scalars(float(action)))
+        rr.log(f"{root}/reward", rr.Scalars(float(reward)))
+        rr.log(f"{root}/return", rr.Scalars(float(total)))
+        rr.log(f"{root}/done", rr.TextLog(str(done)))
+
+        obs = next_obs
+        if done:
+            break
+
+    return total, steps, done
 
 
 with rr.server.Server(port=9876) as server:
     client = server.client()
-
-    # dataset is the workspace, it's the current view
     dataset = init_dataset(client, EXPERIMENT)
 
-    # runs table
     runs_table = get_or_make_table(client, "runs", EXPERIMENTS_RUN_SCHEMA)
-
-    # episodes table
     episodes_table = get_or_make_table(client, "episodes", EXPERIMENTS_EPISODES_SCHEMA)
 
     if MODE == "load":
-        run_id = LOAD_RUN_ID
-        load_run_into_dataset(dataset, run_id=run_id)
+        load_run_into_dataset(dataset, run_id=LOAD_RUN_ID)
 
     else:
         run_id = str(ulid.new())
         now = datetime.datetime.now(datetime.timezone.utc)
 
-        # --- Option 1: sequential episodes episode_1..episode_10 (kept for reference) ---
-        # for i in range(1, 11):
-        #     episode_id = f"episode_{i}"
-        #
-        #     rrd_uri_a = write_episode_rrd(run_id=run_id, episode_id=episode_id, variant="A")
-        #     rrd_uri_b = write_episode_rrd(run_id=run_id, episode_id=episode_id, variant="B")
-        #
-        #     dataset.register(rrd_uri_a, layer_name="A").wait()
-        #     dataset.register(rrd_uri_b, layer_name="B").wait()
-        #
-        #     episodes_table.append(
-        #         experiment_family=EXPERIMENT_FAMILY,
-        #         version_id=VERSION_ID,
-        #         run_id=run_id,
-        #         episode_id=episode_id,
-        #         layer="A",
-        #     )
-        #     episodes_table.append(
-        #         experiment_family=EXPERIMENT_FAMILY,
-        #         version_id=VERSION_ID,
-        #         run_id=run_id,
-        #         episode_id=episode_id,
-        #         layer="B",
-        #     )
+        # --- A/B benchmark scenario (commented out) ---
+        # variants = ("A", "B")
+        # for episode_id, spec in TASKS.items():
+        #     with Episode(run_id=run_id, episode_id=episode_id, variants=variants) as ep:
+        #         for v in variants:
+        #             with ep.recording(v):
+        #                 root = ep.prefix(v)
+        #                 rr.log(f"{root}/task/prompt", rr.TextLog(spec["prompt"]))
+        #                 rr.log(f"{root}/task/expected", rr.TextLog(spec["expected"]))
+        #                 rr.log(f"{root}/agent/output", rr.TextLog(f"{v} answered something"))
+        #     # metrics placeholder for benchmark demo
+        #     metrics_by_variant = {v: (0.0, 0, False) for v in variants}
+        #     index_episode(episodes_table, run_id=run_id, episode_id=episode_id, variants=variants, metrics_by_variant=metrics_by_variant)
 
-        # --- Option 2: task benchmarking task_1..task_5 with A/B variants (active) ---
-        for i in range(1, 6):
-            episode_id = f"task_{i}"
+        # --- RL scenario (active): 10 episodes, 2 variants, same seed per-episode ---
+        variants = ("A", "B")
+        horizon = 12
 
-            rrd_uri_a = write_episode_rrd(run_id=run_id, episode_id=episode_id, variant="A")
-            rrd_uri_b = write_episode_rrd(run_id=run_id, episode_id=episode_id, variant="B")
+        for i in range(1, 11):
+            episode_id = f"episode_{i}"
+            seed = 1000 + i  # deterministic per-episode seed
 
-            dataset.register(rrd_uri_a, layer_name="A").wait()
-            dataset.register(rrd_uri_b, layer_name="B").wait()
+            metrics_by_variant: dict[str, tuple[float, int, bool]] = {}
 
-            episodes_table.append(
-                experiment_family=EXPERIMENT_FAMILY,
-                version_id=VERSION_ID,
+            with Episode(run_id=run_id, episode_id=episode_id, variants=variants) as ep:
+                for v in variants:
+                    with ep.recording(v):
+                        metrics_by_variant[v] = run_rl_episode(
+                            seed=seed,
+                            horizon=horizon,
+                            policy=POLICIES[v],
+                            root=ep.prefix(v),
+                        )
+
+            index_episode(
+                episodes_table,
                 run_id=run_id,
                 episode_id=episode_id,
-                layer="A",
-            )
-            episodes_table.append(
-                experiment_family=EXPERIMENT_FAMILY,
-                version_id=VERSION_ID,
-                run_id=run_id,
-                episode_id=episode_id,
-                layer="B",
+                variants=variants,
+                metrics_by_variant=metrics_by_variant,
             )
 
         runs_table.append(
