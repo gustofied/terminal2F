@@ -12,7 +12,6 @@ EXPERIMENT_FAMILY = "TOOLS_VS_NOTOOLS"  # Experiment family
 VERSION_ID = "v1"  # Specific version of that experiment, name could even make sense
 EXPERIMENT = f"{EXPERIMENT_FAMILY}/{VERSION_ID}"  # thus this is the specfic experiment, and not a dataset more like a workspace, rename to worksapce??
 
-
 LOGS_DIR = Path("logs")
 TABLES_DIR = LOGS_DIR / "tables"
 STORAGE_DIR = LOGS_DIR / "storage"  # store recordings here
@@ -39,7 +38,7 @@ EXPERIMENTS_EPISODES_SCHEMA: pa.Schema = pa.schema(
         ("version_id", pa.string()),
         ("run_id", pa.string()),
         ("episode_id", pa.string()),
-        ("variant", pa.string()),  # variant name ("A"/"B"/etc)
+        ("layer", pa.string()),  # variant name ("A"/"B"/etc)
         ("total_return", pa.float64()),
         ("steps", pa.int64()),
         ("done", pa.bool_()),
@@ -57,7 +56,7 @@ def init_dataset(client, name: str):
 
 
 def get_or_make_table(client: catalog.CatalogClient, name: str, schema: pa.Schema) -> catalog.TableEntry:
-    path = (TABLES_DIR / name).absolute()
+    path = (TABLES_DIR / EXPERIMENT_FAMILY / VERSION_ID / name).absolute()
     path.mkdir(parents=True, exist_ok=True)
     url = path.as_uri()
 
@@ -78,17 +77,17 @@ def episode(
     application_id: str,
     run_id: str,
     episode_id: str,
-    variant: str,  # "A" / "B"
+    layer: str,  # "A" / "B"
 ):
     """
     Creates and binds a recording for exactly one:
-      recordings/<family>/<version>/runs/<run_id>/episodes/<episode_id>/<variant>.rrd
+      recordings/<family>/<version>/runs/<run_id>/episodes/<episode_id>/<layer>.rrd
 
     While inside the context, rr.log(...) writes into this .rrd.
     """
     episode_dir = recordings_root / run_id / "episodes" / episode_id
     episode_dir.mkdir(parents=True, exist_ok=True)
-    path = episode_dir / f"{variant}.rrd"
+    path = episode_dir / f"{layer}.rrd"
 
     rec = rr.RecordingStream(
         application_id=application_id,
@@ -101,7 +100,7 @@ def episode(
     rr.set_thread_local_data_recording(rec)
 
     try:
-        # invariant metadata (must be identical across variants)
+        # invariant metadata (must be identical across layers)
         rr.send_recording_name(f"{run_id}:{episode_id}")
         rr.send_property("run_id", rr.AnyValues(value=[run_id]))
         rr.send_property("episode_id", rr.AnyValues(value=[episode_id]))
@@ -111,8 +110,10 @@ def episode(
         try:
             rec.flush()
         finally:
-            rec.disconnect()
-            rr.set_thread_local_data_recording(prev)
+            try:
+                rr.set_thread_local_data_recording(prev)
+            finally:
+                rec.disconnect()
 
 
 def index_episode(
@@ -120,17 +121,17 @@ def index_episode(
     *,
     run_id: str,
     episode_id: str,
-    variants: tuple[str, ...],
-    metrics_by_variant: dict[str, tuple[float, int, bool]],
+    layers: tuple[str, ...],
+    metrics_by_layer: dict[str, tuple[float, int, bool]],
 ):
-    for v in variants:
-        total_return, steps, done = metrics_by_variant[v]
+    for l in layers:
+        total_return, steps, done = metrics_by_layer[l]
         episodes_table.append(
             experiment_family=EXPERIMENT_FAMILY,
             version_id=VERSION_ID,
             run_id=run_id,
             episode_id=episode_id,
-            variant=v,
+            layer=l,
             total_return=float(total_return),
             steps=int(steps),
             done=bool(done),
@@ -140,12 +141,12 @@ def index_episode(
 def load_run_into_dataset(dataset, *, run_id: str):
     run_dir = RECORDINGS / run_id
     for p in sorted(run_dir.rglob("*.rrd")):
-        variant = p.stem  # "A"/"B"
+        layer = p.stem  # "A"/"B"
         uri = p.absolute().as_uri()
         try:
-            dataset.register(uri, recording_layer=variant).wait()
+            dataset.register(uri, recording_layer=layer).wait()
         except TypeError:
-            dataset.register(uri, layer_name=variant).wait()
+            dataset.register(uri, layer_name=layer).wait()
 
 
 # --- RL-style demo runner (env/task owns the actual logging content) ---
@@ -222,9 +223,9 @@ with rr.server.Server(port=5555) as server:
 
     else:
         run_id = str(ulid.new())
-        now = datetime.datetime.now(datetime.timezone.utc)
+        start = datetime.datetime.now(datetime.timezone.utc)
 
-        variants = ("A", "B")
+        layers = ("A", "B")
         horizon = 12
         app_id = f"{EXPERIMENT_FAMILY}/{VERSION_ID}"
 
@@ -232,16 +233,16 @@ with rr.server.Server(port=5555) as server:
             episode_id = f"episode_{i}"
             seed = 1000 + i
 
-            metrics_by_variant: dict[str, tuple[float, int, bool]] = {}
+            metrics_by_layer: dict[str, tuple[float, int, bool]] = {}
 
             with episode(
                 recordings_root=RECORDINGS,
                 application_id=app_id,
                 run_id=run_id,
                 episode_id=episode_id,
-                variant="A",
+                layer="A",
             ) as root:
-                metrics_by_variant["A"] = run_rl_episode(
+                metrics_by_layer["A"] = run_rl_episode(
                     seed=seed,
                     horizon=horizon,
                     policy=policy_a,
@@ -253,9 +254,9 @@ with rr.server.Server(port=5555) as server:
                 application_id=app_id,
                 run_id=run_id,
                 episode_id=episode_id,
-                variant="B",
+                layer="B",
             ) as root:
-                metrics_by_variant["B"] = run_rl_episode(
+                metrics_by_layer["B"] = run_rl_episode(
                     seed=seed,
                     horizon=horizon,
                     policy=policy_b,
@@ -266,16 +267,18 @@ with rr.server.Server(port=5555) as server:
                 episodes_table,
                 run_id=run_id,
                 episode_id=episode_id,
-                variants=variants,
-                metrics_by_variant=metrics_by_variant,
+                layers=layers,
+                metrics_by_layer=metrics_by_layer,
             )
+
+        end = datetime.datetime.now(datetime.timezone.utc)
 
         runs_table.append(
             experiment_family=EXPERIMENT_FAMILY,
             version_id=VERSION_ID,
             run_id=run_id,
-            start=now,
-            end=now,
+            start=start,
+            end=end,
         )
 
     print(runs_table.reader())
