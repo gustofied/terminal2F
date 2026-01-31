@@ -6,17 +6,23 @@ import datetime
 import time
 from pathlib import Path
 
+
+# config this
 EXPERIMENT_FAMILY = "TOOLS_VS_NOTOOLS"  # Experiment family
-VERSION_ID = "v1"  # Specific version of that experiment
-EXPERIMENT = f"{EXPERIMENT_FAMILY}/{VERSION_ID}"
+VERSION_ID = "v1"  # Specific version of that experiment, name could even make sense
+EXPERIMENT = f"{EXPERIMENT_FAMILY}/{VERSION_ID}" # thus this is the specfic experiment, and not a dataset more like a workspace
+
+
 LOGS_DIR = Path("logs")
 TABLES_DIR = LOGS_DIR / "tables"
 STORAGE_DIR = LOGS_DIR / "storage"  # store recordings here
+# ARTIFACTS_DIR = LOGS_DIR / "artifatcs"  # store experiment artifacts here, tool_resuts. bla ba, tables point to this destination.
 RECORDINGS = STORAGE_DIR / "recordings" / EXPERIMENT_FAMILY / VERSION_ID / "runs"
 # in the future RECORDINGS_ROOT = "s3://my-bucket/terminal2f/recordings"
-# SUPER TIGHT FLAG:
+
+# this is the cli type of work
 MODE = "load"  # "record" or "load"
-LOAD_RUN_ID = "01KG7RQHSFH5HX3GC8Y42K0485"  # set this when MODE="load", e.g. "01J..."
+LOAD_RUN_ID = "01KGA8924AFQ16F0XJGQTMSH9T"  # set this when MODE="load", e.g. "01J..."
 
 TASKS = {
     "task_1": {"prompt": "Add 2+2", "expected": "4"},
@@ -89,7 +95,7 @@ class Episode:
             p = self.episode_dir / f"{v}.rrd"
             rec = rr.RecordingStream(
                 application_id=f"{EXPERIMENT_FAMILY}/{VERSION_ID}",
-                recording_id=self.episode_id,  # segment id comes from here
+                recording_id=f"{self.run_id}:{self.episode_id}",  # segment id comes from here
             )
             rec.save(str(p))
             self._paths[v] = p
@@ -97,10 +103,11 @@ class Episode:
 
             # Shared properties only (must not conflict across variants/layers).
             with rec:
-                rr.send_recording_name(f"{self.episode_id}/{v}")
+                # segment-level metadata: should be the same for A and B
+                # do I need it who knows.
+                rr.send_recording_name(f"{self.run_id}:{self.episode_id}")
                 rr.send_property("run_id", rr.AnyValues(value=[self.run_id]))
                 rr.send_property("episode_id", rr.AnyValues(value=[self.episode_id]))
-
         return self
 
     def recording(self, variant: str) -> rr.RecordingStream:
@@ -108,6 +115,9 @@ class Episode:
 
     def prefix(self, variant: str) -> str:
         return f"variants/{variant}"
+        # return f"episodes/{self.episode_id}/variants/{variant}"
+        # return f"{self.run_id}/variants/{variant}"
+        # or not at all
 
     def __exit__(self, exc_type, exc, tb):
         for rec in self._recs.values():
@@ -206,7 +216,7 @@ def run_rl_episode(*, seed: int, horizon: int, policy, root: str) -> tuple[float
     return total, steps, done
 
 
-with rr.server.Server(port=9876) as server:
+with rr.server.Server(port=5555) as server:
     client = server.client()
     dataset = init_dataset(client, EXPERIMENT)
 
@@ -271,9 +281,11 @@ with rr.server.Server(port=9876) as server:
         )
 
     print(runs_table.reader())
-    print(server.address())
+    print(server.url())
     print(dataset.schema())
     print(episodes_table.reader())
+    print(client.url)
+    print(client.entries())
 
     try:
         while True:
