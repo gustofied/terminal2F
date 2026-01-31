@@ -5,31 +5,23 @@ import rerun.catalog as catalog
 import datetime
 import time
 from pathlib import Path
-
+from contextlib import contextmanager
 
 # config this
 EXPERIMENT_FAMILY = "TOOLS_VS_NOTOOLS"  # Experiment family
 VERSION_ID = "v1"  # Specific version of that experiment, name could even make sense
-EXPERIMENT = f"{EXPERIMENT_FAMILY}/{VERSION_ID}" # thus this is the specfic experiment, and not a dataset more like a workspace
+EXPERIMENT = f"{EXPERIMENT_FAMILY}/{VERSION_ID}"  # thus this is the specfic experiment, and not a dataset more like a workspace, rename to worksapce??
 
 
 LOGS_DIR = Path("logs")
 TABLES_DIR = LOGS_DIR / "tables"
 STORAGE_DIR = LOGS_DIR / "storage"  # store recordings here
-# ARTIFACTS_DIR = LOGS_DIR / "artifatcs"  # store experiment artifacts here, tool_resuts. bla ba, tables point to this destination.
 RECORDINGS = STORAGE_DIR / "recordings" / EXPERIMENT_FAMILY / VERSION_ID / "runs"
 # in the future RECORDINGS_ROOT = "s3://my-bucket/terminal2f/recordings"
 
 # this is the cli type of work
 MODE = "load"  # "record" or "load"
-LOAD_RUN_ID = "01KGA8924AFQ16F0XJGQTMSH9T"  # set this when MODE="load", e.g. "01J..."
-
-TASKS = {
-    "task_1": {"prompt": "Add 2+2", "expected": "4"},
-    "task_2": {"prompt": "Reverse 'abc'", "expected": "cba"},
-    "task_3": {"prompt": "Uppercase 'hello'", "expected": "HELLO"},
-    "task_4": {"prompt": "Count letters in 'banana'", "expected": "6"},
-}
+LOAD_RUN_ID = "01KGAV5QWJQ1C6HXYSRMSJ9K29"  # set this when MODE="load", e.g. "01J..."
 
 EXPERIMENTS_RUN_SCHEMA: pa.Schema = pa.schema(
     [
@@ -47,7 +39,7 @@ EXPERIMENTS_EPISODES_SCHEMA: pa.Schema = pa.schema(
         ("version_id", pa.string()),
         ("run_id", pa.string()),
         ("episode_id", pa.string()),
-        ("layer", pa.string()),  # variant name ("Base"/"A"/"B"/etc)
+        ("variant", pa.string()),  # variant name ("A"/"B"/etc)
         ("total_return", pa.float64()),
         ("steps", pa.int64()),
         ("done", pa.bool_()),
@@ -79,51 +71,48 @@ def get_or_make_table(client: catalog.CatalogClient, name: str, schema: pa.Schem
         return client.get_table(name=name)
 
 
-class Episode:
-    # recordings/<family>/<version>/runs/<run_id>/episodes/<episode_id>/<variant>.rrd
-    def __init__(self, *, run_id: str, episode_id: str, variants: tuple[str, ...]):
-        self.run_id = run_id
-        self.episode_id = episode_id
-        self.variants = variants
-        self.episode_dir = RECORDINGS / run_id / "episodes" / episode_id
-        self._paths: dict[str, Path] = {}
-        self._recs: dict[str, rr.RecordingStream] = {}
+@contextmanager
+def episode(
+    *,
+    recordings_root: Path,
+    application_id: str,
+    run_id: str,
+    episode_id: str,
+    variant: str,  # "A" / "B"
+):
+    """
+    Creates and binds a recording for exactly one:
+      recordings/<family>/<version>/runs/<run_id>/episodes/<episode_id>/<variant>.rrd
 
-    def __enter__(self):
-        self.episode_dir.mkdir(parents=True, exist_ok=True)
-        for v in self.variants:
-            p = self.episode_dir / f"{v}.rrd"
-            rec = rr.RecordingStream(
-                application_id=f"{EXPERIMENT_FAMILY}/{VERSION_ID}",
-                recording_id=f"{self.run_id}:{self.episode_id}",  # segment id comes from here
-            )
-            rec.save(str(p))
-            self._paths[v] = p
-            self._recs[v] = rec
+    While inside the context, rr.log(...) writes into this .rrd.
+    """
+    episode_dir = recordings_root / run_id / "episodes" / episode_id
+    episode_dir.mkdir(parents=True, exist_ok=True)
+    path = episode_dir / f"{variant}.rrd"
 
-            # Shared properties only (must not conflict across variants/layers).
-            with rec:
-                # segment-level metadata: should be the same for A and B
-                # do I need it who knows.
-                rr.send_recording_name(f"{self.run_id}:{self.episode_id}")
-                rr.send_property("run_id", rr.AnyValues(value=[self.run_id]))
-                rr.send_property("episode_id", rr.AnyValues(value=[self.episode_id]))
-        return self
+    rec = rr.RecordingStream(
+        application_id=application_id,
+        recording_id=f"{run_id}:{episode_id}",  # segment = task instance, same across variants
+    )
+    rec.save(str(path))
 
-    def recording(self, variant: str) -> rr.RecordingStream:
-        return self._recs[variant]
+    # Bind this stream so rr.log() goes here for the current thread.
+    prev = rr.get_thread_local_data_recording()
+    rr.set_thread_local_data_recording(rec)
 
-    def prefix(self, variant: str) -> str:
-        return f"variants/{variant}"
-        # return f"episodes/{self.episode_id}/variants/{variant}"
-        # return f"{self.run_id}/variants/{variant}"
-        # or not at all
+    try:
+        # invariant metadata (must be identical across variants)
+        rr.send_recording_name(f"{run_id}:{episode_id}")
+        rr.send_property("run_id", rr.AnyValues(value=[run_id]))
+        rr.send_property("episode_id", rr.AnyValues(value=[episode_id]))
 
-    def __exit__(self, exc_type, exc, tb):
-        for rec in self._recs.values():
+        yield f"episodes/{episode_id}"
+    finally:
+        try:
             rec.flush()
+        finally:
             rec.disconnect()
-        return False
+            rr.set_thread_local_data_recording(prev)
 
 
 def index_episode(
@@ -141,7 +130,7 @@ def index_episode(
             version_id=VERSION_ID,
             run_id=run_id,
             episode_id=episode_id,
-            layer=v,
+            variant=v,
             total_return=float(total_return),
             steps=int(steps),
             done=bool(done),
@@ -151,7 +140,12 @@ def index_episode(
 def load_run_into_dataset(dataset, *, run_id: str):
     run_dir = RECORDINGS / run_id
     for p in sorted(run_dir.rglob("*.rrd")):
-        dataset.register(p.absolute().as_uri(), layer_name=p.stem).wait()
+        variant = p.stem  # "A"/"B"
+        uri = p.absolute().as_uri()
+        try:
+            dataset.register(uri, recording_layer=variant).wait()
+        except TypeError:
+            dataset.register(uri, layer_name=variant).wait()
 
 
 # --- RL-style demo runner (env/task owns the actual logging content) ---
@@ -230,39 +224,43 @@ with rr.server.Server(port=5555) as server:
         run_id = str(ulid.new())
         now = datetime.datetime.now(datetime.timezone.utc)
 
-        # --- A/B benchmark scenario (commented out) ---
-        # variants = ("A", "B")
-        # for episode_id, spec in TASKS.items():
-        #     with Episode(run_id=run_id, episode_id=episode_id, variants=variants) as ep:
-        #         for v in variants:
-        #             with ep.recording(v):
-        #                 root = ep.prefix(v)
-        #                 rr.log(f"{root}/task/prompt", rr.TextLog(spec["prompt"]))
-        #                 rr.log(f"{root}/task/expected", rr.TextLog(spec["expected"]))
-        #                 rr.log(f"{root}/agent/output", rr.TextLog(f"{v} answered something"))
-        #     # metrics placeholder for benchmark demo
-        #     metrics_by_variant = {v: (0.0, 0, False) for v in variants}
-        #     index_episode(episodes_table, run_id=run_id, episode_id=episode_id, variants=variants, metrics_by_variant=metrics_by_variant)
-
-        # --- RL scenario (active): 10 episodes, 2 variants, same seed per-episode ---
         variants = ("A", "B")
         horizon = 12
+        app_id = f"{EXPERIMENT_FAMILY}/{VERSION_ID}"
 
         for i in range(1, 11):
             episode_id = f"episode_{i}"
-            seed = 1000 + i  # deterministic per-episode seed
+            seed = 1000 + i
 
             metrics_by_variant: dict[str, tuple[float, int, bool]] = {}
 
-            with Episode(run_id=run_id, episode_id=episode_id, variants=variants) as ep:
-                for v in variants:
-                    with ep.recording(v):
-                        metrics_by_variant[v] = run_rl_episode(
-                            seed=seed,
-                            horizon=horizon,
-                            policy=POLICIES[v],
-                            root=ep.prefix(v),
-                        )
+            with episode(
+                recordings_root=RECORDINGS,
+                application_id=app_id,
+                run_id=run_id,
+                episode_id=episode_id,
+                variant="A",
+            ) as root:
+                metrics_by_variant["A"] = run_rl_episode(
+                    seed=seed,
+                    horizon=horizon,
+                    policy=policy_a,
+                    root=root,
+                )
+
+            with episode(
+                recordings_root=RECORDINGS,
+                application_id=app_id,
+                run_id=run_id,
+                episode_id=episode_id,
+                variant="B",
+            ) as root:
+                metrics_by_variant["B"] = run_rl_episode(
+                    seed=seed,
+                    horizon=horizon,
+                    policy=policy_b,
+                    root=root,
+                )
 
             index_episode(
                 episodes_table,
