@@ -77,7 +77,7 @@ def episode(
     application_id: str,
     run_id: str,
     episode_id: str,
-    layer: str,  # "A" / "B"
+    layer: str,  # "A" / "B" Antything
 ):
     """
     Creates and binds a recording for exactly one:
@@ -143,10 +143,7 @@ def load_run_into_dataset(dataset, *, run_id: str):
     for p in sorted(run_dir.rglob("*.rrd")):
         layer = p.stem  # "A"/"B"
         uri = p.absolute().as_uri()
-        try:
-            dataset.register(uri, recording_layer=layer).wait()
-        except TypeError:
-            dataset.register(uri, layer_name=layer).wait()
+        dataset.register(uri, recording_layer=layer).wait()
 
 
 # --- RL-style demo runner (env/task owns the actual logging content) ---
