@@ -143,7 +143,7 @@ def load_run_into_dataset(dataset, *, run_id: str):
     for p in sorted(run_dir.rglob("*.rrd")):
         layer = p.stem  # "A"/"B"
         uri = p.absolute().as_uri()
-        dataset.register(uri, recording_layer=layer).wait()
+        dataset.register(uri, layer_name=layer).wait()
 
 
 # --- RL-style demo runner (env/task owns the actual logging content) ---
