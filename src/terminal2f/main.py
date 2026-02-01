@@ -20,7 +20,7 @@ RECORDINGS = STORAGE_DIR / "recordings" / EXPERIMENT_FAMILY / VERSION_ID / "runs
 
 # this is the cli type of work
 MODE = "load"  # "record" or "load"
-LOAD_RUN_ID = "01KGD9VZCXE1HRJW5D6M091Q1S"  # set this when MODE="load", e.g. "01J..."
+LOAD_RUN_ID = "01KGDBQKYNHYWYRZ9ZS12RV3NW"  # set this when MODE="load", e.g. "01J..."
 
 EXPERIMENTS_RUN_SCHEMA: pa.Schema = pa.schema(
     [
@@ -69,44 +69,20 @@ def get_or_make_table(client: catalog.CatalogClient, name: str, schema: pa.Schem
         return client.get_table(name=name)
 
 
-@contextmanager
-def episode_ctx(*, run_dir: Path, application_id: str, run_id: str, episode_id: str, layer: str):
-    # TODO: when moving to async, yield rec explicitly and use rec.log() instead of rr.log() to avoid thread-local conflicts 
-    """
-    Creates and binds a recording:
-      recordings/<family>/<version>/runs/<run_id>/episodes/<episode_id>/<layer>.rrd
-    While inside the context, rr.log(...) writes into this .rrd.
-    """
-    episode_dir = run_dir / "episodes" / episode_id  
-    episode_dir.mkdir(parents=True, exist_ok=True)
-    path = episode_dir / f"{layer}.rrd"
-    rec = rr.RecordingStream(
-        application_id=application_id, # Experiment
-        recording_id=f"{run_id}:{episode_id}",  # segment = task instance, same across variants
-    )
-    rec.save(str(path))
-    rr.set_thread_local_data_recording(rec)
+def load_run_into_dataset(dataset, *, run_id: str):
+    run_dir = RECORDINGS / run_id
+    for p in sorted(run_dir.rglob("*.rrd")):
+        layer = p.stem  # "A"/"B"
+        uri = p.absolute().as_uri()
+        dataset.register(uri, layer_name=layer).wait()
 
-    try:
-        # invariant metadata (is identical across layers)
-        rr.send_recording_name(f"{run_id}:{episode_id}")
-        rr.send_property("run_id", rr.AnyValues(value=[run_id]))
-        rr.send_property("episode_id", rr.AnyValues(value=[episode_id]))
-
-        yield f"episodes/{episode_id}"
-    finally:
-        rec.flush()
-        rec.disconnect()
-        rr.set_thread_local_data_recording(None)
-
-
+    
 class Run:
     def __init__(
         self,
         *,
         experiment_family: str,
         version_id: str,
-        layers: tuple[str, ...],
         recordings_root: Path,
         runs_table: catalog.TableEntry,
         episodes_table: catalog.TableEntry,
@@ -136,7 +112,6 @@ class Run:
             start=self.start,
             end=self.end,
         )
-        return False
 
     def log_metrics(self, *, episode_id: str, metrics_by_layer: dict[str, tuple[float, int, bool]]):
         for layer in self.layers:
@@ -152,13 +127,35 @@ class Run:
                 done=bool(done),
             )
 
+@contextmanager
+def episode_ctx(*, run_dir: Path, application_id: str, run_id: str, episode_id: str, layer: str):
+    # TODO: when moving to async, yield rec explicitly and use rec.log() instead of rr.log() to avoid thread-local conflicts 
+    """
+    Creates and binds a recording:
+      recordings/<family>/<version>/runs/<run_id>/episodes/<episode_id>/<layer>.rrd
+    While inside the context, rr.log(...) writes into this .rrd.
+    """
+    episode_dir = run_dir / "episodes" / episode_id  
+    episode_dir.mkdir(parents=True, exist_ok=True)
+    path = episode_dir / f"{layer}.rrd"
+    rec = rr.RecordingStream(
+        application_id=application_id, # Experiment
+        recording_id=f"{run_id}:{episode_id}",  # segment = task instance, same across variants
+    )
+    rec.save(str(path))
+    rr.set_thread_local_data_recording(rec)
 
-def load_run_into_dataset(dataset, *, run_id: str):
-    run_dir = RECORDINGS / run_id
-    for p in sorted(run_dir.rglob("*.rrd")):
-        layer = p.stem  # "A"/"B"
-        uri = p.absolute().as_uri()
-        dataset.register(uri, layer_name=layer).wait()
+    try:
+        # invariant metadata (is identical across layers)
+        rr.send_recording_name(f"{run_id}:{episode_id}")
+        rr.send_property("run_id", rr.AnyValues(value=[run_id]))
+        rr.send_property("episode_id", rr.AnyValues(value=[episode_id]))
+
+        yield f"episodes/{episode_id}"
+    finally:
+        rec.flush()
+        rec.disconnect()
+        rr.set_thread_local_data_recording(None)
 
 
 # --- RL-style demo runner (env/task owns the actual logging content) ---
