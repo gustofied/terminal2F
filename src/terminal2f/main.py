@@ -100,19 +100,57 @@ def episode_ctx(*, run_dir: Path, application_id: str, run_id: str, episode_id: 
         rr.set_thread_local_data_recording(None)
 
 
-def index_episode(episodes_table: catalog.TableEntry, *, run_id: str, episode_id: str, layers: tuple[str, ...], metrics_by_layer: dict[str, tuple[float, int, bool]]):
-    for l in layers:
-        total_return, steps, done = metrics_by_layer[l]
-        episodes_table.append(
-            experiment_family=EXPERIMENT_FAMILY,
-            version_id=VERSION_ID,
-            run_id=run_id,
-            episode_id=episode_id,
-            layer=l,
-            total_return=float(total_return),
-            steps=int(steps),
-            done=bool(done),
+class Run:
+    def __init__(
+        self,
+        *,
+        experiment_family: str,
+        version_id: str,
+        layers: tuple[str, ...],
+        recordings_root: Path,
+        runs_table: catalog.TableEntry,
+        episodes_table: catalog.TableEntry,
+    ):
+        self.experiment_family = experiment_family
+        self.version_id = version_id
+        self.layers = layers
+        self.run_id = str(ulid.new())
+        self.run_dir = recordings_root / self.run_id
+        self.app_id = f"{experiment_family}/{version_id}"
+        self.runs_table = runs_table
+        self.episodes_table = episodes_table
+        self.start: datetime.datetime | None = None
+        self.end: datetime.datetime | None = None
+
+    def __enter__(self):
+        self.start = datetime.datetime.now(datetime.timezone.utc)
+        self.run_dir.mkdir(parents=True, exist_ok=True)
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.end = datetime.datetime.now(datetime.timezone.utc)
+        self.runs_table.append(
+            experiment_family=self.experiment_family,
+            version_id=self.version_id,
+            run_id=self.run_id,
+            start=self.start,
+            end=self.end,
         )
+        return False
+
+    def log_metrics(self, *, episode_id: str, metrics_by_layer: dict[str, tuple[float, int, bool]]):
+        for layer in self.layers:
+            total_return, steps, done = metrics_by_layer[layer]
+            self.episodes_table.append(
+                experiment_family=self.experiment_family,
+                version_id=self.version_id,
+                run_id=self.run_id,
+                episode_id=episode_id,
+                layer=layer,
+                total_return=float(total_return),
+                steps=int(steps),
+                done=bool(done),
+            )
 
 
 def load_run_into_dataset(dataset, *, run_id: str):
@@ -196,67 +234,39 @@ with rr.server.Server(port=5555) as server:
         load_run_into_dataset(dataset, run_id=LOAD_RUN_ID)
 
     else:
-        # this is more like the run objet created I suppose
-        # could be cleaned up
-        run_id = str(ulid.new())
-        start = datetime.datetime.now(datetime.timezone.utc)
-        run_dir = RECORDINGS / run_id 
-        run_dir.mkdir(parents=True, exist_ok=True)
-        layers = ("A", "B")
         horizon = 12
-        app_id = f"{EXPERIMENT_FAMILY}/{VERSION_ID}"
 
-        for i in range(1, 11):
-            episode_id = f"episode_{i}"
-            seed = 1000 + i
-
-            metrics_by_layer: dict[str, tuple[float, int, bool]] = {}
-
-            with episode_ctx(
-                run_dir=run_dir,
-                application_id=app_id,
-                run_id=run_id,
-                episode_id=episode_id,
-                layer="A",
-            ) as episode:
-                metrics_by_layer["A"] = run_rl_episode(
-                    seed=seed,
-                    horizon=horizon,
-                    policy=policy_a,
-                    episode=episode,
-                )
-
-            with episode_ctx(
-                run_dir=run_dir,
-                application_id=app_id,
-                run_id=run_id,
-                episode_id=episode_id,
-                layer="B",
-            ) as episode:
-                metrics_by_layer["B"] = run_rl_episode(
-                    seed=seed,
-                    horizon=horizon,
-                    policy=policy_b,
-                    episode=episode,
-                )
-
-            index_episode(
-                episodes_table,
-                run_id=run_id,
-                episode_id=episode_id,
-                layers=layers,
-                metrics_by_layer=metrics_by_layer,
-            )
-
-        end = datetime.datetime.now(datetime.timezone.utc)
-
-        runs_table.append(
+        with Run(
             experiment_family=EXPERIMENT_FAMILY,
             version_id=VERSION_ID,
-            run_id=run_id,
-            start=start,
-            end=end,
-        )
+            layers=("A", "B"),
+            recordings_root=RECORDINGS,
+            runs_table=runs_table,
+            episodes_table=episodes_table,
+        ) as run:
+            for i in range(1, 11):
+                episode_id = f"episode_{i}"
+                seed = 1000 + i
+
+                metrics_by_layer: dict[str, tuple[float, int, bool]] = {}
+
+                with episode_ctx(run_dir=run.run_dir, application_id=run.app_id, run_id=run.run_id, episode_id=episode_id, layer="A") as episode:
+                    metrics_by_layer["A"] = run_rl_episode(
+                        seed=seed,
+                        horizon=horizon,
+                        policy=policy_a,
+                        episode=episode,
+                    )
+
+                with episode_ctx(run_dir=run.run_dir, application_id=run.app_id, run_id=run.run_id, episode_id=episode_id, layer="B") as episode:
+                    metrics_by_layer["B"] = run_rl_episode(
+                        seed=seed,
+                        horizon=horizon,
+                        policy=policy_b,
+                        episode=episode,
+                    )
+
+                run.log_metrics(episode_id=episode_id, metrics_by_layer=metrics_by_layer)
 
     print(runs_table.reader())
     print(server.url())
