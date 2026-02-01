@@ -233,7 +233,7 @@ with rr.server.Server(port=5555) as server:
         load_run_into_dataset(dataset, run_id=LOAD_RUN_ID)
     else:
         with Run(experiment_family=EXPERIMENT_FAMILY, version_id=VERSION_ID, recordings_root=RECORDINGS, runs_table=runs_table, episodes_table=episodes_table, policies=POLICIES, num_episodes=10) as run:
-            for episode_id, seed, policy in run:
+            for episode_id, seed, policy in run:   # TODO: __iter__ could yield a Task dataclass (episode_id, seed, policy, prompt, ground_truth, etc.) when real benchmark tasks define the shape
                 with run.episode(episode_id, layer=policy.name) as episode:
                     total_return, steps, done = run_rl_episode(seed=seed, policy=policy, episode=episode)
                     run.log_metrics(episode_id=episode_id, layer=policy.name, total_return=total_return, steps=steps, done=done)
