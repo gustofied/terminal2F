@@ -71,18 +71,10 @@ def get_or_make_table(client: catalog.CatalogClient, name: str, schema: pa.Schem
 
 
 @contextmanager
-def episode(
-    *,
-    recordings_root: Path,
-    application_id: str,
-    run_id: str,
-    episode_id: str,
-    layer: str,  # "A" / "B" Antything
-):
+def episode(*, recordings_root: Path, application_id: str, run_id: str, episode_id: str, layer: str):
     """
-    Creates and binds a recording for exactly one:
+    Creates and binds a recording:
       recordings/<family>/<version>/runs/<run_id>/episodes/<episode_id>/<layer>.rrd
-
     While inside the context, rr.log(...) writes into this .rrd.
     """
     episode_dir = recordings_root / run_id / "episodes" / episode_id
