@@ -86,6 +86,7 @@ class Run:
         recordings_root: Path,
         runs_table: catalog.TableEntry,
         episodes_table: catalog.TableEntry,
+        policies: list[Policy],
         num_episodes: int,
         seed_offset: int = 1000,
     ):
@@ -96,6 +97,7 @@ class Run:
         self.app_id = f"{experiment_family}/{version_id}"
         self.runs_table = runs_table
         self.episodes_table = episodes_table
+        self.policies = policies
         self.num_episodes = num_episodes
         self.seed_offset = seed_offset
         self.start: datetime.datetime | None = None
@@ -108,7 +110,8 @@ class Run:
 
     def __iter__(self):
         for i in range(1, self.num_episodes + 1):
-            yield f"episode_{i}", self.seed_offset + i
+            for policy in self.policies:
+                yield f"episode_{i}", self.seed_offset + i, policy
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.end = datetime.datetime.now(datetime.timezone.utc)
@@ -132,35 +135,29 @@ class Run:
             done=bool(done),
         )
 
-@contextmanager
-def episode_ctx(*, run_dir: Path, application_id: str, run_id: str, episode_id: str, layer: str):
-    # TODO: when moving to async, yield rec explicitly and use rec.log() instead of rr.log() to avoid thread-local conflicts 
-    """
-    Creates and binds a recording:
-      recordings/<family>/<version>/runs/<run_id>/episodes/<episode_id>/<layer>.rrd
-    While inside the context, rr.log(...) writes into this .rrd.
-    """
-    episode_dir = run_dir / "episodes" / episode_id  
-    episode_dir.mkdir(parents=True, exist_ok=True)
-    path = episode_dir / f"{layer}.rrd"
-    rec = rr.RecordingStream(
-        application_id=application_id, # Experiment
-        recording_id=f"{run_id}:{episode_id}",  # segment = task instance, same across variants
-    )
-    rec.save(str(path))
-    rr.set_thread_local_data_recording(rec)
+    @contextmanager
+    def episode(self, episode_id: str, *, layer: str):
+        # TODO: when moving to async, yield rec explicitly and use rec.log() instead of rr.log() to avoid thread-local conflicts
+        episode_dir = self.run_dir / "episodes" / episode_id
+        episode_dir.mkdir(parents=True, exist_ok=True)
+        path = episode_dir / f"{layer}.rrd"
+        rec = rr.RecordingStream(
+            application_id=self.app_id,
+            recording_id=f"{self.run_id}:{episode_id}",
+        )
+        rec.save(str(path))
+        rr.set_thread_local_data_recording(rec)
 
-    try:
-        # invariant metadata (is identical across layers)
-        rr.send_recording_name(f"{run_id}:{episode_id}")
-        rr.send_property("run_id", rr.AnyValues(value=[run_id]))
-        rr.send_property("episode_id", rr.AnyValues(value=[episode_id]))
+        try:
+            rr.send_recording_name(f"{self.run_id}:{episode_id}")
+            rr.send_property("run_id", rr.AnyValues(value=[self.run_id]))
+            rr.send_property("episode_id", rr.AnyValues(value=[episode_id]))
 
-        yield f"episodes/{episode_id}"
-    finally:
-        rec.flush()
-        rec.disconnect()
-        rr.set_thread_local_data_recording(None)
+            yield f"episodes/{episode_id}"
+        finally:
+            rec.flush()
+            rec.disconnect()
+            rr.set_thread_local_data_recording(None)
 
 
 # --- RL-style demo runner (env/task owns the actual logging content) ---
@@ -236,12 +233,11 @@ with rr.server.Server(port=5555) as server:
     if MODE == "load":
         load_run_into_dataset(dataset, run_id=LOAD_RUN_ID)
     else:
-        with Run(experiment_family=EXPERIMENT_FAMILY, version_id=VERSION_ID, recordings_root=RECORDINGS, runs_table=runs_table, episodes_table=episodes_table, num_episodes=10) as run:
-            for episode_id, seed in run:
-                for policy in POLICIES:
-                    with episode_ctx(run_dir=run.run_dir, application_id=run.app_id, run_id=run.run_id, episode_id=episode_id, layer=policy.name) as episode:
-                        total_return, steps, done = run_rl_episode(seed=seed, policy=policy, episode=episode)
-                        run.log_metrics(episode_id=episode_id, layer=policy.name, total_return=total_return, steps=steps, done=done)
+        with Run(experiment_family=EXPERIMENT_FAMILY, version_id=VERSION_ID, recordings_root=RECORDINGS, runs_table=runs_table, episodes_table=episodes_table, policies=POLICIES, num_episodes=10) as run:
+            for episode_id, seed, policy in run:
+                with run.episode(episode_id, layer=policy.name) as episode:
+                    total_return, steps, done = run_rl_episode(seed=seed, policy=policy, episode=episode)
+                    run.log_metrics(episode_id=episode_id, layer=policy.name, total_return=total_return, steps=steps, done=done)
     try:
         while True:
             time.sleep(1)
