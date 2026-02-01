@@ -76,7 +76,14 @@ def load_run_into_dataset(dataset, *, run_id: str):
         uri = p.absolute().as_uri()
         dataset.register(uri, layer_name=layer).wait()
 
-    
+class Policy:
+    def __init__(self, name: str, fn):
+        self.name = name
+        self.fn = fn
+
+    def __call__(self, obs: int, step: int) -> int:
+        return self.fn(obs, step)
+
 class Run:
     def __init__(
         self,
@@ -108,6 +115,7 @@ class Run:
         self.run_dir.mkdir(parents=True, exist_ok=True)
         return self
 
+    # TODO: __iter__ could yield a Task dataclass (episode_id, seed, policy, prompt, ground_truth, etc.) when real benchmark tasks define the shape
     def __iter__(self):
         for i in range(1, self.num_episodes + 1):
             for policy in self.policies:
@@ -179,15 +187,6 @@ class DummyEnv:
         reward = float(self.state) / 10.0
         done = self.state == 0 or self._step >= self.horizon
         return self.state, reward, done
-
-
-class Policy:
-    def __init__(self, name: str, fn):
-        self.name = name
-        self.fn = fn
-
-    def __call__(self, obs: int, step: int) -> int:
-        return self.fn(obs, step)
 
 
 POLICIES = [
