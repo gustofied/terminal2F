@@ -20,7 +20,7 @@ RECORDINGS = STORAGE_DIR / "recordings" / EXPERIMENT_FAMILY / VERSION_ID / "runs
 
 # this is the cli type of work
 MODE = "load"  # "record" or "load"
-LOAD_RUN_ID = "01KGDBQKYNHYWYRZ9ZS12RV3NW"  # set this when MODE="load", e.g. "01J..."
+LOAD_RUN_ID = "01KGDE1QMAVDT5DDKDQKYZMQBF"  # set this when MODE="load", e.g. "01J..."
 
 EXPERIMENTS_RUN_SCHEMA: pa.Schema = pa.schema(
     [
