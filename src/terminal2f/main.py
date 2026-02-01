@@ -167,17 +167,20 @@ def episode_ctx(*, run_dir: Path, application_id: str, run_id: str, episode_id: 
 
 
 class DummyEnv:
-    def __init__(self):
+    def __init__(self, horizon: int = 12):
         self.state = 0
+        self.horizon = horizon
 
     def reset(self, *, seed: int) -> int:
         self.state = seed % 10
+        self._step = 0
         return self.state
 
     def step(self, action: int) -> tuple[int, float, bool]:
         self.state = (self.state * 3 + action) % 10
+        self._step += 1
         reward = float(self.state) / 10.0
-        done = self.state == 0
+        done = self.state == 0 or self._step >= self.horizon
         return self.state, reward, done
 
 
@@ -195,20 +198,18 @@ POLICIES = [
     Policy("alternating", lambda obs, step: 1 if (obs + step) % 2 == 0 else 0),
 ]
 
-def run_rl_episode(*, seed: int, horizon: int, policy, episode: str) -> tuple[float, int, bool]:
+def run_rl_episode(*, seed: int, policy, episode: str) -> tuple[float, int, bool]:
     env = DummyEnv()
     obs = env.reset(seed=seed)
 
     rr.log(f"{episode}/meta/policy", rr.TextLog(policy.name))
     rr.log(f"{episode}/meta/seed", rr.Scalars(float(seed)))
-    rr.log(f"{episode}/meta/horizon", rr.Scalars(float(horizon)))
 
     total = 0.0
-    steps = 0
+    step = 0
     done = False
 
-    for step in range(horizon):
-        steps = step + 1
+    while not done:
         rr.set_time("env_step", sequence=step)
 
         action = int(policy(obs, step))
@@ -222,39 +223,25 @@ def run_rl_episode(*, seed: int, horizon: int, policy, episode: str) -> tuple[fl
         rr.log(f"{episode}/done", rr.TextLog(str(done)))
 
         obs = next_obs
-        if done:
-            break
+        step += 1
 
-    return total, steps, done
+    return total, step, done
 
 
 with rr.server.Server(port=5555) as server:
     client = server.client()
     dataset = init_dataset(client, EXPERIMENT)
-
     runs_table = get_or_make_table(client, "runs", EXPERIMENTS_RUN_SCHEMA)
     episodes_table = get_or_make_table(client, "episodes", EXPERIMENTS_EPISODES_SCHEMA)
-
     if MODE == "load":
         load_run_into_dataset(dataset, run_id=LOAD_RUN_ID)
-
     else:
-        horizon = 12
-
         with Run(experiment_family=EXPERIMENT_FAMILY, version_id=VERSION_ID, recordings_root=RECORDINGS, runs_table=runs_table, episodes_table=episodes_table, num_episodes=10) as run:
             for episode_id, seed in run:
                 for policy in POLICIES:
                     with episode_ctx(run_dir=run.run_dir, application_id=run.app_id, run_id=run.run_id, episode_id=episode_id, layer=policy.name) as episode:
-                        total_return, steps, done = run_rl_episode(seed=seed, horizon=horizon, policy=policy, episode=episode)
+                        total_return, steps, done = run_rl_episode(seed=seed, policy=policy, episode=episode)
                         run.log_metrics(episode_id=episode_id, layer=policy.name, total_return=total_return, steps=steps, done=done)
-
-    print(runs_table.reader())
-    print(server.url())
-    print(dataset.schema())
-    print(episodes_table.reader())
-    print(client.url)
-    print(client.entries())
-
     try:
         while True:
             time.sleep(1)
