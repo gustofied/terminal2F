@@ -86,15 +86,18 @@ class Run:
         recordings_root: Path,
         runs_table: catalog.TableEntry,
         episodes_table: catalog.TableEntry,
+        num_episodes: int,
+        seed_offset: int = 1000,
     ):
         self.experiment_family = experiment_family
         self.version_id = version_id
-        self.layers = layers
         self.run_id = str(ulid.new())
         self.run_dir = recordings_root / self.run_id
         self.app_id = f"{experiment_family}/{version_id}"
         self.runs_table = runs_table
         self.episodes_table = episodes_table
+        self.num_episodes = num_episodes
+        self.seed_offset = seed_offset
         self.start: datetime.datetime | None = None
         self.end: datetime.datetime | None = None
 
@@ -102,6 +105,10 @@ class Run:
         self.start = datetime.datetime.now(datetime.timezone.utc)
         self.run_dir.mkdir(parents=True, exist_ok=True)
         return self
+
+    def __iter__(self):
+        for i in range(1, self.num_episodes + 1):
+            yield f"episode_{i}", self.seed_offset + i
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.end = datetime.datetime.now(datetime.timezone.utc)
@@ -113,19 +120,17 @@ class Run:
             end=self.end,
         )
 
-    def log_metrics(self, *, episode_id: str, metrics_by_layer: dict[str, tuple[float, int, bool]]):
-        for layer in self.layers:
-            total_return, steps, done = metrics_by_layer[layer]
-            self.episodes_table.append(
-                experiment_family=self.experiment_family,
-                version_id=self.version_id,
-                run_id=self.run_id,
-                episode_id=episode_id,
-                layer=layer,
-                total_return=float(total_return),
-                steps=int(steps),
-                done=bool(done),
-            )
+    def log_metrics(self, *, episode_id: str, layer: str, total_return: float, steps: int, done: bool):
+        self.episodes_table.append(
+            experiment_family=self.experiment_family,
+            version_id=self.version_id,
+            run_id=self.run_id,
+            episode_id=episode_id,
+            layer=layer,
+            total_return=float(total_return),
+            steps=int(steps),
+            done=bool(done),
+        )
 
 @contextmanager
 def episode_ctx(*, run_dir: Path, application_id: str, run_id: str, episode_id: str, layer: str):
@@ -176,22 +181,25 @@ class DummyEnv:
         return self.state, reward, done
 
 
-def policy_a(obs: int, step: int) -> int:
-    return 0
+class Policy:
+    def __init__(self, name: str, fn):
+        self.name = name
+        self.fn = fn
+
+    def __call__(self, obs: int, step: int) -> int:
+        return self.fn(obs, step)
 
 
-def policy_b(obs: int, step: int) -> int:
-    return 1 if (obs + step) % 2 == 0 else 0
-
-
-POLICIES = {"A": policy_a, "B": policy_b}
-
+POLICIES = [
+    Policy("baseline", lambda obs, step: 0),
+    Policy("alternating", lambda obs, step: 1 if (obs + step) % 2 == 0 else 0),
+]
 
 def run_rl_episode(*, seed: int, horizon: int, policy, episode: str) -> tuple[float, int, bool]:
     env = DummyEnv()
     obs = env.reset(seed=seed)
 
-    rr.log(f"{episode}/meta/policy", rr.TextLog(getattr(policy, "__name__", "policy")))
+    rr.log(f"{episode}/meta/policy", rr.TextLog(policy.name))
     rr.log(f"{episode}/meta/seed", rr.Scalars(float(seed)))
     rr.log(f"{episode}/meta/horizon", rr.Scalars(float(horizon)))
 
@@ -233,37 +241,12 @@ with rr.server.Server(port=5555) as server:
     else:
         horizon = 12
 
-        with Run(
-            experiment_family=EXPERIMENT_FAMILY,
-            version_id=VERSION_ID,
-            layers=("A", "B"),
-            recordings_root=RECORDINGS,
-            runs_table=runs_table,
-            episodes_table=episodes_table,
-        ) as run:
-            for i in range(1, 11):
-                episode_id = f"episode_{i}"
-                seed = 1000 + i
-
-                metrics_by_layer: dict[str, tuple[float, int, bool]] = {}
-
-                with episode_ctx(run_dir=run.run_dir, application_id=run.app_id, run_id=run.run_id, episode_id=episode_id, layer="A") as episode:
-                    metrics_by_layer["A"] = run_rl_episode(
-                        seed=seed,
-                        horizon=horizon,
-                        policy=policy_a,
-                        episode=episode,
-                    )
-
-                with episode_ctx(run_dir=run.run_dir, application_id=run.app_id, run_id=run.run_id, episode_id=episode_id, layer="B") as episode:
-                    metrics_by_layer["B"] = run_rl_episode(
-                        seed=seed,
-                        horizon=horizon,
-                        policy=policy_b,
-                        episode=episode,
-                    )
-
-                run.log_metrics(episode_id=episode_id, metrics_by_layer=metrics_by_layer)
+        with Run(experiment_family=EXPERIMENT_FAMILY, version_id=VERSION_ID, recordings_root=RECORDINGS, runs_table=runs_table, episodes_table=episodes_table, num_episodes=10) as run:
+            for episode_id, seed in run:
+                for policy in POLICIES:
+                    with episode_ctx(run_dir=run.run_dir, application_id=run.app_id, run_id=run.run_id, episode_id=episode_id, layer=policy.name) as episode:
+                        total_return, steps, done = run_rl_episode(seed=seed, horizon=horizon, policy=policy, episode=episode)
+                        run.log_metrics(episode_id=episode_id, layer=policy.name, total_return=total_return, steps=steps, done=done)
 
     print(runs_table.reader())
     print(server.url())
