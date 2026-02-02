@@ -1,3 +1,5 @@
+# can try to get this to a simple 400-500 loc, which kinda goes through all and recordsa an A/B rollout perhaps??
+
 import pyarrow as pa
 import ulid
 import rerun as rr
@@ -116,7 +118,6 @@ class Run:
         return self
 
     # TODO: __iter__ could yield a Task dataclass (episode_id, seed, policy, prompt, ground_truth, etc.) when real benchmark tasks define the shape
-    # a bit bit uggly
     def __iter__(self):
         for i in range(1, self.num_episodes + 1):
             for policy in self.policies:
@@ -155,7 +156,9 @@ class Run:
             recording_id=f"{self.run_id}:{episode_id}",
         )
         rec.save(str(path))
+        # rec.connect_grpc() not working as i want..
         rr.set_thread_local_data_recording(rec)
+        
 
         try:
             rr.send_recording_name(f"{self.run_id}:{episode_id}")
