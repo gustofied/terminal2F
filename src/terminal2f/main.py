@@ -20,7 +20,7 @@ RECORDINGS = STORAGE_DIR / "recordings" / EXPERIMENT_FAMILY / VERSION_ID / "runs
 
 # this is the cli type of work
 MODE = "load"  # "record" or "load"
-LOAD_RUN_ID = "01KGDE1QMAVDT5DDKDQKYZMQBF"  # set this when MODE="load", e.g. "01J..."
+LOAD_RUN_ID = "01KGFN6F5MHSKX0Q2NTNJFDY8D"  # set this when MODE="load", e.g. "01J..."
 
 EXPERIMENTS_RUN_SCHEMA: pa.Schema = pa.schema(
     [
@@ -68,14 +68,6 @@ def get_or_make_table(client: catalog.CatalogClient, name: str, schema: pa.Schem
             client.create_table(name=name, schema=schema, url=url)
         return client.get_table(name=name)
 
-
-def load_run_into_dataset(dataset, *, run_id: str):
-    run_dir = RECORDINGS / run_id
-    for p in sorted(run_dir.rglob("*.rrd")):
-        layer = p.stem  # "A"/"B"
-        uri = p.absolute().as_uri()
-        dataset.register(uri, layer_name=layer).wait()
-
 class Policy:
     def __init__(self, name: str, fn):
         self.name = name
@@ -83,6 +75,14 @@ class Policy:
 
     def __call__(self, obs: int, step: int) -> int:
         return self.fn(obs, step)
+
+
+def load_run_into_dataset(dataset, *, run_id: str, policies: list[Policy]):
+    run_dir = RECORDINGS / run_id
+    for policy in policies:
+        prefix = (run_dir / policy.name).absolute().as_uri()
+        dataset.register_prefix(prefix, layer_name=policy.name).wait()
+
 
 class Run:
     def __init__(
@@ -146,9 +146,9 @@ class Run:
     @contextmanager
     def episode(self, episode_id: str, *, layer: str):
         # TODO: when moving to async, yield rec explicitly and use rec.log() instead of rr.log() to avoid thread-local conflicts
-        episode_dir = self.run_dir / "episodes" / episode_id
-        episode_dir.mkdir(parents=True, exist_ok=True)
-        path = episode_dir / f"{layer}.rrd"
+        policy_dir = self.run_dir / layer
+        policy_dir.mkdir(parents=True, exist_ok=True)
+        path = policy_dir / f"{episode_id}.rrd"
         rec = rr.RecordingStream(
             application_id=self.app_id,
             recording_id=f"{self.run_id}:{episode_id}",
@@ -230,7 +230,7 @@ with rr.server.Server(port=5555) as server:
     runs_table = get_or_make_table(client, "runs", EXPERIMENTS_RUN_SCHEMA)
     episodes_table = get_or_make_table(client, "episodes", EXPERIMENTS_EPISODES_SCHEMA)
     if MODE == "load":
-        load_run_into_dataset(dataset, run_id=LOAD_RUN_ID)
+        load_run_into_dataset(dataset, run_id=LOAD_RUN_ID, policies=POLICIES)
     else:
         with Run(experiment_family=EXPERIMENT_FAMILY, version_id=VERSION_ID, recordings_root=RECORDINGS, runs_table=runs_table, episodes_table=episodes_table, policies=POLICIES, num_episodes=10) as run:
             for episode_id, seed, policy in run:   # TODO: __iter__ could yield a Task dataclass (episode_id, seed, policy, prompt, ground_truth, etc.) when real benchmark tasks define the shape
