@@ -1,3 +1,7 @@
+from __future__ import annotations
+import string
+import re
+import mistralai
 import pyarrow as pa
 import ulid
 import rerun as rr
@@ -6,6 +10,12 @@ import datetime
 import time
 from pathlib import Path
 from contextlib import contextmanager
+from mistralai import Mistral
+import os
+from dotenv import load_dotenv
+import json
+
+
 
 # config this
 EXPERIMENT_FAMILY = "TOOLS_VS_NOTOOLS"  # Experiment family
@@ -68,6 +78,176 @@ def get_or_make_table(client: catalog.CatalogClient, name: str, schema: pa.Schem
             client.create_table(name=name, schema=schema, url=url)
         return client.get_table(name=name)
 
+def load_run_into_dataset(dataset, *, run_id: str, policies: list[Policy]):
+    run_dir = RECORDINGS / run_id
+    for policy in policies:
+        prefix = (run_dir / policy.name).absolute().as_uri()
+        dataset.register_prefix(prefix, layer_name=policy.name).wait()
+
+
+
+# my agent stuff       
+
+load_dotenv()
+api_key = os.environ["MISTRAL_API_KEY"]
+model = "mistral-small-latest"
+client = Mistral(api_key=api_key)
+
+# tools
+
+# a tool to use, maybe two, maybe more tools soony
+
+class t2ftool():
+    """A tool to understand what t2f, terminal2F is"""
+    def get_schema(self):
+        return {
+        "type": "function",
+        "function": {
+            "name": "t2ftool",
+            "description": "A tool to understand what t2f, terminal2F is",
+            "parameters": {
+                "type": "object",
+                "properties": { 
+                    "code": {
+                        "type": "integer",
+                        "description": """code to unlock different information on terminal2f. Valid     
+                                        codes: 10 (what it is), 20 (what kind of project), 30 (development time), 40  
+                                        (tech stack), 50+ (origin story)""",
+                    }
+                },
+                "required": ["code"],
+            },
+        },
+    }
+    def execute(self, code: int):
+        match code:
+            case 10:
+                return("terminal2f is a coding project")
+            case 20:
+                return("terminal2f is a observablity project")
+            case 30:
+                return("terminal2f takes a long time to code")  
+            case 40:
+                return("terminal2f is just coded in python")
+            case 50:    
+                return("terminal2f was made to reborn me")
+            case _:
+                return("codes are eiher any number abouve 50, or exact 10, 20, 30, 40")
+
+t2f_tool = t2ftool()
+
+tools = [
+    t2f_tool.get_schema(),
+]
+
+tool_registry = {                                                             
+      "t2ftool": t2f_tool.execute,                                              
+  }       
+
+class Agent:
+    """A simple AI agent that can answer questions"""
+
+    def __init__(self):
+        self.client = Mistral(api_key=api_key)
+        self.model = "mistral-small-latest"
+        self.system_message = "Hey there, answer in norwegian always. You can use the following tools to help answer the user's questions related to terminal2f and t2f"
+        self.messages = []
+
+    def chat(self, message):
+        """Process a user message and return a response"""
+
+        self.messages.append({
+                    "role": "user",
+                    "content": message,
+                })
+
+        response = self.client.chat.complete(
+            model=self.model,
+            max_tokens=1024,
+            tools = tools,
+            tool_choice = "auto", # like default
+            messages=[
+                {
+                    "role": "system",
+                    "content": self.system_message,
+                },
+                *self.messages,
+            ] # type: ignore[arg-type]
+        )
+
+        self.messages.append({
+                    "role": "assistant",
+                    "content": response.choices[0].message.content,
+                })
+
+        return response
+
+
+def loop_agent(user_input, max_turns=10):
+  agent = Agent()
+
+  i = 0
+
+  while i < max_turns:
+    i += 1
+    print(f"User input: {user_input}")
+    response = agent.chat(user_input)
+    message = response.choices[0].message
+
+    # Handle tool calls if present
+    if message.tool_calls:
+        # Append the assistant message with tool_calls (not just content)
+        # Replace the last appended message (chat() appended content only)
+        agent.messages[-1] = message
+
+        for tc in message.tool_calls:
+            function_name = tc.function.name
+            function_params = json.loads(tc.function.arguments)
+
+            print(f"Using tool {function_name} with input {function_params}")
+
+            result = tool_registry[function_name](**function_params)
+            print(f"Tool result: {result}")
+
+            agent.messages.append({
+                "role": "tool",
+                "name": function_name,
+                "content": str(result),
+                "tool_call_id": tc.id,
+            })
+
+        # Next iteration will send a user-less follow-up, so call the model directly
+        response = agent.client.chat.complete(
+            model=agent.model,
+            max_tokens=1024,
+            tools=tools,
+            messages=[
+                {"role": "system", "content": agent.system_message},
+                *agent.messages,
+            ]  # type: ignore[arg-type]
+        )
+        agent.messages.append({
+            "role": "assistant",
+            "content": response.choices[0].message.content,
+        })
+
+        # If no more tool calls, return the final answer
+        if not response.choices[0].message.tool_calls:
+            print(f"Agent output: {response.choices[0].message.content}")
+            return response.choices[0].message.content
+    else:
+        print(f"Agent output: {message.content}")
+        return message.content
+
+  return
+
+response = loop_agent("whats terminal2f about?")
+print(response)
+response = loop_agent("I want to know more, what is terminal2f about again, try 20")
+print(response)
+
+
+
 class Policy:
     def __init__(self, name: str, act):
         self.name = name
@@ -75,13 +255,6 @@ class Policy:
 
     def __call__(self, obs: int, step: int) -> int:
         return self.act(obs, step)
-
-
-def load_run_into_dataset(dataset, *, run_id: str, policies: list[Policy]):
-    run_dir = RECORDINGS / run_id
-    for policy in policies:
-        prefix = (run_dir / policy.name).absolute().as_uri()
-        dataset.register_prefix(prefix, layer_name=policy.name).wait()
 
 
 class Run:
@@ -246,3 +419,6 @@ with rr.server.Server(port=5555) as server:
             time.sleep(1)
     except KeyboardInterrupt:
         pass
+
+
+# cli stuff
