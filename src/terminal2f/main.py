@@ -162,8 +162,7 @@ class Agent:
             ]  # type: ignore[arg-type]
         )
 
-def loop(user_input, max_turns=10):
-    agent = Agent()
+def loop(agent: Agent, user_input: str, max_turns=10):
     agent.messages.append({"role": "user", "content": user_input})
 
     for _ in range(max_turns):
@@ -187,18 +186,77 @@ def loop(user_input, max_turns=10):
                 "tool_call_id": tool_call.id,
             })
 
-response = loop("whats terminal2f about?")
-print(response)
-response = loop("I want to know more, what is terminal2f about again, try 20")
-print(response)
+# --- Environment ---
+
+# (question, expected_keyword)
+QUESTIONS = [
+    ("What is terminal2f? use code 10", "coding"),
+    ("What kind of project is terminal2f? use code 20", "observablity"),
+    ("What tech stack does terminal2f use? use code 40", "python"),
+]
+
+class QuestionEnv:
+    """Env that gives questions as observations and scores answers by keyword match."""
+    def __init__(self, questions: list[tuple[str, str]]):
+        self.questions = questions
+        self._step = 0
+
+    def reset(self) -> str:
+        """Return the first question."""
+        self._step = 0
+        return self.questions[0][0]
+
+    def step(self, answer: str) -> tuple[str, float, bool]:
+        """Score the answer, advance, return (next_obs, reward, done)."""
+        keyword = self.questions[self._step][1]
+        reward = 1.0 if keyword in (answer or "").lower() else 0.0
+        self._step += 1
+        done = self._step >= len(self.questions)
+        obs = self.questions[self._step][0] if not done else ""
+        return obs, reward, done
+
+
+# --- Policies ---
 
 class Policy:
-    def __init__(self, name: str, act):
+    def __init__(self, name: str):
         self.name = name
-        self.act = act
 
-    def __call__(self, obs: int, step: int) -> int:
-        return self.act(obs, step)
+POLICIES = [
+    Policy("with_tools"),
+    Policy("no_tools"),
+]
+
+
+# --- Rollout ---
+
+def rollout(*, policy: Policy, episode: str) -> tuple[float, int, bool]:
+    env = QuestionEnv(QUESTIONS)
+    agent = Agent()
+    obs = env.reset()
+
+    rr.log(f"{episode}/meta/policy", rr.TextLog(policy.name))
+
+    total = 0.0
+    step = 0
+    done = False
+
+    while not done:
+        rr.set_time("env_step", sequence=step)
+
+        answer = loop(agent, obs)
+        obs, reward, done = env.step(answer)
+        total += reward
+
+        rr.log(f"{episode}/obs", rr.TextLog(obs))
+        rr.log(f"{episode}/answer", rr.TextLog(answer[:200]))
+        rr.log(f"{episode}/reward", rr.Scalars(float(reward)))
+        rr.log(f"{episode}/return", rr.Scalars(float(total)))
+        rr.log(f"{episode}/done", rr.TextLog(str(done)))
+
+        step += 1
+
+    return total, step, done
 
 
 class Run:
@@ -212,7 +270,6 @@ class Run:
         episodes_table: catalog.TableEntry,
         policies: list[Policy],
         num_episodes: int,
-        seed_offset: int = 1000,
     ):
         self.experiment_family = experiment_family
         self.version_id = version_id
@@ -223,7 +280,6 @@ class Run:
         self.episodes_table = episodes_table
         self.policies = policies
         self.num_episodes = num_episodes
-        self.seed_offset = seed_offset
         self.start: datetime.datetime | None = None
         self.end: datetime.datetime | None = None
 
@@ -237,7 +293,7 @@ class Run:
     def __iter__(self):
         for i in range(1, self.num_episodes + 1):
             for policy in self.policies:
-                yield f"episode_{i}", self.seed_offset + i, policy
+                yield f"episode_{i}", policy
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.end = datetime.datetime.now(datetime.timezone.utc)
@@ -286,65 +342,6 @@ class Run:
             rr.set_thread_local_data_recording(None)
 
 
-# --- ENVyus
-
-class DummyEnv:
-    def __init__(self, horizon: int = 5):
-        self.horizon = horizon
-        self._step = 0
-
-    def reset(self) -> int:
-        self._step = 0
-        return self._step
-
-    def step(self, action: int) -> tuple[int, float, bool]:
-        self._step += 1
-        done = self._step >= self.horizon
-        return self._step, 1.0, done
-
-
-# --- Policies
-
-def act_baseline(obs, step):
-    return 0
-
-def act_alternating(obs, step):
-    return 1 if (obs + step) % 2 == 0 else 0
-
-POLICIES = [
-    Policy("baseline", act_baseline),
-    Policy("alternating", act_alternating),
-]
-
-def rollout(*, seed: int, policy, episode: str) -> tuple[float, int, bool]:
-    env = DummyEnv()
-    obs = env.reset()
-
-    rr.log(f"{episode}/meta/policy", rr.TextLog(policy.name))
-
-    total = 0.0
-    step = 0
-    done = False
-
-    while not done:
-        rr.set_time("env_step", sequence=step)
-
-        action = int(policy(obs, step))
-        next_obs, reward, done = env.step(action)
-        total += reward
-
-        rr.log(f"{episode}/obs", rr.Scalars(float(obs)))
-        rr.log(f"{episode}/action", rr.Scalars(float(action)))
-        rr.log(f"{episode}/reward", rr.Scalars(float(reward)))
-        rr.log(f"{episode}/return", rr.Scalars(float(total)))
-        rr.log(f"{episode}/done", rr.TextLog(str(done)))
-
-        obs = next_obs
-        step += 1
-
-    return total, step, done
-
-
 with rr.server.Server(port=5555) as server:
     client = server.client()
     dataset = init_dataset(client, EXPERIMENT)
@@ -354,9 +351,9 @@ with rr.server.Server(port=5555) as server:
         load_run_into_dataset(dataset, run_id=LOAD_RUN_ID, policies=POLICIES)
     else:
         with Run(experiment_family=EXPERIMENT_FAMILY, version_id=VERSION_ID, recordings_root=RECORDINGS, runs_table=runs_table, episodes_table=episodes_table, policies=POLICIES, num_episodes=10) as run:
-            for episode_id, seed, policy in run:   # TODO: __iter__ could yield a Task dataclass (episode_id, seed, policy, prompt, ground_truth, etc.) when real benchmark tasks define the shape
+            for episode_id, policy in run:   # TODO: __iter__ could yield a Task dataclass (episode_id, seed, policy, prompt, ground_truth, etc.) when real benchmark tasks define the shape
                 with run.episode(episode_id, layer=policy.name) as episode:
-                    total_return, steps, done = rollout(seed=seed, policy=policy, episode=episode)
+                    total_return, steps, done = rollout(policy=policy, episode=episode)
                     run.log_metrics(episode_id=episode_id, layer=policy.name, total_return=total_return, steps=steps, done=done)
     try:
         while True:
