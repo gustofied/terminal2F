@@ -27,8 +27,8 @@ RECORDINGS = STORAGE_DIR / "recordings" / EXPERIMENT_FAMILY / VERSION_ID / "runs
 # in the future RECORDINGS_ROOT = "s3://my-bucket/terminal2f/recordings"
 
 # this is the cli type of work
-MODE = "record"  # "record" or "load"
-LOAD_RUN_ID = ""  # set this when MODE="load", e.g. "01J..."
+MODE = "load"  # "record" or "load"
+LOAD_RUN_ID = "01KGJJ18538RQX9X84RFSKJPW4"  # set this when MODE="load", e.g. "01J..."
 
 EXPERIMENTS_RUN_SCHEMA: pa.Schema = pa.schema(
     [
