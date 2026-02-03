@@ -1,6 +1,4 @@
 from __future__ import annotations
-import string
-import re
 import mistralai
 import pyarrow as pa
 import ulid
@@ -90,8 +88,6 @@ def load_run_into_dataset(dataset, *, run_id: str, policies: list[Policy]):
 
 load_dotenv()
 api_key = os.environ["MISTRAL_API_KEY"]
-model = "mistral-small-latest"
-client = Mistral(api_key=api_key)
 
 # tools
 
@@ -145,7 +141,7 @@ tool_registry = {
   }       
 
 class Agent:
-    """A simple AI agent that can answer questions"""
+    """A simple AI agent"""
 
     def __init__(self):
         self.client = Mistral(api_key=api_key)
@@ -153,100 +149,48 @@ class Agent:
         self.system_message = "Hey there, answer in norwegian always. You can use the following tools to help answer the user's questions related to terminal2f and t2f"
         self.messages = []
 
-    def chat(self, message):
-        """Process a user message and return a response"""
-
-        self.messages.append({
-                    "role": "user",
-                    "content": message,
-                })
-
-        response = self.client.chat.complete(
+    def chat(self):
+        """Call the model with current messages, return response"""
+        return self.client.chat.complete(
             model=self.model,
             max_tokens=1024,
-            tools = tools,
-            tool_choice = "auto", # like default
+            tools=tools,
+            tool_choice="auto",
             messages=[
-                {
-                    "role": "system",
-                    "content": self.system_message,
-                },
+                {"role": "system", "content": self.system_message},
                 *self.messages,
-            ] # type: ignore[arg-type]
+            ]  # type: ignore[arg-type]
         )
 
-        self.messages.append({
-                    "role": "assistant",
-                    "content": response.choices[0].message.content,
-                })
+def loop(user_input, max_turns=10):
+    agent = Agent()
+    agent.messages.append({"role": "user", "content": user_input})
 
-        return response
+    for _ in range(max_turns):
+        response = agent.chat()
+        message = response.choices[0].message
 
+        agent.messages.append(message)
 
-def loop_agent(user_input, max_turns=10):
-  agent = Agent()
+        if not message.tool_calls:
+            return message.content
 
-  i = 0
-
-  while i < max_turns:
-    i += 1
-    print(f"User input: {user_input}")
-    response = agent.chat(user_input)
-    message = response.choices[0].message
-
-    # Handle tool calls if present
-    if message.tool_calls:
-        # Append the assistant message with tool_calls (not just content)
-        # Replace the last appended message (chat() appended content only)
-        agent.messages[-1] = message
-
-        for tc in message.tool_calls:
-            function_name = tc.function.name
-            function_params = json.loads(tc.function.arguments)
-
-            print(f"Using tool {function_name} with input {function_params}")
-
-            result = tool_registry[function_name](**function_params)
-            print(f"Tool result: {result}")
+        for tool_call in message.tool_calls:
+            function_name = tool_call.function.name # The function name to call
+            function_params = json.loads(tool_call.function.arguments) # The function arguments
+            function_result = tool_registry[function_name](**function_params) # The function result
 
             agent.messages.append({
                 "role": "tool",
                 "name": function_name,
-                "content": str(result),
-                "tool_call_id": tc.id,
+                "content": str(function_result),
+                "tool_call_id": tool_call.id,
             })
 
-        # Next iteration will send a user-less follow-up, so call the model directly
-        response = agent.client.chat.complete(
-            model=agent.model,
-            max_tokens=1024,
-            tools=tools,
-            messages=[
-                {"role": "system", "content": agent.system_message},
-                *agent.messages,
-            ]  # type: ignore[arg-type]
-        )
-        agent.messages.append({
-            "role": "assistant",
-            "content": response.choices[0].message.content,
-        })
-
-        # If no more tool calls, return the final answer
-        if not response.choices[0].message.tool_calls:
-            print(f"Agent output: {response.choices[0].message.content}")
-            return response.choices[0].message.content
-    else:
-        print(f"Agent output: {message.content}")
-        return message.content
-
-  return
-
-response = loop_agent("whats terminal2f about?")
+response = loop("whats terminal2f about?")
 print(response)
-response = loop_agent("I want to know more, what is terminal2f about again, try 20")
+response = loop("I want to know more, what is terminal2f about again, try 20")
 print(response)
-
-
 
 class Policy:
     def __init__(self, name: str, act):
