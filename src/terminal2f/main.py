@@ -13,6 +13,7 @@ from mistralai import Mistral
 import os
 from dotenv import load_dotenv
 import json
+import typer
 
 # config this
 EXPERIMENT_FAMILY = "TOOLS_VS_NOTOOLS"  # Experiment family
@@ -83,7 +84,7 @@ def load_run_into_dataset(dataset, *, run_id: str, policies: list[Policy]):
 
 
 
-# my agent stuff       
+# my agent stuff
 
 load_dotenv()
 api_key = os.environ["MISTRAL_API_KEY"]
@@ -140,6 +141,9 @@ class T2FTool:
 
 t2f_tool = T2FTool()
 
+tools = [t2f_tool]
+tool_registry = {t.name: t.execute for t in tools}
+
 # agents
 
 @dataclass
@@ -149,18 +153,18 @@ class Agent:
     model: str
     system_message: str
     tools: list
-    tool_registry: dict
     max_tokens: int = 1024
     temperature: float = 0.7
     tool_choice: str = "auto"
 
-    def act(self, messages: list):
+    def act(self, messages: list, *, tools: list | None = None):
         """Call the model with given messages, return response"""
+        tools = tools if tools is not None else self.tools
         return self.client.chat.complete(
             model=self.model,
             max_tokens=self.max_tokens,
             temperature=self.temperature,
-            tools=self.tools, 
+            tools=[t.schema for t in tools],
             tool_choice=self.tool_choice,  # type: ignore[arg-type]
             messages=[
                 {"role": "system", "content": self.system_message},
@@ -172,17 +176,20 @@ t2f_agent = Agent(
     client=client,
     model="mistral-small-latest",
     system_message="Hey there, answer in norwegian always. You can use the following tools to help answer the user's questions related to terminal2f and t2f",
-    tools=[t2f_tool.schema],
-    tool_registry={"t2ftool": t2f_tool.execute},
+    tools=[t2f_tool],
 )
+
+
 
 # messages are passed in as a bare list for now; when we need a second loop variant (fsm/pda/tc)
 # this becomes a ContextStrategy object that controls memory discipline (see ludic for example)
-def loop(agent: Agent, user_input: str, messages: list, max_turns=10):
+def loop(agent: Agent, user_input: str, messages: list, *, tools: list | None = None, max_turns=10):
+    tools = tools if tools is not None else agent.tools
+    registry = {t.name: t.execute for t in tools}
     messages.append({"role": "user", "content": user_input})
 
     for _ in range(max_turns):
-        response = agent.act(messages)
+        response = agent.act(messages, tools=tools)
         message = response.choices[0].message
 
         messages.append(message)
@@ -193,7 +200,7 @@ def loop(agent: Agent, user_input: str, messages: list, max_turns=10):
         for tool_call in message.tool_calls:
             function_name = tool_call.function.name # The function name to call
             function_params = json.loads(tool_call.function.arguments) # The function arguments
-            function_result = agent.tool_registry[function_name](**function_params) # The function result
+            function_result = registry[function_name](**function_params) # The function result
 
             messages.append({
                 "role": "tool",
@@ -235,12 +242,13 @@ class QuestionEnv:
 # --- Policies ---
 
 class Policy:
-    def __init__(self, name: str):
+    def __init__(self, name: str, tools: list | None = None):
         self.name = name
+        self.tools = tools
 
 POLICIES = [
-    Policy("with_tools"),
-    Policy("no_tools"),
+    Policy("with_tools", tools=[t2f_tool]),
+    Policy("no_tools", tools=[]),
 ]
 
 # --- Rollout ---
@@ -260,7 +268,7 @@ def rollout(*, policy: Policy, episode: str) -> tuple[float, int, bool]:
     while not done:
         rr.set_time("env_step", sequence=step)
 
-        answer = loop(agent, obs, messages)
+        answer = loop(agent, obs, messages, tools=policy.tools)
         obs, reward, done = env.step(answer)
         total += reward
 
@@ -364,24 +372,44 @@ response = agent.act(messages)
 print(response)
 
 
-# with rr.server.Server(port=5555) as server:
-#     client = server.client()
-#     dataset = init_dataset(client, EXPERIMENT)
-#     runs_table = get_or_make_table(client, "runs", EXPERIMENTS_RUN_SCHEMA)
-#     episodes_table = get_or_make_table(client, "episodes", EXPERIMENTS_EPISODES_SCHEMA)
-#     if MODE == "load":
-#         load_run_into_dataset(dataset, run_id=LOAD_RUN_ID, policies=POLICIES)
-#     else:
-#         with Run(experiment_family=EXPERIMENT_FAMILY, version_id=VERSION_ID, recordings_root=RECORDINGS, runs_table=runs_table, episodes_table=episodes_table, policies=POLICIES, num_episodes=10) as run:
-#             for episode_id, policy in run:   # TODO: __iter__ could yield a Task dataclass (episode_id, seed, policy, prompt, ground_truth, etc.) when real benchmark tasks define the shape
-#                 with run.episode(episode_id, layer=policy.name) as episode:
-#                     total_return, steps, done = rollout(policy=policy, episode=episode)
-#                     run.log_metrics(episode_id=episode_id, layer=policy.name, total_return=total_return, steps=steps, done=done)
-#     try:
-#         while True:
-#             time.sleep(1)
-#     except KeyboardInterrupt:
-#         pass
+with rr.server.Server(port=5555) as server:
+    client = server.client()
+    dataset = init_dataset(client, EXPERIMENT)
+    runs_table = get_or_make_table(client, "runs", EXPERIMENTS_RUN_SCHEMA)
+    episodes_table = get_or_make_table(client, "episodes", EXPERIMENTS_EPISODES_SCHEMA)
+    if MODE == "load":
+        load_run_into_dataset(dataset, run_id=LOAD_RUN_ID, policies=POLICIES)
+    else:
+        with Run(experiment_family=EXPERIMENT_FAMILY, version_id=VERSION_ID, recordings_root=RECORDINGS, runs_table=runs_table, episodes_table=episodes_table, policies=POLICIES, num_episodes=10) as run:
+            for episode_id, policy in run:   # TODO: __iter__ could yield a Task dataclass (episode_id, seed, policy, prompt, ground_truth, etc.) when real benchmark tasks define the shape
+                with run.episode(episode_id, layer=policy.name) as episode:
+                    total_return, steps, done = rollout(policy=policy, episode=episode)
+                    run.log_metrics(episode_id=episode_id, layer=policy.name, total_return=total_return, steps=steps, done=done)
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        pass
 
 
 # cli stuff
+app = typer.Typer()
+
+@app.command()
+def chat():
+    """Interactive chat with the agent."""
+    agent = t2f_agent
+    messages = []
+    while True:
+        try:
+            user_input = input("❯ ").strip()
+            if not user_input:
+                continue
+            if user_input in ("/q", "quit"):
+                break
+            print(loop(agent, user_input, messages))
+        except (KeyboardInterrupt, EOFError):
+            break
+
+if __name__ == "__main__":
+    app()
