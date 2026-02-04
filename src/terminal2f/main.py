@@ -6,14 +6,13 @@ import rerun as rr
 import rerun.catalog as catalog
 import datetime
 import time
+from dataclasses import dataclass
 from pathlib import Path
 from contextlib import contextmanager
 from mistralai import Mistral
 import os
 from dotenv import load_dotenv
 import json
-
-
 
 # config this
 EXPERIMENT_FAMILY = "TOOLS_VS_NOTOOLS"  # Experiment family
@@ -92,29 +91,37 @@ api_key = os.environ["MISTRAL_API_KEY"]
 # tools
 
 # a tool to use, maybe two, maybe more tools soony
+# it's not the current task of the project to do tools very proper, but with time introduce schema generation, and etc better flow..
+# future reference, https://github.com/1rgs/nanocode/blob/master/nanocode.py
 
-class t2ftool():
+@dataclass
+class T2FTool:
     """A tool to understand what t2f, terminal2F is"""
-    def get_schema(self):
+    name: str = "t2ftool"
+    description: str = "A tool to understand what t2f, terminal2F is"
+
+    @property
+    def schema(self) -> dict:
         return {
-        "type": "function",
-        "function": {
-            "name": "t2ftool",
-            "description": "A tool to understand what t2f, terminal2F is",
-            "parameters": {
-                "type": "object",
-                "properties": { 
-                    "code": {
-                        "type": "integer",
-                        "description": """code to unlock different information on terminal2f. Valid     
-                                        codes: 10 (what it is), 20 (what kind of project), 30 (development time), 40  
-                                        (tech stack), 50+ (origin story)""",
-                    }
+            "type": "function",
+            "function": {
+                "name": self.name,
+                "description": self.description,
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "code": {
+                            "type": "integer",
+                            "description": """code to unlock different information on terminal2f. Valid
+                                            codes: 10 (what it is), 20 (what kind of project), 30 (development time), 40
+                                            (tech stack), 50+ (origin story)""",
+                        }
+                    },
+                    "required": ["code"],
                 },
-                "required": ["code"],
             },
-        },
-    }
+        }
+
     def execute(self, code: int):
         match code:
             case 10:
@@ -122,27 +129,26 @@ class t2ftool():
             case 20:
                 return("terminal2f is a observablity project")
             case 30:
-                return("terminal2f takes a long time to code")  
+                return("terminal2f takes a long time to code")
             case 40:
                 return("terminal2f is just coded in python")
-            case 50:    
+            case 50:
                 return("terminal2f was made to reborn me")
             case _:
                 return("codes are eiher any number abouve 50, or exact 10, 20, 30, 40")
 
-t2f_tool = t2ftool()
+t2f_tool = T2FTool()
 
 tools = [
-    t2f_tool.get_schema(),
+    t2f_tool.schema,
 ]
 
-tool_registry = {                                                             
-      "t2ftool": t2f_tool.execute,                                              
-  }       
+tool_registry = {
+    "t2ftool": t2f_tool.execute,
+}       
 
 class Agent:
     """A simple AI agent"""
-
     def __init__(self):
         self.client = Mistral(api_key=api_key)
         self.model = "mistral-small-latest"
@@ -154,7 +160,7 @@ class Agent:
         return self.client.chat.complete(
             model=self.model,
             max_tokens=1024,
-            tools=tools,
+            tools=tools,  # type: ignore[arg-type]
             tool_choice="auto",
             messages=[
                 {"role": "system", "content": self.system_message},
@@ -226,7 +232,6 @@ POLICIES = [
     Policy("with_tools"),
     Policy("no_tools"),
 ]
-
 
 # --- Rollout ---
 
