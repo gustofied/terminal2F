@@ -1,5 +1,5 @@
 from __future__ import annotations
-import mistralai
+from terminal2f.mylogger import setup_logging
 import pyarrow as pa
 import ulid
 import rerun as rr
@@ -13,7 +13,12 @@ from mistralai import Mistral
 import os
 from dotenv import load_dotenv
 import json
+import logging
 import typer
+ 
+
+setup_logging(str(Path(__file__).parent / "config.json"))
+log = logging.getLogger(__name__)
 
 # config this
 EXPERIMENT_FAMILY = "TOOLS_VS_NOTOOLS"  # Experiment family
@@ -28,7 +33,7 @@ RECORDINGS = STORAGE_DIR / "recordings" / EXPERIMENT_FAMILY / VERSION_ID / "runs
 
 # this is the cli type of work
 MODE = "load"  # "record" or "load"
-LOAD_RUN_ID = "01KGJJ18538RQX9X84RFSKJPW4"  # set this when MODE="load", e.g. "01J..."
+LOAD_RUN_ID = "01KGMSY1NRHAPCM6EYSQ6H00GY"  # set this when MODE="load", e.g. "01J..."
 
 EXPERIMENTS_RUN_SCHEMA: pa.Schema = pa.schema(
     [
@@ -142,6 +147,8 @@ class T2FTool:
 t2f_tool = T2FTool()
 
 tools = [t2f_tool]
+# tool_registry is built per-loop call from the tools passed in (policy can override)
+# kept here as reference for the module-level mapping: name -> execute
 tool_registry = {t.name: t.execute for t in tools}
 
 # agents
@@ -183,10 +190,24 @@ t2f_agent = Agent(
 
 # messages are passed in as a bare list for now; when we need a second loop variant (fsm/pda/tc)
 # this becomes a ContextStrategy object that controls memory discipline (see ludic for example)
+
+# Regular Agent (FA) — no memory across steps, each step is independent
+def fsm(agent: Agent, user_input: str, *, tools: list | None = None):
+    raise NotImplementedError
+
+# Context-Free Agent (PDA) — stack-based memory, push on tool call, pop on result
+def pda(agent: Agent, user_input: str, messages: list, *, tools: list | None = None, max_turns=10):
+    raise NotImplementedError
+
+# TC Agent (TM) — unbounded read/write memory, current implementation
+def tc(agent: Agent, user_input: str, messages: list, *, tools: list | None = None, max_turns=10):
+    raise NotImplementedError
+
 def loop(agent: Agent, user_input: str, messages: list, *, tools: list | None = None, max_turns=10):
     tools = tools if tools is not None else agent.tools
     registry = {t.name: t.execute for t in tools}
     messages.append({"role": "user", "content": user_input})
+    rr.log("agent/conversation", rr.TextLog(f"user: {user_input}"))
 
     for _ in range(max_turns):
         response = agent.act(messages, tools=tools)
@@ -195,12 +216,16 @@ def loop(agent: Agent, user_input: str, messages: list, *, tools: list | None = 
         messages.append(message)
 
         if not message.tool_calls:
+            rr.log("agent/conversation", rr.TextLog(f"assistant: {message.content[:200]}"))
             return message.content
 
         for tool_call in message.tool_calls:
             function_name = tool_call.function.name # The function name to call
             function_params = json.loads(tool_call.function.arguments) # The function arguments
+            rr.log("agent/tool_calls", rr.TextLog(f"{function_name}({function_params})"))
+
             function_result = registry[function_name](**function_params) # The function result
+            rr.log("agent/tool_results", rr.TextLog(f"{function_name} -> {function_result}"))
 
             messages.append({
                 "role": "tool",
