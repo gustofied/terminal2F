@@ -155,10 +155,9 @@ class Agent:
         self.client = Mistral(api_key=api_key)
         self.model = "mistral-small-latest"
         self.system_message = "Hey there, answer in norwegian always. You can use the following tools to help answer the user's questions related to terminal2f and t2f"
-        self.messages = []
 
-    def chat(self):
-        """Call the model with current messages, return response"""
+    def act(self, messages: list):
+        """Call the model with given messages, return response"""
         return self.client.chat.complete(
             model=self.model,
             max_tokens=1024,
@@ -166,18 +165,18 @@ class Agent:
             tool_choice="auto",
             messages=[
                 {"role": "system", "content": self.system_message},
-                *self.messages,
+                *messages,
             ]  # type: ignore[arg-type]
         )
 
-def loop(agent: Agent, user_input: str, max_turns=10):
-    agent.messages.append({"role": "user", "content": user_input})
+def loop(agent: Agent, user_input: str, messages: list, max_turns=10):
+    messages.append({"role": "user", "content": user_input})
 
     for _ in range(max_turns):
-        response = agent.chat()
+        response = agent.act(messages)
         message = response.choices[0].message
 
-        agent.messages.append(message)
+        messages.append(message)
 
         if not message.tool_calls:
             return message.content
@@ -187,7 +186,7 @@ def loop(agent: Agent, user_input: str, max_turns=10):
             function_params = json.loads(tool_call.function.arguments) # The function arguments
             function_result = tool_registry[function_name](**function_params) # The function result
 
-            agent.messages.append({
+            messages.append({
                 "role": "tool",
                 "name": function_name,
                 "content": str(function_result),
@@ -240,6 +239,7 @@ POLICIES = [
 def rollout(*, policy: Policy, episode: str) -> tuple[float, int, bool]:
     env = QuestionEnv(QUESTIONS)
     agent = Agent()
+    messages = []
     obs = env.reset()
 
     rr.log(f"{episode}/meta/policy", rr.TextLog(policy.name))
@@ -251,7 +251,7 @@ def rollout(*, policy: Policy, episode: str) -> tuple[float, int, bool]:
     while not done:
         rr.set_time("env_step", sequence=step)
 
-        answer = loop(agent, obs)
+        answer = loop(agent, obs, messages)
         obs, reward, done = env.step(answer)
         total += reward
 
@@ -349,9 +349,9 @@ class Run:
             rr.set_thread_local_data_recording(None)
 
 
-minAgent = Agent()
-minAgent.messages.append({"role": "user", "content": "hey"})
-response = minAgent.chat()
+agent = Agent()
+messages = [{"role": "user", "content": "hey"}]
+response = agent.act(messages)
 print(response)
 
 
