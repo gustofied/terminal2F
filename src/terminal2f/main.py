@@ -100,7 +100,7 @@ class T2FTool:
     name: str = "t2ftool"
     description: str = "A tool to understand what t2f, terminal2F is"
 
-    @property
+    @property # really needing @property here? likley not..
     def schema(self) -> dict:
         return {
             "type": "function",
@@ -146,6 +146,8 @@ tools = [
 tool_registry = {
     "t2ftool": t2f_tool.execute,
 }       
+
+# agent profiles
 
 class Agent:
     """A simple AI agent"""
@@ -347,24 +349,30 @@ class Run:
             rr.set_thread_local_data_recording(None)
 
 
-with rr.server.Server(port=5555) as server:
-    client = server.client()
-    dataset = init_dataset(client, EXPERIMENT)
-    runs_table = get_or_make_table(client, "runs", EXPERIMENTS_RUN_SCHEMA)
-    episodes_table = get_or_make_table(client, "episodes", EXPERIMENTS_EPISODES_SCHEMA)
-    if MODE == "load":
-        load_run_into_dataset(dataset, run_id=LOAD_RUN_ID, policies=POLICIES)
-    else:
-        with Run(experiment_family=EXPERIMENT_FAMILY, version_id=VERSION_ID, recordings_root=RECORDINGS, runs_table=runs_table, episodes_table=episodes_table, policies=POLICIES, num_episodes=10) as run:
-            for episode_id, policy in run:   # TODO: __iter__ could yield a Task dataclass (episode_id, seed, policy, prompt, ground_truth, etc.) when real benchmark tasks define the shape
-                with run.episode(episode_id, layer=policy.name) as episode:
-                    total_return, steps, done = rollout(policy=policy, episode=episode)
-                    run.log_metrics(episode_id=episode_id, layer=policy.name, total_return=total_return, steps=steps, done=done)
-    try:
-        while True:
-            time.sleep(1)
-    except KeyboardInterrupt:
-        pass
+minAgent = Agent()
+minAgent.messages.append({"role": "user", "content": "hey"})
+response = minAgent.chat()
+print(response)
+
+
+# with rr.server.Server(port=5555) as server:
+#     client = server.client()
+#     dataset = init_dataset(client, EXPERIMENT)
+#     runs_table = get_or_make_table(client, "runs", EXPERIMENTS_RUN_SCHEMA)
+#     episodes_table = get_or_make_table(client, "episodes", EXPERIMENTS_EPISODES_SCHEMA)
+#     if MODE == "load":
+#         load_run_into_dataset(dataset, run_id=LOAD_RUN_ID, policies=POLICIES)
+#     else:
+#         with Run(experiment_family=EXPERIMENT_FAMILY, version_id=VERSION_ID, recordings_root=RECORDINGS, runs_table=runs_table, episodes_table=episodes_table, policies=POLICIES, num_episodes=10) as run:
+#             for episode_id, policy in run:   # TODO: __iter__ could yield a Task dataclass (episode_id, seed, policy, prompt, ground_truth, etc.) when real benchmark tasks define the shape
+#                 with run.episode(episode_id, layer=policy.name) as episode:
+#                     total_return, steps, done = rollout(policy=policy, episode=episode)
+#                     run.log_metrics(episode_id=episode_id, layer=policy.name, total_return=total_return, steps=steps, done=done)
+#     try:
+#         while True:
+#             time.sleep(1)
+#     except KeyboardInterrupt:
+#         pass
 
 
 # cli stuff
