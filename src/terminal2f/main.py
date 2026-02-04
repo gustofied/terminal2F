@@ -87,6 +87,7 @@ def load_run_into_dataset(dataset, *, run_id: str, policies: list[Policy]):
 
 load_dotenv()
 api_key = os.environ["MISTRAL_API_KEY"]
+client = Mistral(api_key=api_key)
 
 # tools
 
@@ -139,36 +140,44 @@ class T2FTool:
 
 t2f_tool = T2FTool()
 
-tools = [
-    t2f_tool.schema,
-]
+# agents
 
-tool_registry = {
-    "t2ftool": t2f_tool.execute,
-}       
-
-# agent profiles
-
+@dataclass
 class Agent:
     """A simple AI agent"""
-    def __init__(self):
-        self.client = Mistral(api_key=api_key)
-        self.model = "mistral-small-latest"
-        self.system_message = "Hey there, answer in norwegian always. You can use the following tools to help answer the user's questions related to terminal2f and t2f"
+    client: Mistral
+    model: str
+    system_message: str
+    tools: list
+    tool_registry: dict
+    max_tokens: int = 1024
+    temperature: float = 0.7
+    tool_choice: str = "auto"
 
     def act(self, messages: list):
         """Call the model with given messages, return response"""
         return self.client.chat.complete(
             model=self.model,
-            max_tokens=1024,
-            tools=tools,  # type: ignore[arg-type]
-            tool_choice="auto",
+            max_tokens=self.max_tokens,
+            temperature=self.temperature,
+            tools=self.tools, 
+            tool_choice=self.tool_choice,  # type: ignore[arg-type]
             messages=[
                 {"role": "system", "content": self.system_message},
                 *messages,
             ]  # type: ignore[arg-type]
         )
 
+t2f_agent = Agent(
+    client=client,
+    model="mistral-small-latest",
+    system_message="Hey there, answer in norwegian always. You can use the following tools to help answer the user's questions related to terminal2f and t2f",
+    tools=[t2f_tool.schema],
+    tool_registry={"t2ftool": t2f_tool.execute},
+)
+
+# messages are passed in as a bare list for now; when we need a second loop variant (fsm/pda/tc)
+# this becomes a ContextStrategy object that controls memory discipline (see ludic for example)
 def loop(agent: Agent, user_input: str, messages: list, max_turns=10):
     messages.append({"role": "user", "content": user_input})
 
@@ -184,7 +193,7 @@ def loop(agent: Agent, user_input: str, messages: list, max_turns=10):
         for tool_call in message.tool_calls:
             function_name = tool_call.function.name # The function name to call
             function_params = json.loads(tool_call.function.arguments) # The function arguments
-            function_result = tool_registry[function_name](**function_params) # The function result
+            function_result = agent.tool_registry[function_name](**function_params) # The function result
 
             messages.append({
                 "role": "tool",
@@ -238,7 +247,7 @@ POLICIES = [
 
 def rollout(*, policy: Policy, episode: str) -> tuple[float, int, bool]:
     env = QuestionEnv(QUESTIONS)
-    agent = Agent()
+    agent = t2f_agent
     messages = []
     obs = env.reset()
 
@@ -349,7 +358,7 @@ class Run:
             rr.set_thread_local_data_recording(None)
 
 
-agent = Agent()
+agent = t2f_agent
 messages = [{"role": "user", "content": "hey"}]
 response = agent.act(messages)
 print(response)
