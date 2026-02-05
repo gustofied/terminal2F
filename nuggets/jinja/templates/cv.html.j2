@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <title>{{ name }}: CV</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap');
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; color: #333; max-width: 800px; margin: 0 auto; padding: 40px 20px; line-height: 1.5; }
+        h1 { font-size: 2rem; font-weight: 600; margin-bottom: 4px; }
+        h2 { font-size: 1.1rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; border-bottom: 2px solid #333; padding-bottom: 4px; margin: 24px 0 12px; }
+        .contact { color: #666; margin-bottom: 12px; }
+        .contact a { color: #666; }
+        .summary { margin-bottom: 8px; color: #555; }
+        .item { display: flex; margin-bottom: 14px; }
+        .year { min-width: 110px; color: #888; font-size: 0.9rem; padding-top: 2px; }
+        .detail { flex: 1; }
+        .detail strong { font-weight: 600; }
+        .detail .sub { color: #555; font-size: 0.9rem; }
+        .detail ul { margin: 4px 0 0 18px; font-size: 0.9rem; color: #555; }
+        .skills { display: flex; flex-wrap: wrap; gap: 8px; }
+        .skills span { background: #f0f0f0; padding: 4px 12px; border-radius: 4px; font-size: 0.85rem; }
+        .pub { margin-bottom: 10px; font-size: 0.9rem; }
+        .pub .title { font-weight: 600; }
+        .pub .venue { color: #888; }
+    </style>
+</head>
+<body>
+    <h1>{{ name }}</h1>
+    <div class="contact">{{ email }} {% if website %}&middot; <a href="https://{{ website }}">{{ website }}</a>{% endif %}</div>
+    {% if summary %}<p class="summary">{{ summary }}</p>{% endif %}
+
+    <h2>Education</h2>
+    {% for item in education %}
+    <div class="item">
+        <div class="year">{{ item.start }}&ndash;{{ item.end }}</div>
+        <div class="detail">
+            <strong>{{ item.place }}</strong><br/>
+            {{ item.degree }}
+            {% if item.lab %}<br/><span class="sub">{{ item.lab }}</span>{% endif %}
+            {% if item.advisor %}<br/><span class="sub">Advisor: {{ item.advisor }}</span>{% endif %}
+        </div>
+    </div>
+    {% endfor %}
+
+    <h2>Experience</h2>
+    {% for item in experience %}
+    <div class="item">
+        <div class="year">{{ item.start }}&ndash;{{ item.end }}</div>
+        <div class="detail">
+            <strong>{{ item.title }}</strong>, {{ item.organization }} &mdash; {{ item.location }}
+            {% if item.details %}
+            <ul>{% for d in item.details %}<li>{{ d }}</li>{% endfor %}</ul>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+
+    {% if skills %}
+    <h2>Skills</h2>
+    <div class="skills">
+        {% for skill in skills %}<span>{{ skill }}</span>{% endfor %}
+    </div>
+    {% endif %}
+
+    {% if publications %}
+    <h2>Publications</h2>
+    {% for pub in publications %}
+    <div class="pub">
+        <span class="title">{{ pub.title }}</span> &mdash; <span class="venue">{{ pub.venue }}</span><br/>
+        <span class="sub">{{ pub.authors }}</span>
+    </div>
+    {% endfor %}
+    {% endif %}
+</body>
+</html>
