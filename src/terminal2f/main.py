@@ -181,9 +181,6 @@ class Memory:
         raise NotImplementedError
 
         
-memoir = Memory()
-memoir.push("hey")
-print(memoir.messages)
 
 # agents
 
