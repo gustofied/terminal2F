@@ -1,4 +1,5 @@
 from __future__ import annotations
+from shutil import register_unpack_format
 from terminal2f.mylogger import setup_logging
 import pyarrow as pa
 import ulid
@@ -151,6 +152,39 @@ tools = [t2f_tool]
 # kept here as reference for the module-level mapping: name -> execute
 tool_registry = {t.name: t.execute for t in tools}
 
+
+# --- MEMOIR ---
+
+# I need a memory object..
+# memory object with view()?
+# should be made so I could easy swap FA / PDA / TC
+# the memory object get's passed into the ..x y
+# some type of episodic memory
+
+class Memory:
+    def __init__(self):
+        self.messages: list = []
+
+    def push(self, msg) -> None:
+        self.messages.append(msg)
+
+    def tape(self) -> list:
+        """TM: everything."""
+        return list(self.messages)
+
+    def stack(self) -> list:
+        """PDA: resolved turns collapse, current turn full."""
+        raise NotImplementedError
+
+    def register(self) -> list:
+        """FA: current turn only."""
+        raise NotImplementedError
+
+        
+memoir = Memory()
+memoir.push("hey")
+print(memoir.messages)
+
 # agents
 
 @dataclass
@@ -187,33 +221,32 @@ t2f_agent = Agent(
 )
 
 
-
 # messages are passed in as a bare list for now; when we need a second loop variant (fsm/pda/tc)
 # this becomes a ContextStrategy object that controls memory discipline (see ludic for example)
 
 # Regular Agent (FA) — no memory across steps, each step is independent
-def fsm(agent: Agent, user_input: str, *, tools: list | None = None):
+def fsm(agent: Agent, user_input: str, memory: Memory, *, tools: list | None = None, max_turns=10):
     raise NotImplementedError
 
 # Context-Free Agent (PDA) — stack-based memory, push on tool call, pop on result
-def pda(agent: Agent, user_input: str, messages: list, *, tools: list | None = None, max_turns=10):
+def pda(agent: Agent, user_input: str, memory: Memory, *, tools: list | None = None, max_turns=10):
     raise NotImplementedError
 
 # TC Agent (TM) — unbounded read/write memory, current implementation
-def tc(agent: Agent, user_input: str, messages: list, *, tools: list | None = None, max_turns=10):
+def tc(agent: Agent, user_input: str, memory: Memory, *, tools: list | None = None, max_turns=10):
     raise NotImplementedError
 
-def loop(agent: Agent, user_input: str, messages: list, *, tools: list | None = None, max_turns=10):
+def loop(agent: Agent, user_input: str, memory: Memory, *, tools: list | None = None, max_turns=10):
     tools = tools if tools is not None else agent.tools
     registry = {t.name: t.execute for t in tools}
-    messages.append({"role": "user", "content": user_input})
+    memory.push({"role": "user", "content": user_input})
     rr.log("agent/conversation", rr.TextLog(f"user: {user_input}"))
 
     for _ in range(max_turns):
-        response = agent.act(messages, tools=tools)
+        response = agent.act(memory.tape(), tools=tools)
         message = response.choices[0].message
 
-        messages.append(message)
+        memory.push(message)
 
         if not message.tool_calls:
             rr.log("agent/conversation", rr.TextLog(f"assistant: {message.content[:200]}"))
@@ -227,7 +260,7 @@ def loop(agent: Agent, user_input: str, messages: list, *, tools: list | None = 
             function_result = registry[function_name](**function_params) # The function result
             rr.log("agent/tool_results", rr.TextLog(f"{function_name} -> {function_result}"))
 
-            messages.append({
+            memory.push({
                 "role": "tool",
                 "name": function_name,
                 "content": str(function_result),
@@ -281,7 +314,7 @@ POLICIES = [
 def rollout(*, policy: Policy, episode: str) -> tuple[float, int, bool]:
     env = QuestionEnv(QUESTIONS)
     agent = t2f_agent
-    messages = []
+    memory = Memory()
     obs = env.reset()
 
     rr.log(f"{episode}/meta/policy", rr.TextLog(policy.name))
@@ -293,7 +326,7 @@ def rollout(*, policy: Policy, episode: str) -> tuple[float, int, bool]:
     while not done:
         rr.set_time("env_step", sequence=step)
 
-        answer = loop(agent, obs, messages, tools=policy.tools)
+        answer = loop(agent, obs, memory, tools=policy.tools)
         obs, reward, done = env.step(answer)
         total += reward
 
@@ -391,50 +424,50 @@ class Run:
             rr.set_thread_local_data_recording(None)
 
 
-agent = t2f_agent
-messages = [{"role": "user", "content": "hey"}]
-response = agent.act(messages)
-print(response)
+# agent = t2f_agent
+# messages = [{"role": "user", "content": "hey"}]
+# response = agent.act(messages)
+# print(response)
 
 
-with rr.server.Server(port=5555) as server:
-    client = server.client()
-    dataset = init_dataset(client, EXPERIMENT)
-    runs_table = get_or_make_table(client, "runs", EXPERIMENTS_RUN_SCHEMA)
-    episodes_table = get_or_make_table(client, "episodes", EXPERIMENTS_EPISODES_SCHEMA)
-    if MODE == "load":
-        load_run_into_dataset(dataset, run_id=LOAD_RUN_ID, policies=POLICIES)
-    else:
-        with Run(experiment_family=EXPERIMENT_FAMILY, version_id=VERSION_ID, recordings_root=RECORDINGS, runs_table=runs_table, episodes_table=episodes_table, policies=POLICIES, num_episodes=10) as run:
-            for episode_id, policy in run:   # TODO: __iter__ could yield a Task dataclass (episode_id, seed, policy, prompt, ground_truth, etc.) when real benchmark tasks define the shape
-                with run.episode(episode_id, layer=policy.name) as episode:
-                    total_return, steps, done = rollout(policy=policy, episode=episode)
-                    run.log_metrics(episode_id=episode_id, layer=policy.name, total_return=total_return, steps=steps, done=done)
-    try:
-        while True:
-            time.sleep(1)
-    except KeyboardInterrupt:
-        pass
+# with rr.server.Server(port=5555) as server:
+#     client = server.client()
+#     dataset = init_dataset(client, EXPERIMENT)
+#     runs_table = get_or_make_table(client, "runs", EXPERIMENTS_RUN_SCHEMA)
+#     episodes_table = get_or_make_table(client, "episodes", EXPERIMENTS_EPISODES_SCHEMA)
+#     if MODE == "load":
+#         load_run_into_dataset(dataset, run_id=LOAD_RUN_ID, policies=POLICIES)
+#     else:
+#         with Run(experiment_family=EXPERIMENT_FAMILY, version_id=VERSION_ID, recordings_root=RECORDINGS, runs_table=runs_table, episodes_table=episodes_table, policies=POLICIES, num_episodes=10) as run:
+#             for episode_id, policy in run:   # TODO: __iter__ could yield a Task dataclass (episode_id, seed, policy, prompt, ground_truth, etc.) when real benchmark tasks define the shape
+#                 with run.episode(episode_id, layer=policy.name) as episode:
+#                     total_return, steps, done = rollout(policy=policy, episode=episode)
+#                     run.log_metrics(episode_id=episode_id, layer=policy.name, total_return=total_return, steps=steps, done=done)
+#     try:
+#         while True:
+#             time.sleep(1)
+#     except KeyboardInterrupt:
+#         pass
 
 
-# cli stuff
-app = typer.Typer()
+# # cli stuff
+# app = typer.Typer()
 
-@app.command()
-def chat():
-    """Interactive chat with the agent."""
-    agent = t2f_agent
-    messages = []
-    while True:
-        try:
-            user_input = input("❯ ").strip()
-            if not user_input:
-                continue
-            if user_input in ("/q", "quit"):
-                break
-            print(loop(agent, user_input, messages))
-        except (KeyboardInterrupt, EOFError):
-            break
+# @app.command()
+# def chat():
+#     """Interactive chat with the agent."""
+#     agent = t2f_agent
+#     messages = []
+#     while True:
+#         try:
+#             user_input = input("❯ ").strip()
+#             if not user_input:
+#                 continue
+#             if user_input in ("/q", "quit"):
+#                 break
+#             print(loop(agent, user_input, messages))
+#         except (KeyboardInterrupt, EOFError):
+#             break
 
-if __name__ == "__main__":
-    app()
+# if __name__ == "__main__":
+#     app()
