@@ -119,3 +119,13 @@ browsing_session.append(3)
 print(browsing_session)
 browsing_session.pop(1)
 print(browsing_session)
+
+
+# class FSM:
+#     class State():
+#         class Readeing(Enum):
+#             FAST = auto()
+#             SLOW = auto()
+#         class Speaking(Enum):
+#             FAST = auto()
+#             SLOW = auto()

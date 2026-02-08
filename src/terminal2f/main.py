@@ -1,5 +1,5 @@
 from __future__ import annotations
-from enum import Enum
+from enum import StrEnum, auto
 from shutil import register_unpack_format
 from terminal2f.mylogger import setup_logging
 import pyarrow as pa
@@ -163,26 +163,34 @@ tool_registry = {t.name: t.execute for t in tools}
 # some type of episodic memory
 
 class Memory:
+    """Holds all the data an agent could ever touch.
+    What gets used and how it gets read is up to the automaton (FSM/PDA/Loop),
+    not memory itself. Memory is just storage."""
+
     def __init__(self):
         self.messages: list = []
 
     def push(self, msg) -> None:
         self.messages.append(msg)
 
-    def tape(self) -> list:
-        """TM: everything."""
+    def get_messages(self) -> list:
+        """Raw message history. State + input, the basic back and forth."""
         return list(self.messages)
 
-    def stack(self) -> list:
-        """PDA: resolved turns collapse, current turn full."""
-        # needs to become an interaction stack I guess..
-        raise NotImplementedError
+    def interaction_stack(self):
+        """The stack structure for PDA-level stuff. Lives here, but the PDA
+        class decides how to push/pop/traverse it."""
+        pass
 
-    def register(self) -> list:
-        """FA: current turn only."""
-        raise NotImplementedError
+    def object_store(self):
+        """Long-term artifact storage. Think s3, files, whatever persists
+        beyond the conversation. TM-level memory."""
+        pass
 
-        
+    def tape(self) -> list:
+        """Everything. Messages, stack, object store. The full picture.
+        Only the TC loop reads all of this."""
+        return [self.messages, self.interaction_stack(), self.object_store()]
 
 # agents
 
@@ -226,51 +234,86 @@ t2f_agent = Agent(
 # Regular Agent (FA) — no memory across steps, each step is independent
 
 class FSM:
+    # very much event types like in microservies
+    class State:
+        class LLMInteractions(StrEnum):
+        # LLM interactions - using an LLM to choose the next action
+            UserMessage = auto() # UserMessage is the state that tells the state machine to execute an LLM call
+            AssistantMessage = auto() # AssistantMessage captures the output of an LLM via a UserMessage.
+        class AgentInteractions(StrEnum):
+            AgentCall = auto() # This state instructs the state machine to send a message to another agent
+            AgentResult = auto() # AgentResult captures the reply from the other agent to the calling agent
+        class ToolInteractions(StrEnum):
+            ToolCall = auto() # ToolCall is the state that tells the state machine to execute a tool
+            ToolResult = auto() #ToolResult is the state that captures the output of a ToolCall
+        class FinalStates(StrEnum):
+            Finished = auto() # Finished captures the final state of the state machine - this happens when the agent has finished it task
+        class UserInteractions(StrEnum):
+            UserInputRequired = auto() # UserInputRequired tells the state machine to wait for a user input
+            UserResponse = auto() # UserResponse captures user inputs - either as an initial state or as a response
+
     def __init__(self, agent: Agent, user_input: str, memory: Memory, *, tools: list | None = None, max_turns=10):
         self.agent = agent
         self.memory = memory
         self.user_input = user_input
         self.tools = tools
         self.max_turns = max_turns
+        self.current_state = FSM.State.LLMInteractions.UserMessage
+        self.last_message = None  # LLM response, needs to survive between states
+        self.result = None  # the final answer when we hit Finished
 
     def __call__(self):
         return self.loop()
 
-    def state(self):
+    def transition(self):
+        match self.current_state:
 
-        class State(Enum):
-            READING = 1
-            
+            # User gave input → push it to memory, move to LLM
+            case FSM.State.LLMInteractions.UserMessage:
+                self.memory.push({"role": "user", "content": self.user_input})
+                rr.log("agent/conversation", rr.TextLog(f"user: {self.user_input}"))
+                self.current_state = FSM.State.LLMInteractions.AssistantMessage
+
+            case FSM.State.LLMInteractions.AssistantMessage:
+                response = self.agent.act(self.memory.get_messages(), tools=self.tools)
+                self.last_message = response.choices[0].message
+                self.memory.push(self.last_message)
+
+                if not self.last_message.tool_calls:
+                    rr.log("agent/conversation", rr.TextLog(f"assistant: {self.last_message.content[:200]}"))
+                    self.result = self.last_message.content
+                    self.current_state = FSM.State.FinalStates.Finished
+                else:
+                    self.current_state = FSM.State.ToolInteractions.ToolCall
+
+            # Execute tools and push results immediately, one by one
+            case FSM.State.ToolInteractions.ToolCall:
+                for tool_call in self.last_message.tool_calls:  # ty:ignore[possibly-missing-attribute]
+                    function_name = tool_call.function.name # The function name to call
+                    function_params = json.loads(tool_call.function.arguments) # The function arguments
+                    rr.log("agent/tool_calls", rr.TextLog(f"{function_name}({function_params})"))
+                    function_result = self.registry[function_name](**function_params) # The function result
+                    rr.log("agent/tool_results", rr.TextLog(f"{function_name} -> {function_result}"))
+                    self.memory.push({
+                        "role": "tool",
+                        "name": function_name,
+                        "content": str(function_result),
+                        "tool_call_id": tool_call.id,
+                    })
+                self.current_state = FSM.State.ToolInteractions.ToolResult
+
+            # Program has results. Decide what to do with them.
+            case FSM.State.ToolInteractions.ToolResult:
+                # ToolResult is where your code can inspect results and decide what to do. Right now it just
+                # routes to AssistantMessage, but that's the hook for program-level agency later
+                self.current_state = FSM.State.LLMInteractions.AssistantMessage
 
     def loop(self):
-        tools = self.tools if self.tools is not None else self.agent.tools
-        registry = {t.name: t.execute for t in tools}
-        self.memory.push({"role": "user", "content": self.user_input})
-        rr.log("agent/conversation", rr.TextLog(f"user: {self.user_input}"))
-        for _ in range(self.max_turns):
-            response = self.agent.act(self.memory.tape(), tools=tools)
-            message = response.choices[0].message
-
-            self.memory.push(message)
-
-            if not message.tool_calls:
-                rr.log("agent/conversation", rr.TextLog(f"assistant: {message.content[:200]}"))
-                return message.content
-
-            for tool_call in message.tool_calls:
-                function_name = tool_call.function.name # The function name to call
-                function_params = json.loads(tool_call.function.arguments) # The function arguments
-                rr.log("agent/tool_calls", rr.TextLog(f"{function_name}({function_params})"))
-
-                function_result = registry[function_name](**function_params) # The function result
-                rr.log("agent/tool_results", rr.TextLog(f"{function_name} -> {function_result}"))
-
-                self.memory.push({
-                    "role": "tool",
-                    "name": function_name,
-                    "content": str(function_result),
-                    "tool_call_id": tool_call.id,
-                })
+        self.tools = self.tools if self.tools is not None else self.agent.tools
+        self.registry = {t.name: t.execute for t in self.tools}
+        while self.current_state != self.State.FinalStates.Finished:
+            self.transition()
+        return self.result
 
 class PDA(FSM):
     pass
@@ -290,7 +333,7 @@ def loop(agent: Agent, user_input: str, memory: Memory, *, tools: list | None = 
     rr.log("agent/conversation", rr.TextLog(f"user: {user_input}"))
 
     for _ in range(max_turns):
-        response = agent.act(memory.tape(), tools=tools)
+        response = agent.act(memory.get_messages(), tools=tools)
         message = response.choices[0].message
 
         memory.push(message)
