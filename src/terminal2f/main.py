@@ -1,4 +1,5 @@
 from __future__ import annotations
+from enum import Enum
 from shutil import register_unpack_format
 from terminal2f.mylogger import setup_logging
 import pyarrow as pa
@@ -174,6 +175,7 @@ class Memory:
 
     def stack(self) -> list:
         """PDA: resolved turns collapse, current turn full."""
+        # needs to become an interaction stack I guess..
         raise NotImplementedError
 
     def register(self) -> list:
@@ -222,8 +224,56 @@ t2f_agent = Agent(
 # this becomes a ContextStrategy object that controls memory discipline (see ludic for example)
 
 # Regular Agent (FA) — no memory across steps, each step is independent
-def fsm(agent: Agent, user_input: str, memory: Memory, *, tools: list | None = None, max_turns=10):
-    raise NotImplementedError
+
+class FSM:
+    def __init__(self, agent: Agent, user_input: str, memory: Memory, *, tools: list | None = None, max_turns=10):
+        self.agent = agent
+        self.memory = memory
+        self.user_input = user_input
+        self.tools = tools
+        self.max_turns = max_turns
+
+    def __call__(self):
+        return self.loop()
+
+    def state(self):
+
+        class State(Enum):
+            READING = 1
+            
+
+    def loop(self):
+        tools = self.tools if self.tools is not None else self.agent.tools
+        registry = {t.name: t.execute for t in tools}
+        self.memory.push({"role": "user", "content": self.user_input})
+        rr.log("agent/conversation", rr.TextLog(f"user: {self.user_input}"))
+        for _ in range(self.max_turns):
+            response = self.agent.act(self.memory.tape(), tools=tools)
+            message = response.choices[0].message
+
+            self.memory.push(message)
+
+            if not message.tool_calls:
+                rr.log("agent/conversation", rr.TextLog(f"assistant: {message.content[:200]}"))
+                return message.content
+
+            for tool_call in message.tool_calls:
+                function_name = tool_call.function.name # The function name to call
+                function_params = json.loads(tool_call.function.arguments) # The function arguments
+                rr.log("agent/tool_calls", rr.TextLog(f"{function_name}({function_params})"))
+
+                function_result = registry[function_name](**function_params) # The function result
+                rr.log("agent/tool_results", rr.TextLog(f"{function_name} -> {function_result}"))
+
+                self.memory.push({
+                    "role": "tool",
+                    "name": function_name,
+                    "content": str(function_result),
+                    "tool_call_id": tool_call.id,
+                })
+
+class PDA(FSM):
+    pass
 
 # Context-Free Agent (PDA) — stack-based memory, push on tool call, pop on result
 def pda(agent: Agent, user_input: str, memory: Memory, *, tools: list | None = None, max_turns=10):
