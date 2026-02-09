@@ -169,19 +169,18 @@ class Memory:
 
     def __init__(self):
         self.messages: list = []
-        self.interaction_stack: list = []
+        self.interaction_stack: list = []  # append-only trace of states visited. NOT the PDA stack.
+        self.stack: list = []              # Z — LIFO computational stack. PDA memory.
 
     def push(self, msg) -> None:
         self.messages.append(msg)
 
-    def get_messages(self, bounded_context=False) -> list:
+    def get_messages(self, k: int | None = None) -> list:
         """Raw message history. State + input, the basic back and forth."""
-        if bounded_context:
-            return list(self.messages[-bounded_context:])
-        return list(self.messages)
+        return list(self.messages if k is None else self.messages[-k:]) # can break tooling a bitty yup tools break on 1 so yeh
 
-    # interaction_stack is now a list attribute on __init__
-    # trace log + PDA stack. Runners append to it, PDA will push/pop on it.
+    # interaction_stack: append-only trace of every state visited. Top is always current state.
+    # This is NOT the PDA computational stack. PDA will have a separate plan_stack for push/pop.
 
     def object_store(self):
         """Long-term artifact storage. Think s3, files, whatever persists
@@ -261,15 +260,15 @@ class FSM:
         self.user_input = user_input
         self.tools = tools
         self.max_turns = max_turns
-        self.current_state = FSM.State.LLMInteractions.UserMessage
         self.last_message = None  # LLM response, needs to survive between states
         self.result = None  # the final answer when we hit Finished
+        self.memory.interaction_stack.append(FSM.State.LLMInteractions.UserMessage)
 
     def __call__(self):
         return self.loop()
 
     def transition(self):
-        self.memory.interaction_stack.append(self.current_state)
+        self.current_state = self.memory.interaction_stack[-1]  # peek
         match self.current_state:
 
             # User gave input → push it to memory, move to LLM
@@ -277,19 +276,19 @@ class FSM:
                 self.memory.push({"role": "user", "content": self.user_input})
                 rr.log("agent/conversation", rr.TextLog(f"user: {self.user_input}"))
                 rr.log("agent/conversation", rr.TextLog(f"A test logging"))
-                self.current_state = FSM.State.LLMInteractions.AssistantMessage
+                self.memory.interaction_stack.append(FSM.State.LLMInteractions.AssistantMessage)
 
             case FSM.State.LLMInteractions.AssistantMessage:
-                response = self.agent.act(self.memory.get_messages(bounded_context=1), tools=self.tools)
+                response = self.agent.act(self.memory.get_messages(k=1), tools=self.tools)
                 self.last_message = response.choices[0].message
                 self.memory.push(self.last_message)
 
                 if not self.last_message.tool_calls:
                     rr.log("agent/conversation", rr.TextLog(f"assistant: {self.last_message.content[:200]}"))
                     self.result = self.last_message.content
-                    self.current_state = FSM.State.FinalStates.Finished
+                    self.memory.interaction_stack.append(FSM.State.FinalStates.Finished)
                 else:
-                    self.current_state = FSM.State.ToolInteractions.ToolCall
+                    self.memory.interaction_stack.append(FSM.State.ToolInteractions.ToolCall)
 
             # Execute tools and push results immediately, one by one
             case FSM.State.ToolInteractions.ToolCall:
@@ -305,18 +304,18 @@ class FSM:
                         "content": str(function_result),
                         "tool_call_id": tool_call.id,
                     })
-                self.current_state = FSM.State.ToolInteractions.ToolResult
+                self.memory.interaction_stack.append(FSM.State.ToolInteractions.ToolResult)
 
             # Program has results. Decide what to do with them.
             case FSM.State.ToolInteractions.ToolResult:
                 # ToolResult is where your code can inspect results and decide what to do. Right now it just
                 # routes to AssistantMessage, but that's the hook for program-level agency later
-                self.current_state = FSM.State.LLMInteractions.AssistantMessage
+                self.memory.interaction_stack.append(FSM.State.LLMInteractions.AssistantMessage)
 
     def loop(self):
         self.tools = self.tools if self.tools is not None else self.agent.tools
         self.registry = {t.name: t.execute for t in self.tools}
-        while self.current_state != self.State.FinalStates.Finished:
+        while self.memory.interaction_stack[-1] != self.State.FinalStates.Finished:
             self.transition()
         return self.result
 
@@ -359,8 +358,53 @@ class LOOP:
                     "tool_call_id": tool_call.id,
                 })
 
-# Context-Free Agent (PDA) — stack-based memory, push on tool call, pop on result
+# Context-Free Agent ≃ Pushdown Automaton
+# δ: S × Σ × Z → S × Z*
+# Augments FSM finite control with LIFO stack (memory.stack).
+# Push on subgoal entry, pop on completion. Strictly LIFO discipline.
 class PDA(FSM):
+
+    def __init__(self, agent: Agent, user_input: str, memory: Memory, *, tools: list | None = None, max_turns=10):
+        super().__init__(agent, user_input, memory, tools=tools, max_turns=max_turns)
+        self.memory.stack.append(user_input)  # Z₀ — initial goal symbol
+
+    def transition(self):
+        current_state = self.memory.interaction_stack[-1]
+        stack_top = self.memory.stack[-1] if self.memory.stack else None
+
+        match current_state:
+            # PDA reads full messages, not bounded k=1 like FA.
+            # Stack top (current goal) is what gives it structured memory.
+            case FSM.State.LLMInteractions.AssistantMessage:
+                response = self.agent.act(self.memory.get_messages(), tools=self.tools)
+                self.last_message = response.choices[0].message
+                self.memory.push(self.last_message)
+                if not self.last_message.tool_calls:
+                    rr.log("agent/conversation", rr.TextLog(f"assistant: {self.last_message.content[:200]}"))
+                    self.result = self.last_message.content
+                    self.memory.interaction_stack.append(FSM.State.FinalStates.Finished)
+                else:
+                    self.memory.interaction_stack.append(FSM.State.ToolInteractions.ToolCall)
+
+            # Finished: pop completed goal. Continue if stack has more.
+            case FSM.State.FinalStates.Finished:
+                self.memory.stack.pop()
+                if self.memory.stack:
+                    self.user_input = self.memory.stack[-1]
+                    self.memory.interaction_stack.append(FSM.State.LLMInteractions.UserMessage)
+
+            case _:
+                super().transition()
+
+    def loop(self):
+        self.tools = self.tools if self.tools is not None else self.agent.tools
+        self.registry = {t.name: t.execute for t in self.tools}
+        while self.memory.stack:
+            self.transition()
+        return self.result
+
+
+class LBA:
     pass
 
 # TC Agent (TM) — unbounded read/write memory, current implementation
