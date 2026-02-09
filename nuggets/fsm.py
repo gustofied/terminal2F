@@ -185,3 +185,7 @@ function_dispatched = {
 print(function_dispatched["timer"](1,2))
 
 
+# let's get a meealy and moore machine
+# https://cs.lmu.edu/~ray/notes/cstheories/
+
+

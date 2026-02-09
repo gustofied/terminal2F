@@ -170,7 +170,8 @@ class Memory:
     def __init__(self):
         self.messages: list = []
         self.interaction_stack: list = []  # append-only trace of states visited. NOT the PDA stack.
-        self.stack: list = []              # Z — LIFO computational stack. PDA memory.
+        self.pda_stack: list = []              # Z — LIFO computational stack. PDA memory.
+        self.object_store: list = []       # Long-term artifact storage. TM-level memory.
 
     def push(self, msg) -> None:
         self.messages.append(msg)
@@ -180,20 +181,14 @@ class Memory:
         return list(self.messages if k is None else self.messages[-k:]) # can break tooling a bitty yup tools break on 1 so yeh
 
     # interaction_stack: append-only trace of every state visited. Top is always current state.
-    # This is NOT the PDA computational stack. PDA will have a separate plan_stack for push/pop.
-
-    def object_store(self):
-        """Long-term artifact storage. Think s3, files, whatever persists
-        beyond the conversation. TM-level memory."""
-        pass
-
-    # register() — current state + current input only. This is what the FSM should read.
-    # FA has no history, just the last turn. That's the constraint that makes it finite.
+    # This is NOT the PDA computational stack. PDA uses memory.pda_stack (LIFO push/pop).
+    # TODO: each interaction_stack entry could bookmark memory lengths (messages_len, pda_stack_depth,
+    # object_store_len) at that tick. Enables rewind to any step by truncating — no copies needed.
 
     def tape(self) -> list:
-        """Everything. Messages, stack, object store. The full picture.
+        """Everything. Messages, interaction trace, stack, object store. The full picture.
         Only the TC loop reads all of this."""
-        return [self.messages, self.interaction_stack, self.object_store()]
+        return [self.messages, self.interaction_stack, self.pda_stack, self.object_store]
 
 # agents
 
@@ -360,17 +355,17 @@ class LOOP:
 
 # Context-Free Agent ≃ Pushdown Automaton
 # δ: S × Σ × Z → S × Z*
-# Augments FSM finite control with LIFO stack (memory.stack).
+# Augments FSM finite control with LIFO stack (memory.pda_stack).
 # Push on subgoal entry, pop on completion. Strictly LIFO discipline.
 class PDA(FSM):
 
     def __init__(self, agent: Agent, user_input: str, memory: Memory, *, tools: list | None = None, max_turns=10):
         super().__init__(agent, user_input, memory, tools=tools, max_turns=max_turns)
-        self.memory.stack.append(user_input)  # Z₀ — initial goal symbol
+        self.memory.pda_stack.append(user_input)  # Z₀ — initial goal symbol
 
     def transition(self):
         current_state = self.memory.interaction_stack[-1]
-        stack_top = self.memory.stack[-1] if self.memory.stack else None
+        stack_top = self.memory.pda_stack[-1] if self.memory.pda_stack else None
 
         match current_state:
             # PDA reads full messages, not bounded k=1 like FA.
@@ -388,9 +383,9 @@ class PDA(FSM):
 
             # Finished: pop completed goal. Continue if stack has more.
             case FSM.State.FinalStates.Finished:
-                self.memory.stack.pop()
-                if self.memory.stack:
-                    self.user_input = self.memory.stack[-1]
+                self.memory.pda_stack.pop()
+                if self.memory.pda_stack:
+                    self.user_input = self.memory.pda_stack[-1]
                     self.memory.interaction_stack.append(FSM.State.LLMInteractions.UserMessage)
 
             case _:
@@ -399,7 +394,7 @@ class PDA(FSM):
     def loop(self):
         self.tools = self.tools if self.tools is not None else self.agent.tools
         self.registry = {t.name: t.execute for t in self.tools}
-        while self.memory.stack:
+        while self.memory.pda_stack:
             self.transition()
         return self.result
 
