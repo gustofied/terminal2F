@@ -35,7 +35,7 @@ RECORDINGS = STORAGE_DIR / "recordings" / EXPERIMENT_FAMILY / VERSION_ID / "runs
 
 # this is the cli type of work
 MODE = "load"  # "record" or "load"
-LOAD_RUN_ID = "01KGMSY1NRHAPCM6EYSQ6H00GY"  # set this when MODE="load", e.g. "01J..."
+LOAD_RUN_ID = "01KGYTGJJMP3AMAQV27GJ1Q43T"  # set this when MODE="load", e.g. "01J..."
 
 EXPERIMENTS_RUN_SCHEMA: pa.Schema = pa.schema(
     [
@@ -187,6 +187,9 @@ class Memory:
         beyond the conversation. TM-level memory."""
         pass
 
+    # register() — current state + current input only. This is what the FSM should read.
+    # FA has no history, just the last turn. That's the constraint that makes it finite.
+
     def tape(self) -> list:
         """Everything. Messages, stack, object store. The full picture.
         Only the TC loop reads all of this."""
@@ -272,6 +275,7 @@ class FSM:
             case FSM.State.LLMInteractions.UserMessage:
                 self.memory.push({"role": "user", "content": self.user_input})
                 rr.log("agent/conversation", rr.TextLog(f"user: {self.user_input}"))
+                rr.log("agent/conversation", rr.TextLog(f"A test logging"))
                 self.current_state = FSM.State.LLMInteractions.AssistantMessage
 
             case FSM.State.LLMInteractions.AssistantMessage:
@@ -315,47 +319,52 @@ class FSM:
             self.transition()
         return self.result
 
+class LOOP:
+    def __init__(self, agent: Agent, user_input: str, memory: Memory, *, tools: list | None = None, max_turns=10):
+        self.agent = agent
+        self.user_input = user_input
+        self.memory = memory
+        self.tools = tools
+        self.max_turns = max_turns
+
+    def __call__(self):
+        tools = self.tools if self.tools is not None else self.agent.tools
+        registry = {t.name: t.execute for t in tools}
+        self.memory.push({"role": "user", "content": self.user_input})
+        rr.log("agent/conversation", rr.TextLog(f"user: {self.user_input}"))
+
+        for _ in range(self.max_turns):
+            response = self.agent.act(self.memory.get_messages(), tools=tools)
+            message = response.choices[0].message
+
+            self.memory.push(message)
+
+            if not message.tool_calls:
+                rr.log("agent/conversation", rr.TextLog(f"assistant: {message.content[:200]}"))
+                return message.content
+
+            for tool_call in message.tool_calls:
+                function_name = tool_call.function.name # The function name to call
+                function_params = json.loads(tool_call.function.arguments) # The function arguments
+                rr.log("agent/tool_calls", rr.TextLog(f"{function_name}({function_params})"))
+
+                function_result = registry[function_name](**function_params) # The function result
+                rr.log("agent/tool_results", rr.TextLog(f"{function_name} -> {function_result}"))
+
+                self.memory.push({
+                    "role": "tool",
+                    "name": function_name,
+                    "content": str(function_result),
+                    "tool_call_id": tool_call.id,
+                })
+
+# Context-Free Agent (PDA) — stack-based memory, push on tool call, pop on result
 class PDA(FSM):
     pass
 
-# Context-Free Agent (PDA) — stack-based memory, push on tool call, pop on result
-def pda(agent: Agent, user_input: str, memory: Memory, *, tools: list | None = None, max_turns=10):
-    raise NotImplementedError
-
 # TC Agent (TM) — unbounded read/write memory, current implementation
-def tc(agent: Agent, user_input: str, memory: Memory, *, tools: list | None = None, max_turns=10):
-    raise NotImplementedError
-
-def loop(agent: Agent, user_input: str, memory: Memory, *, tools: list | None = None, max_turns=10):
-    tools = tools if tools is not None else agent.tools
-    registry = {t.name: t.execute for t in tools}
-    memory.push({"role": "user", "content": user_input})
-    rr.log("agent/conversation", rr.TextLog(f"user: {user_input}"))
-
-    for _ in range(max_turns):
-        response = agent.act(memory.get_messages(), tools=tools)
-        message = response.choices[0].message
-
-        memory.push(message)
-
-        if not message.tool_calls:
-            rr.log("agent/conversation", rr.TextLog(f"assistant: {message.content[:200]}"))
-            return message.content
-
-        for tool_call in message.tool_calls:
-            function_name = tool_call.function.name # The function name to call
-            function_params = json.loads(tool_call.function.arguments) # The function arguments
-            rr.log("agent/tool_calls", rr.TextLog(f"{function_name}({function_params})"))
-
-            function_result = registry[function_name](**function_params) # The function result
-            rr.log("agent/tool_results", rr.TextLog(f"{function_name} -> {function_result}"))
-
-            memory.push({
-                "role": "tool",
-                "name": function_name,
-                "content": str(function_result),
-                "tool_call_id": tool_call.id,
-            })
+class TM(LOOP):
+    pass
 
 # --- Environment ---
 
@@ -390,13 +399,14 @@ class QuestionEnv:
 # --- Policies ---
 
 class Policy:
-    def __init__(self, name: str, tools: list | None = None):
+    def __init__(self, name: str, tools: list | None = None, runner=LOOP):
         self.name = name
         self.tools = tools
+        self.runner = runner
 
 POLICIES = [
-    Policy("with_tools", tools=[t2f_tool]),
-    Policy("no_tools", tools=[]),
+    Policy("with_tools", tools=[t2f_tool], runner=LOOP),
+    Policy("with_tools_fsm", tools=[t2f_tool], runner=FSM),
 ]
 
 # --- Rollout ---
@@ -416,7 +426,7 @@ def rollout(*, policy: Policy, episode: str) -> tuple[float, int, bool]:
     while not done:
         rr.set_time("env_step", sequence=step)
 
-        answer = loop(agent, obs, memory, tools=policy.tools)
+        answer = policy.runner(agent, obs, memory, tools=policy.tools)()
         obs, reward, done = env.step(answer)
         total += reward
 
@@ -429,7 +439,6 @@ def rollout(*, policy: Policy, episode: str) -> tuple[float, int, bool]:
         step += 1
 
     return total, step, done
-
 
 class Run:
     def __init__(
@@ -520,44 +529,45 @@ class Run:
 # print(response)
 
 
-# with rr.server.Server(port=5555) as server:
-#     client = server.client()
-#     dataset = init_dataset(client, EXPERIMENT)
-#     runs_table = get_or_make_table(client, "runs", EXPERIMENTS_RUN_SCHEMA)
-#     episodes_table = get_or_make_table(client, "episodes", EXPERIMENTS_EPISODES_SCHEMA)
-#     if MODE == "load":
-#         load_run_into_dataset(dataset, run_id=LOAD_RUN_ID, policies=POLICIES)
-#     else:
-#         with Run(experiment_family=EXPERIMENT_FAMILY, version_id=VERSION_ID, recordings_root=RECORDINGS, runs_table=runs_table, episodes_table=episodes_table, policies=POLICIES, num_episodes=10) as run:
-#             for episode_id, policy in run:   # TODO: __iter__ could yield a Task dataclass (episode_id, seed, policy, prompt, ground_truth, etc.) when real benchmark tasks define the shape
-#                 with run.episode(episode_id, layer=policy.name) as episode:
-#                     total_return, steps, done = rollout(policy=policy, episode=episode)
-#                     run.log_metrics(episode_id=episode_id, layer=policy.name, total_return=total_return, steps=steps, done=done)
-#     try:
-#         while True:
-#             time.sleep(1)
-#     except KeyboardInterrupt:
-#         pass
+app = typer.Typer()
 
+@app.command()
+def serve():
+    """Start the rerun server and run experiments."""
+    with rr.server.Server(port=5555) as server:
+        client = server.client()
+        dataset = init_dataset(client, EXPERIMENT)
+        runs_table = get_or_make_table(client, "runs", EXPERIMENTS_RUN_SCHEMA)
+        episodes_table = get_or_make_table(client, "episodes", EXPERIMENTS_EPISODES_SCHEMA)
+        if MODE == "load":
+            load_run_into_dataset(dataset, run_id=LOAD_RUN_ID, policies=POLICIES)
+        else:
+            with Run(experiment_family=EXPERIMENT_FAMILY, version_id=VERSION_ID, recordings_root=RECORDINGS, runs_table=runs_table, episodes_table=episodes_table, policies=POLICIES, num_episodes=10) as run:
+                for episode_id, policy in run:   # TODO: __iter__ could yield a Task dataclass (episode_id, seed, policy, prompt, ground_truth, etc.) when real benchmark tasks define the shape
+                    with run.episode(episode_id, layer=policy.name) as episode:
+                        total_return, steps, done = rollout(policy=policy, episode=episode)
+                        run.log_metrics(episode_id=episode_id, layer=policy.name, total_return=total_return, steps=steps, done=done)
+        try:
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            pass
 
-# # cli stuff
-# app = typer.Typer()
+@app.command()
+def chat():
+    """Interactive chat with the agent."""
+    agent = t2f_agent
+    memory = Memory()
+    while True:
+        try:
+            user_input = input("❯ ").strip()
+            if not user_input:
+                continue
+            if user_input in ("/q", "quit"):
+                break
+            print(LOOP(agent, user_input, memory)())
+        except (KeyboardInterrupt, EOFError):
+            break
 
-# @app.command()
-# def chat():
-#     """Interactive chat with the agent."""
-#     agent = t2f_agent
-#     messages = []
-#     while True:
-#         try:
-#             user_input = input("❯ ").strip()
-#             if not user_input:
-#                 continue
-#             if user_input in ("/q", "quit"):
-#                 break
-#             print(loop(agent, user_input, messages))
-#         except (KeyboardInterrupt, EOFError):
-#             break
-
-# if __name__ == "__main__":
-#     app()
+if __name__ == "__main__":
+    app()

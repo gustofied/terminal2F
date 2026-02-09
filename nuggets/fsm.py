@@ -129,3 +129,59 @@ print(browsing_session)
 #         class Speaking(Enum):
 #             FAST = auto()
 #             SLOW = auto()
+
+
+print("- - - - - - - - - - - - -")
+
+class Examply:
+    def __init__(self, name):
+        self.name = name
+    
+    def __repr__(self):
+        return self.name
+
+Adam = Examply("Adam")
+
+print(Adam)
+
+class Examply(Examply):
+    def __init__(self, name):
+        super().__init__(name)
+        self.namen = self.name + " Sioud"
+
+    def __repr__(self):
+        return self.namen
+
+AdamSioud = Examply("Adam")
+
+print(AdamSioud)
+
+
+print("- - - - - - - - - - - - -")
+
+
+print((lambda x, y:  x + y)(2, 3))
+
+print("- - - - - - - - - - - - -")
+
+
+dispatch = {
+    "add": lambda a,b: a+b,
+    "mul": lambda a,b: a*b,
+}
+
+result = dispatch["mul"](2, 3)  # 6
+print(result)
+
+print("- - - - - - - - - - - - -")
+
+
+
+function_dispatched = {
+    "timer": lambda c,d : c*d,
+    "timy": lambda c,d : c*d,
+}
+
+print(function_dispatched["timer"](1,2))
+
+
