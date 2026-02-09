@@ -1,3 +1,13 @@
+# terminal2f — everything in one file for now
+# envisioned structure:
+#   agent.py        — Agent, LLM wrappers
+#   tools.py        — Tool definitions, registry
+#   automaton.py    — Memory, FSM, PDA, TM, LOOP
+#   envs.py         — QuestionEnv, environments
+#   cli.py          — typer commands (serve, chat)
+#   experiments/    — Run, Policy, rollout, episode management
+#   lean/           — Automata A/B datamodel (formal verification)
+
 from __future__ import annotations
 from enum import StrEnum, auto
 from shutil import register_unpack_format
@@ -480,6 +490,10 @@ def rollout(*, policy: Policy, episode: str) -> tuple[float, int, bool]:
 
     return total, step, done
 
+# Episodic memory lives here — at the Run/episode level, not inside FSM/PDA/TM.
+# Within-episode computation uses Memory (messages, pda_stack, etc).
+# Across-episode learning uses the recordings, tables, and metrics captured here.
+# The episode context manager is the natural boundary for an "episode" in the episodic memory sense.
 class Run:
     def __init__(
         self,
