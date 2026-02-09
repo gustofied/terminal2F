@@ -169,18 +169,19 @@ class Memory:
 
     def __init__(self):
         self.messages: list = []
+        self.interaction_stack: list = []
 
     def push(self, msg) -> None:
         self.messages.append(msg)
 
-    def get_messages(self) -> list:
+    def get_messages(self, bounded_context=False) -> list:
         """Raw message history. State + input, the basic back and forth."""
+        if bounded_context:
+            return list(self.messages[-bounded_context:])
         return list(self.messages)
 
-    def interaction_stack(self):
-        """The stack structure for PDA-level stuff. Lives here, but the PDA
-        class decides how to push/pop/traverse it."""
-        pass
+    # interaction_stack is now a list attribute on __init__
+    # trace log + PDA stack. Runners append to it, PDA will push/pop on it.
 
     def object_store(self):
         """Long-term artifact storage. Think s3, files, whatever persists
@@ -193,7 +194,7 @@ class Memory:
     def tape(self) -> list:
         """Everything. Messages, stack, object store. The full picture.
         Only the TC loop reads all of this."""
-        return [self.messages, self.interaction_stack(), self.object_store()]
+        return [self.messages, self.interaction_stack, self.object_store()]
 
 # agents
 
@@ -229,7 +230,6 @@ t2f_agent = Agent(
     system_message="Hey there, answer in norwegian always. You can use the following tools to help answer the user's questions related to terminal2f and t2f",
     tools=[t2f_tool],
 )
-
 
 # messages are passed in as a bare list for now; when we need a second loop variant (fsm/pda/tc)
 # this becomes a ContextStrategy object that controls memory discipline (see ludic for example)
@@ -269,6 +269,7 @@ class FSM:
         return self.loop()
 
     def transition(self):
+        self.memory.interaction_stack.append(self.current_state)
         match self.current_state:
 
             # User gave input → push it to memory, move to LLM
@@ -279,7 +280,7 @@ class FSM:
                 self.current_state = FSM.State.LLMInteractions.AssistantMessage
 
             case FSM.State.LLMInteractions.AssistantMessage:
-                response = self.agent.act(self.memory.get_messages(), tools=self.tools)
+                response = self.agent.act(self.memory.get_messages(bounded_context=1), tools=self.tools)
                 self.last_message = response.choices[0].message
                 self.memory.push(self.last_message)
 
@@ -406,7 +407,7 @@ class Policy:
 
 POLICIES = [
     Policy("with_tools", tools=[t2f_tool], runner=LOOP),
-    Policy("with_tools_fsm", tools=[t2f_tool], runner=FSM),
+    Policy("no_tools_fsm", tools=[], runner=FSM),
 ]
 
 # --- Rollout ---
