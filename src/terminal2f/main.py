@@ -232,34 +232,79 @@ tools = [t2f_tool]
 tool_registry = {t.name: t.execute for t in tools}
 
 
-# --- MEMOIR ---
+# --- Interaction types ---
+# Typed entries for the interaction stack. Each has a to_message() that returns
+# the API dict (or None if not renderable). The stack is the single source of truth.
 
-# I need a memory object..
-# memory object with view()?
-# should be made so I could easy swap FA / PDA / TC
-# the memory object get's passed into the ..x y
-# some type of episodic memory
+@dataclass
+class UserMessage:
+    content: str
+    def to_message(self) -> dict:
+        return {"role": "user", "content": self.content}
+
+@dataclass
+class AssistantMessage:
+    content: str
+    tool_calls: list | None = None
+    def to_message(self) -> dict:
+        msg: dict = {"role": "assistant", "content": self.content}
+        if self.tool_calls:
+            msg["tool_calls"] = self.tool_calls
+        return msg
+
+@dataclass
+class ToolCall:
+    """Control flow marker — not rendered to API."""
+    name: str
+    args: dict
+    tool_call_id: str
+    def to_message(self) -> dict | None:
+        return None
+
+@dataclass
+class ToolResult:
+    name: str
+    output: str
+    tool_call_id: str
+    def to_message(self) -> dict:
+        return {"role": "tool", "name": self.name, "content": self.output, "tool_call_id": self.tool_call_id}
+
+@dataclass
+class Finished:
+    """Terminal marker — never popped, signals completion."""
+    result: str
+    def to_message(self) -> dict | None:
+        return None
+
+
+def render_context(stack: list, *, k: int | None = None) -> list[dict]:
+    """Build API messages from the interaction stack.
+    k=N for bounded window (FSM), k=None for full history (PDA/LBA/TM)."""
+    entries = stack if k is None else stack[-k:]
+    return [msg for entry in entries if (msg := entry.to_message()) is not None]
+
+
+# --- MEMOIR ---
 
 class Memory:
     """Holds all the data an agent could ever touch.
+    The stack is the single source of truth for interaction history.
     What gets used and how it gets read is up to the automaton (FSM/PDA/Loop),
     not memory itself. Memory is just storage."""
 
     def __init__(self):
-        self.messages: list = []
-        self.stack: list = []              # LIFO computational stack. PDA pushes/pops state symbols here. FSM ignores it.
+        self.messages: list = []           # Raw message dicts. LOOP uses this directly.
+        self.stack: list = []              # Interaction stack — typed entries, append-only.
         self.object_store: list = []       # Long-term artifact storage. TM-level memory.
 
     def push(self, msg) -> None:
         self.messages.append(msg)
 
     def get_messages(self, k: int | None = None) -> list:
-        """Raw message history. State + input, the basic back and forth."""
-        return list(self.messages if k is None else self.messages[-k:]) # can break tooling a bitty yup tools break on 1 so yeh
+        return list(self.messages if k is None else self.messages[-k:])
 
     def tape(self) -> list:
-        """Everything. Messages, stack, object store. The full picture.
-        Only the TC loop reads all of this."""
+        """Everything. Messages, stack, and object store. The full picture."""
         return [self.messages, self.stack, self.object_store]
 
 # agents
@@ -338,21 +383,25 @@ class FSM:
     def transition(self):
         match self.state:
 
-            # User gave input → push it to memory, move to LLM
+            # User gave input → push it to stack, move to LLM
             case FSM.State.LLMInteractions.UserMessage:
-                self.memory.push({"role": "user", "content": self.user_input})
+                self.memory.stack.append(UserMessage(content=self.user_input))
                 rr.log("agent/conversation", rr.TextLog(f"user: {self.user_input}"))
                 rr.log("agent/conversation", rr.TextLog(f"A test logging"))
                 self.state = FSM.State.LLMInteractions.AssistantMessage
 
             case FSM.State.LLMInteractions.AssistantMessage:
-                response = self.agent.act(self.memory.get_messages(k=1), tools=self.tools)
+                response = self.agent.act(render_context(self.memory.stack, k=3), tools=self.tools)
                 self.last_message = response.choices[0].message
-                self.memory.push(self.last_message)
+                self.memory.stack.append(AssistantMessage(
+                    content=self.last_message.content,
+                    tool_calls=self.last_message.tool_calls,
+                ))
 
                 if not self.last_message.tool_calls:
                     rr.log("agent/conversation", rr.TextLog(f"assistant: {self.last_message.content[:200]}"))
                     self.result = self.last_message.content
+                    self.memory.stack.append(Finished(result=self.last_message.content))
                     self.state = FSM.State.FinalStates.Finished
                 else:
                     self.state = FSM.State.ToolInteractions.ToolCall
@@ -363,14 +412,14 @@ class FSM:
                     function_name = tool_call.function.name # The function name to call
                     function_params = json.loads(tool_call.function.arguments) # The function arguments
                     rr.log("agent/tool_calls", rr.TextLog(f"{function_name}({function_params})"))
+                    self.memory.stack.append(ToolCall(name=function_name, args=function_params, tool_call_id=tool_call.id))
                     function_result = self.registry[function_name](**function_params) # The function result
                     rr.log("agent/tool_results", rr.TextLog(f"{function_name} -> {function_result}"))
-                    self.memory.push({
-                        "role": "tool",
-                        "name": function_name,
-                        "content": str(function_result),
-                        "tool_call_id": tool_call.id,
-                    })
+                    self.memory.stack.append(ToolResult(
+                        name=function_name,
+                        output=str(function_result),
+                        tool_call_id=tool_call.id,
+                    ))
                 self.state = FSM.State.ToolInteractions.ToolResult
 
             # Program has results. Decide what to do with them.
@@ -380,7 +429,7 @@ class FSM:
                 self.state = FSM.State.LLMInteractions.AssistantMessage
 
     def loop(self):
-        while self.state != self.State.FinalStates.Finished:
+        while not (self.memory.stack and isinstance(self.memory.stack[-1], Finished)):
             self.transition()
         return self.result
 
@@ -431,50 +480,51 @@ class PDA(FSM):
 
     def __init__(self, agent: Agent, user_input: str, memory: Memory, *, tools: list | None = None, max_turns=10):
         super().__init__(agent, user_input, memory, tools=tools, max_turns=max_turns)
-        self.memory.stack.append(FSM.State.LLMInteractions.UserMessage)  # Z₀ — initial stack symbol
 
     def transition(self):
-        stack_top = self.memory.stack[-1]
-
-        match stack_top:
-            # PDA reads full messages, not bounded k=1 or k=n like FA.
-            # Stack top is what drives transitions, this is the real PDA.
+        match self.state:
+            # PDA reads full history, not bounded k like FSM.
             case FSM.State.LLMInteractions.UserMessage:
-                self.memory.push({"role": "user", "content": self.user_input})
+                self.memory.stack.append(UserMessage(content=self.user_input))
                 rr.log("agent/conversation", rr.TextLog(f"user: {self.user_input}"))
                 rr.log("agent/conversation", rr.TextLog(f"A test logging"))
-                self.memory.stack.append(FSM.State.LLMInteractions.AssistantMessage)
+                self.state = FSM.State.LLMInteractions.AssistantMessage
 
             case FSM.State.LLMInteractions.AssistantMessage:
-                response = self.agent.act(self.memory.get_messages(), tools=self.tools)
+                response = self.agent.act(render_context(self.memory.stack), tools=self.tools)
                 self.last_message = response.choices[0].message
-                self.memory.push(self.last_message)
+                self.memory.stack.append(AssistantMessage(
+                    content=self.last_message.content,
+                    tool_calls=self.last_message.tool_calls,
+                ))
                 if not self.last_message.tool_calls:
                     rr.log("agent/conversation", rr.TextLog(f"assistant: {self.last_message.content[:200]}"))
                     self.result = self.last_message.content
-                    self.memory.stack.pop()  # pop AssistantMessage
-                    self.memory.stack.pop()  # pop UserMessage
+                    self.memory.stack.append(Finished(result=self.last_message.content))
+                    self.state = FSM.State.FinalStates.Finished
                 else:
-                    self.memory.stack.append(FSM.State.ToolInteractions.ToolCall)
+                    self.state = FSM.State.ToolInteractions.ToolCall
 
             case FSM.State.ToolInteractions.ToolCall:
                 for tool_call in self.last_message.tool_calls:  # ty:ignore[possibly-missing-attribute]
                     function_name = tool_call.function.name
                     function_params = json.loads(tool_call.function.arguments)
                     rr.log("agent/tool_calls", rr.TextLog(f"{function_name}({function_params})"))
+                    self.memory.stack.append(ToolCall(name=function_name, args=function_params, tool_call_id=tool_call.id))
                     function_result = self.registry[function_name](**function_params)
                     rr.log("agent/tool_results", rr.TextLog(f"{function_name} -> {function_result}"))
-                    self.memory.push({
-                        "role": "tool",
-                        "name": function_name,
-                        "content": str(function_result),
-                        "tool_call_id": tool_call.id,
-                    })
-                self.memory.stack.pop()  # pop ToolCall
-                # back to AssistantMessage (still on stack)
+                    self.memory.stack.append(ToolResult(
+                        name=function_name,
+                        output=str(function_result),
+                        tool_call_id=tool_call.id,
+                    ))
+                self.state = FSM.State.ToolInteractions.ToolResult
+
+            case FSM.State.ToolInteractions.ToolResult:
+                self.state = FSM.State.LLMInteractions.AssistantMessage
 
     def loop(self):
-        while self.memory.stack:
+        while not (self.memory.stack and isinstance(self.memory.stack[-1], Finished)):
             self.transition()
         return self.result
 
