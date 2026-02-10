@@ -156,6 +156,74 @@ class T2FTool:
             case _:
                 return("codes are eiher any number abouve 50, or exact 10, 20, 30, 40")
 
+# future: back store externally (disk/sqlite/s3), give LLM a manifest + preview, read/write on demand. same tool schema.
+
+@dataclass
+class WriteArtifact:
+    """Write a keyed artifact to the agent's scratchpad."""
+    store: list
+    max_entries: int = 0  # 0 = unbounded
+    name: str = "write_artifact"
+    description: str = "Write a value to the scratchpad under a key. Overwrites if key exists."
+
+    @property
+    def schema(self) -> dict:
+        return {
+            "type": "function",
+            "function": {
+                "name": self.name,
+                "description": self.description,
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "key": {"type": "string", "description": "The key to store under"},
+                        "value": {"type": "string", "description": "The value to store"},
+                    },
+                    "required": ["key", "value"],
+                },
+            },
+        }
+
+    def execute(self, key: str, value: str):
+        if self.max_entries and len(self.store) >= self.max_entries:
+            log.debug(f"object_store full ({self.max_entries})")
+            return "full"
+        self.store.append({"key": key, "value": value})
+        log.debug(f"object_store: {self.store}")
+        return value
+
+@dataclass
+class ReadArtifact:
+    """Read a keyed artifact from the agent's scratchpad."""
+    store: list
+    name: str = "read_artifact"
+    description: str = "Read a value from the scratchpad by key. Returns all keys if no key given."
+
+    @property
+    def schema(self) -> dict:
+        return {
+            "type": "function",
+            "function": {
+                "name": self.name,
+                "description": self.description,
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "key": {"type": "string", "description": "The key to read. Omit to list all keys."},
+                    },
+                    "required": [],
+                },
+            },
+        }
+
+    def execute(self, key: str | None = None):
+        if key is None:
+            return str([e["key"] for e in self.store])
+        for entry in self.store:
+            if entry["key"] == key:
+                return entry["value"]
+        return ""
+
 t2f_tool = T2FTool()
 
 tools = [t2f_tool]
@@ -411,76 +479,6 @@ class PDA(FSM):
         return self.result
 
 
-# --- Scratchpad tools (object_store) ---
-
-@dataclass
-class WriteArtifact:
-    """Write a keyed artifact to the agent's scratchpad."""
-    store: list
-    max_entries: int = 0  # 0 = unbounded
-    name: str = "write_artifact"
-    description: str = "Write a value to the scratchpad under a key. Overwrites if key exists."
-
-    @property
-    def schema(self) -> dict:
-        return {
-            "type": "function",
-            "function": {
-                "name": self.name,
-                "description": self.description,
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "key": {"type": "string", "description": "The key to store under"},
-                        "value": {"type": "string", "description": "The value to store"},
-                    },
-                    "required": ["key", "value"],
-                },
-            },
-        }
-
-    def execute(self, key: str, value: str):
-        for entry in self.store:
-            if entry["key"] == key:
-                entry["value"] = value
-                return f"updated '{key}'"
-        if self.max_entries and len(self.store) >= self.max_entries:
-            return f"scratchpad full ({self.max_entries} entries)"
-        self.store.append({"key": key, "value": value})
-        return f"wrote '{key}'"
-
-@dataclass
-class ReadArtifact:
-    """Read a keyed artifact from the agent's scratchpad."""
-    store: list
-    name: str = "read_artifact"
-    description: str = "Read a value from the scratchpad by key. Returns all keys if no key given."
-
-    @property
-    def schema(self) -> dict:
-        return {
-            "type": "function",
-            "function": {
-                "name": self.name,
-                "description": self.description,
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "key": {"type": "string", "description": "The key to read. Omit to list all keys."},
-                    },
-                    "required": [],
-                },
-            },
-        }
-
-    def execute(self, key: str | None = None):
-        if key is None:
-            return str([e["key"] for e in self.store])
-        for entry in self.store:
-            if entry["key"] == key:
-                return entry["value"]
-        return f"key '{key}' not found"
-
 # LBA — bounded random-access scratchpad on top of PDA
 class LBA(PDA):
     MAX_ENTRIES = 16  # the bound — this is what makes it linear-bounded
@@ -543,8 +541,11 @@ class Policy:
         self.runner = runner
 
 POLICIES = [
-    Policy("with_tools", tools=[t2f_tool], runner=LOOP),
-    Policy("no_tools_fsm", tools=[], runner=FSM),
+    Policy("loop", tools=[t2f_tool], runner=LOOP),
+    Policy("fsm", tools=[t2f_tool], runner=FSM),
+    Policy("pda", tools=[t2f_tool], runner=PDA),
+    Policy("lba", tools=[t2f_tool], runner=LBA),
+    Policy("tm", tools=[t2f_tool], runner=TM),
 ]
 
 # --- Rollout ---
