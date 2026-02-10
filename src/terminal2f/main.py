@@ -453,6 +453,8 @@ class FSM:
             UserInputRequired = auto() # UserInputRequired tells the state machine to wait for a user input
             UserResponse = auto() # UserResponse captures user inputs - either as an initial state or as a response
 
+    context_k: int | None = 3  # bounded window for FSM; PDA overrides to None
+
     def __init__(self, agent: Agent, user_input: str, memory: Memory, *, tools: list | None = None, max_turns=10):
         self.agent = agent
         self.memory = memory
@@ -461,6 +463,7 @@ class FSM:
         self.registry = {t.name: t.execute for t in self.tools}
         self.max_turns = max_turns
         self.last_message = None  # LLM response, needs to survive between states
+        self.pending_agent_call = None  # stashed delegate call for AgentCall state
         self.result = None  # the final answer when we hit Finished
         self.state = FSM.State.LLMInteractions.UserMessage
 
@@ -474,11 +477,10 @@ class FSM:
             case FSM.State.LLMInteractions.UserMessage:
                 self.memory.stack.append(UserMessage(content=self.user_input))
                 rr.log("agent/conversation", rr.TextLog(f"user: {self.user_input}"))
-                rr.log("agent/conversation", rr.TextLog(f"A test logging"))
                 self.state = FSM.State.LLMInteractions.AssistantMessage
 
             case FSM.State.LLMInteractions.AssistantMessage:
-                response = self.agent.act(render_context(self.memory.stack, k=3), tools=self.tools)
+                response = self.agent.act(render_context(self.memory.stack, k=self.context_k), tools=self.tools)
                 self.last_message = response.choices[0].message
                 self.memory.stack.append(AssistantMessage(
                     content=self.last_message.content,
@@ -493,46 +495,49 @@ class FSM:
                 else:
                     self.state = FSM.State.ToolInteractions.ToolCall
 
-            # Execute tools and push results immediately, one by one
+            # Execute tools — delegate calls get stashed and routed to AgentCall
             case FSM.State.ToolInteractions.ToolCall:
-                has_agent_call = False
                 for tool_call in self.last_message.tool_calls:  # ty:ignore[possibly-missing-attribute]
-                    function_name = tool_call.function.name # The function name to call
-                    function_params = json.loads(tool_call.function.arguments) # The function arguments
+                    function_name = tool_call.function.name
+                    function_params = json.loads(tool_call.function.arguments)
                     rr.log("agent/tool_calls", rr.TextLog(f"{function_name}({function_params})"))
 
                     if function_name == "delegate":
-                        # Route through AgentInteractions — push typed entries
-                        instruction = function_params.get("instruction", "")
-                        self.memory.stack.append(AgentCall(agent_name="sub", instruction=instruction))
-                        function_result = self.registry[function_name](**function_params)
-                        rr.log("agent/agent_result", rr.TextLog(f"delegate -> {str(function_result)[:200]}"))
-                        self.memory.stack.append(AgentResult(agent_name="sub", result=str(function_result)))
-                        has_agent_call = True
+                        # Stash and route to AgentCall state
+                        self.pending_agent_call = function_params
+                        self.state = FSM.State.AgentInteractions.AgentCall
                     else:
                         self.memory.stack.append(ToolCall(name=function_name, args=function_params, tool_call_id=tool_call.id))
-                        function_result = self.registry[function_name](**function_params) # The function result
+                        function_result = self.registry[function_name](**function_params)
                         rr.log("agent/tool_results", rr.TextLog(f"{function_name} -> {function_result}"))
                         self.memory.stack.append(ToolResult(
                             name=function_name,
                             output=str(function_result),
                             tool_call_id=tool_call.id,
                         ))
-                if has_agent_call:
-                    self.state = FSM.State.AgentInteractions.AgentResult
-                else:
+                # If no delegate was found, go to ToolResult
+                if self.state == FSM.State.ToolInteractions.ToolCall:
                     self.state = FSM.State.ToolInteractions.ToolResult
 
-            # Program has results. Decide what to do with them.
             case FSM.State.ToolInteractions.ToolResult:
                 self.state = FSM.State.LLMInteractions.AssistantMessage
 
-            # Sub-agent result came back — feed it to LLM
+            # Sub-agent: spawn, run its own FSM, collect result
+            case FSM.State.AgentInteractions.AgentCall:
+                instruction = self.pending_agent_call.get("instruction", "")
+                self.memory.stack.append(AgentCall(agent_name="sub", instruction=instruction))
+                rr.log("agent/agent_call", rr.TextLog(f"delegate({instruction[:200]})"))
+                function_result = self.registry["delegate"](**self.pending_agent_call)
+                rr.log("agent/agent_result", rr.TextLog(f"delegate -> {str(function_result)[:200]}"))
+                self.memory.stack.append(AgentResult(agent_name="sub", result=str(function_result)))
+                self.pending_agent_call = None
+                self.state = FSM.State.AgentInteractions.AgentResult
+
             case FSM.State.AgentInteractions.AgentResult:
                 self.state = FSM.State.LLMInteractions.AssistantMessage
 
     def loop(self):
-        while not (self.memory.stack and isinstance(self.memory.stack[-1], Finished)):
+        while not isinstance(self.memory.stack[-1], Finished):
             self.transition()
         return self.result
 
@@ -580,72 +585,8 @@ class LOOP:
 # Augments FSM finite control with LIFO stack (memory.stack).
 # Push on, pop on completion. Strictly LIFO discipline.
 class PDA(FSM):
-
-    def __init__(self, agent: Agent, user_input: str, memory: Memory, *, tools: list | None = None, max_turns=10):
-        super().__init__(agent, user_input, memory, tools=tools, max_turns=max_turns)
-
-    def transition(self):
-        match self.state:
-            # PDA reads full history, not bounded k like FSM.
-            case FSM.State.LLMInteractions.UserMessage:
-                self.memory.stack.append(UserMessage(content=self.user_input))
-                rr.log("agent/conversation", rr.TextLog(f"user: {self.user_input}"))
-                rr.log("agent/conversation", rr.TextLog(f"A test logging"))
-                self.state = FSM.State.LLMInteractions.AssistantMessage
-
-            case FSM.State.LLMInteractions.AssistantMessage:
-                response = self.agent.act(render_context(self.memory.stack), tools=self.tools)
-                self.last_message = response.choices[0].message
-                self.memory.stack.append(AssistantMessage(
-                    content=self.last_message.content,
-                    tool_calls=self.last_message.tool_calls,
-                ))
-                if not self.last_message.tool_calls:
-                    rr.log("agent/conversation", rr.TextLog(f"assistant: {self.last_message.content[:200]}"))
-                    self.result = self.last_message.content
-                    self.memory.stack.append(Finished(result=self.last_message.content))
-                    self.state = FSM.State.FinalStates.Finished
-                else:
-                    self.state = FSM.State.ToolInteractions.ToolCall
-
-            case FSM.State.ToolInteractions.ToolCall:
-                has_agent_call = False
-                for tool_call in self.last_message.tool_calls:  # ty:ignore[possibly-missing-attribute]
-                    function_name = tool_call.function.name
-                    function_params = json.loads(tool_call.function.arguments)
-                    rr.log("agent/tool_calls", rr.TextLog(f"{function_name}({function_params})"))
-
-                    if function_name == "delegate":
-                        instruction = function_params.get("instruction", "")
-                        self.memory.stack.append(AgentCall(agent_name="sub", instruction=instruction))
-                        function_result = self.registry[function_name](**function_params)
-                        rr.log("agent/agent_result", rr.TextLog(f"delegate -> {str(function_result)[:200]}"))
-                        self.memory.stack.append(AgentResult(agent_name="sub", result=str(function_result)))
-                        has_agent_call = True
-                    else:
-                        self.memory.stack.append(ToolCall(name=function_name, args=function_params, tool_call_id=tool_call.id))
-                        function_result = self.registry[function_name](**function_params)
-                        rr.log("agent/tool_results", rr.TextLog(f"{function_name} -> {function_result}"))
-                        self.memory.stack.append(ToolResult(
-                            name=function_name,
-                            output=str(function_result),
-                            tool_call_id=tool_call.id,
-                        ))
-                if has_agent_call:
-                    self.state = FSM.State.AgentInteractions.AgentResult
-                else:
-                    self.state = FSM.State.ToolInteractions.ToolResult
-
-            case FSM.State.ToolInteractions.ToolResult:
-                self.state = FSM.State.LLMInteractions.AssistantMessage
-
-            case FSM.State.AgentInteractions.AgentResult:
-                self.state = FSM.State.LLMInteractions.AssistantMessage
-
-    def loop(self):
-        while not (self.memory.stack and isinstance(self.memory.stack[-1], Finished)):
-            self.transition()
-        return self.result
+    """Context-Free Agent — full history, no bounded window."""
+    context_k = None  # unbounded — reads entire interaction stack
 
 
 # LBA — bounded random-access scratchpad on top of PDA
