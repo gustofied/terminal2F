@@ -318,6 +318,7 @@ class AgentResult:
     def to_message(self) -> dict:
         return {"role": "user", "content": self.result}  # fed back as user msg to parent
 
+
 @dataclass
 class Finished:
     """Terminal marker — never popped, signals completion."""
@@ -331,6 +332,8 @@ def render_context(stack: list, *, k: int | None = None) -> list[dict]:
     k=N for bounded window (FSM), k=None for full history (PDA/LBA/TM)."""
     entries = stack if k is None else stack[-k:]
     return [msg for entry in entries if (msg := entry.to_message()) is not None]
+
+
 
 
 # --- MEMOIR ---
@@ -524,10 +527,10 @@ class FSM:
 
             # Sub-agent: spawn, run its own FSM, collect result
             case FSM.State.AgentInteractions.AgentCall:
-                instruction = self.pending_agent_call.get("instruction", "")
+                instruction = self.pending_agent_call.get("instruction", "")  # ty:ignore[possibly-missing-attribute]
                 self.memory.stack.append(AgentCall(agent_name="sub", instruction=instruction))
                 rr.log("agent/agent_call", rr.TextLog(f"delegate({instruction[:200]})"))
-                function_result = self.registry["delegate"](**self.pending_agent_call)
+                function_result = self.registry["delegate"](**self.pending_agent_call)  # ty:ignore[invalid-argument-type]
                 rr.log("agent/agent_result", rr.TextLog(f"delegate -> {str(function_result)[:200]}"))
                 self.memory.stack.append(AgentResult(agent_name="sub", result=str(function_result)))
                 self.pending_agent_call = None
@@ -582,11 +585,65 @@ class LOOP:
 
 # Context-Free Agent ≃ Pushdown Automaton
 # δ: S × Σ × Z → S × Z*
-# Augments FSM finite control with LIFO stack (memory.stack).
-# Push on, pop on completion. Strictly LIFO discipline.
+# Stack-top driven transitions. The typed interaction entries ARE the stack alphabet.
+# No self.state — the stack top determines the next transition.
+# Push to advance, Finished on top to stop.
 class PDA(FSM):
-    """Context-Free Agent — full history, no bounded window."""
-    context_k = None  # unbounded — reads entire interaction stack
+    """Context-Free Agent — stack-top driven. Transitions match on isinstance(stack[-1], ...).
+    The interaction stack is the pushdown store. Full history rendered for LLM context."""
+    context_k = None
+
+    def __init__(self, agent: Agent, user_input: str, memory: Memory, *, tools: list | None = None, max_turns=10):
+        super().__init__(agent, user_input, memory, tools=tools, max_turns=max_turns)
+        # Seed the stack — stack-top drives everything from here
+        self.memory.stack.append(UserMessage(content=self.user_input))
+        rr.log("agent/conversation", rr.TextLog(f"user: {self.user_input}"))
+
+    def transition(self):
+        top = self.memory.stack[-1]
+
+        match top:
+            case UserMessage() | ToolResult() | AgentResult():
+                # Any of these on top → call the LLM
+                response = self.agent.act(render_context(self.memory.stack), tools=self.tools)
+                self.last_message = response.choices[0].message
+                self.memory.stack.append(AssistantMessage(
+                    content=self.last_message.content,
+                    tool_calls=self.last_message.tool_calls,
+                ))
+
+            case AssistantMessage() if not top.tool_calls:
+                # Assistant with no tool calls → done
+                rr.log("agent/conversation", rr.TextLog(f"assistant: {top.content[:200]}"))
+                self.result = top.content
+                self.memory.stack.append(Finished(result=top.content))
+
+            case AssistantMessage():
+                # Assistant with tool calls → execute them, push results
+                for tool_call in top.tool_calls:
+                    function_name = tool_call.function.name
+                    function_params = json.loads(tool_call.function.arguments)
+                    rr.log("agent/tool_calls", rr.TextLog(f"{function_name}({function_params})"))
+
+                    if function_name == "delegate":
+                        self.memory.stack.append(AgentCall(agent_name="sub", instruction=function_params.get("instruction", "")))
+                        function_result = self.registry[function_name](**function_params)
+                        rr.log("agent/agent_result", rr.TextLog(f"delegate -> {str(function_result)[:200]}"))
+                        self.memory.stack.append(AgentResult(agent_name="sub", result=str(function_result)))
+                    else:
+                        self.memory.stack.append(ToolCall(name=function_name, args=function_params, tool_call_id=tool_call.id))
+                        function_result = self.registry[function_name](**function_params)
+                        rr.log("agent/tool_results", rr.TextLog(f"{function_name} -> {function_result}"))
+                        self.memory.stack.append(ToolResult(
+                            name=function_name,
+                            output=str(function_result),
+                            tool_call_id=tool_call.id,
+                        ))
+
+    def loop(self):
+        while not isinstance(self.memory.stack[-1], Finished):
+            self.transition()
+        return self.result
 
 
 # LBA — bounded random-access scratchpad on top of PDA
