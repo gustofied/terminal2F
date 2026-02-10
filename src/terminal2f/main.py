@@ -224,6 +224,39 @@ class ReadArtifact:
                 return entry["value"]
         return ""
 
+@dataclass
+class Delegate:
+    """Delegate a task to a sub-agent. Runs it to completion, returns its answer."""
+    session: Session | None = None  # wired after Session is created
+    name: str = "delegate"
+    description: str = "Delegate a task to a sub-agent. Give it a clear instruction and it will work independently and return its result."
+
+    @property
+    def schema(self) -> dict:
+        return {
+            "type": "function",
+            "function": {
+                "name": self.name,
+                "description": self.description,
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "instruction": {"type": "string", "description": "The task to delegate to the sub-agent"},
+                    },
+                    "required": ["instruction"],
+                },
+            },
+        }
+
+    def execute(self, instruction: str):
+        assert self.session is not None, "Delegate tool not wired to a Session"
+        agent_name = f"sub_{len(self.session.agents)}"
+        self.session.spawn(agent_name, instruction)
+        # run only the new sub-agent to completion
+        _, sub_runner = self.session.agents[-1]
+        sub_runner()  # run to Finished
+        return sub_runner.result or ""
+
 t2f_tool = T2FTool()
 
 tools = [t2f_tool]
@@ -270,6 +303,22 @@ class ToolResult:
         return {"role": "tool", "name": self.name, "content": self.output, "tool_call_id": self.tool_call_id}
 
 @dataclass
+class AgentCall:
+    """Parent asked a sub-agent to do work."""
+    agent_name: str
+    instruction: str
+    def to_message(self) -> dict | None:
+        return None  # control flow only
+
+@dataclass
+class AgentResult:
+    """Sub-agent finished, result returned to parent."""
+    agent_name: str
+    result: str
+    def to_message(self) -> dict:
+        return {"role": "user", "content": self.result}  # fed back as user msg to parent
+
+@dataclass
 class Finished:
     """Terminal marker — never popped, signals completion."""
     result: str
@@ -306,6 +355,44 @@ class Memory:
     def tape(self) -> list:
         """Everything. Messages, stack, and object store. The full picture."""
         return [self.messages, self.stack, self.object_store]
+
+# --- SESSION ---
+
+class Session:
+    """Execution environment for N agents on a shared clock.
+    Root agent owns the session. Sub-agents are spawned into it."""
+
+    def __init__(self, root_agent, runner_cls, *, tools: list | None = None):
+        self.object_store: list = []          # shared across all agents
+        self.agents: list = []                # list of (name, runner_instance) tuples
+        self.root_agent = root_agent
+        self.runner_cls = runner_cls
+        self.tools = tools
+
+    def spawn(self, name: str, instruction: str) -> str:
+        """Spawn a sub-agent into the session. Returns the agent name."""
+        memory = Memory()
+        memory.object_store = self.object_store  # shared store
+        runner = self.runner_cls(self.root_agent, instruction, memory, tools=self.tools)
+        self.agents.append((name, runner))
+        return name
+
+    def step(self) -> bool:
+        """Tick once — every non-finished agent steps. Returns True when all done."""
+        all_done = True
+        for name, runner in self.agents:
+            if runner.memory.stack and isinstance(runner.memory.stack[-1], Finished):
+                continue
+            runner.transition()
+            all_done = False
+        return all_done
+
+    def run(self, max_ticks: int = 100):
+        """Run the session until all agents are finished or max_ticks reached."""
+        for _ in range(max_ticks):
+            if self.step():
+                break
+        return {name: runner.result for name, runner in self.agents}
 
 # agents
 
@@ -408,24 +495,40 @@ class FSM:
 
             # Execute tools and push results immediately, one by one
             case FSM.State.ToolInteractions.ToolCall:
+                has_agent_call = False
                 for tool_call in self.last_message.tool_calls:  # ty:ignore[possibly-missing-attribute]
                     function_name = tool_call.function.name # The function name to call
                     function_params = json.loads(tool_call.function.arguments) # The function arguments
                     rr.log("agent/tool_calls", rr.TextLog(f"{function_name}({function_params})"))
-                    self.memory.stack.append(ToolCall(name=function_name, args=function_params, tool_call_id=tool_call.id))
-                    function_result = self.registry[function_name](**function_params) # The function result
-                    rr.log("agent/tool_results", rr.TextLog(f"{function_name} -> {function_result}"))
-                    self.memory.stack.append(ToolResult(
-                        name=function_name,
-                        output=str(function_result),
-                        tool_call_id=tool_call.id,
-                    ))
-                self.state = FSM.State.ToolInteractions.ToolResult
+
+                    if function_name == "delegate":
+                        # Route through AgentInteractions — push typed entries
+                        instruction = function_params.get("instruction", "")
+                        self.memory.stack.append(AgentCall(agent_name="sub", instruction=instruction))
+                        function_result = self.registry[function_name](**function_params)
+                        rr.log("agent/agent_result", rr.TextLog(f"delegate -> {str(function_result)[:200]}"))
+                        self.memory.stack.append(AgentResult(agent_name="sub", result=str(function_result)))
+                        has_agent_call = True
+                    else:
+                        self.memory.stack.append(ToolCall(name=function_name, args=function_params, tool_call_id=tool_call.id))
+                        function_result = self.registry[function_name](**function_params) # The function result
+                        rr.log("agent/tool_results", rr.TextLog(f"{function_name} -> {function_result}"))
+                        self.memory.stack.append(ToolResult(
+                            name=function_name,
+                            output=str(function_result),
+                            tool_call_id=tool_call.id,
+                        ))
+                if has_agent_call:
+                    self.state = FSM.State.AgentInteractions.AgentResult
+                else:
+                    self.state = FSM.State.ToolInteractions.ToolResult
 
             # Program has results. Decide what to do with them.
             case FSM.State.ToolInteractions.ToolResult:
-                # ToolResult is where your code can inspect results and decide what to do. Right now it just
-                # routes to AssistantMessage, but that's the hook for program-level agency later
+                self.state = FSM.State.LLMInteractions.AssistantMessage
+
+            # Sub-agent result came back — feed it to LLM
+            case FSM.State.AgentInteractions.AgentResult:
                 self.state = FSM.State.LLMInteractions.AssistantMessage
 
     def loop(self):
@@ -506,21 +609,37 @@ class PDA(FSM):
                     self.state = FSM.State.ToolInteractions.ToolCall
 
             case FSM.State.ToolInteractions.ToolCall:
+                has_agent_call = False
                 for tool_call in self.last_message.tool_calls:  # ty:ignore[possibly-missing-attribute]
                     function_name = tool_call.function.name
                     function_params = json.loads(tool_call.function.arguments)
                     rr.log("agent/tool_calls", rr.TextLog(f"{function_name}({function_params})"))
-                    self.memory.stack.append(ToolCall(name=function_name, args=function_params, tool_call_id=tool_call.id))
-                    function_result = self.registry[function_name](**function_params)
-                    rr.log("agent/tool_results", rr.TextLog(f"{function_name} -> {function_result}"))
-                    self.memory.stack.append(ToolResult(
-                        name=function_name,
-                        output=str(function_result),
-                        tool_call_id=tool_call.id,
-                    ))
-                self.state = FSM.State.ToolInteractions.ToolResult
+
+                    if function_name == "delegate":
+                        instruction = function_params.get("instruction", "")
+                        self.memory.stack.append(AgentCall(agent_name="sub", instruction=instruction))
+                        function_result = self.registry[function_name](**function_params)
+                        rr.log("agent/agent_result", rr.TextLog(f"delegate -> {str(function_result)[:200]}"))
+                        self.memory.stack.append(AgentResult(agent_name="sub", result=str(function_result)))
+                        has_agent_call = True
+                    else:
+                        self.memory.stack.append(ToolCall(name=function_name, args=function_params, tool_call_id=tool_call.id))
+                        function_result = self.registry[function_name](**function_params)
+                        rr.log("agent/tool_results", rr.TextLog(f"{function_name} -> {function_result}"))
+                        self.memory.stack.append(ToolResult(
+                            name=function_name,
+                            output=str(function_result),
+                            tool_call_id=tool_call.id,
+                        ))
+                if has_agent_call:
+                    self.state = FSM.State.AgentInteractions.AgentResult
+                else:
+                    self.state = FSM.State.ToolInteractions.ToolResult
 
             case FSM.State.ToolInteractions.ToolResult:
+                self.state = FSM.State.LLMInteractions.AssistantMessage
+
+            case FSM.State.AgentInteractions.AgentResult:
                 self.state = FSM.State.LLMInteractions.AssistantMessage
 
     def loop(self):
@@ -750,10 +869,14 @@ RUNNERS = {"loop": LOOP, "fsm": FSM, "pda": PDA, "lba": LBA, "tm": TM}
 
 @app.command()
 def chat(runner: str = "loop"):
-    """Interactive chat with the agent. Runner: loop, fsm, pda."""
+    """Interactive chat with the agent. Runner: loop, fsm, pda, lba, tm."""
     runner_cls = RUNNERS[runner]
     agent = t2f_agent
-    memory = Memory()
+    memory = Memory()  # LOOP's memory (raw messages)
+    delegate_tool = Delegate(session=None)  # placeholder, wired below
+    all_tools = agent.tools + [delegate_tool]
+    session = Session(root_agent=agent, runner_cls=runner_cls, tools=all_tools)
+    delegate_tool.session = session  # wire the circular ref
     while True:
         try:
             user_input = input("❯ ").strip()
@@ -765,11 +888,19 @@ def chat(runner: str = "loop"):
                 name = user_input.split(maxsplit=1)[1]
                 if name in RUNNERS:
                     runner_cls = RUNNERS[name]
+                    session.runner_cls = runner_cls
                     print(f"switched to {name}")
                 else:
                     print(f"unknown runner: {name} (valid: {', '.join(RUNNERS)})")
                 continue
-            print(runner_cls(agent, user_input, memory)())
+            if runner_cls is LOOP:
+                # LOOP has no transition(), use it directly
+                print(LOOP(agent, user_input, memory)())
+            else:
+                session.spawn("root", user_input)
+                results = session.run()
+                print(results["root"])
+                session.agents.clear()  # clear for next turn, keep shared object_store
         except (KeyboardInterrupt, EOFError):
             break
 
