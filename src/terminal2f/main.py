@@ -185,6 +185,12 @@ class WriteArtifact:
         }
 
     def execute(self, key: str, value: str):
+        # Overwrite if key exists
+        for entry in self.store:
+            if entry["key"] == key:
+                entry["value"] = value
+                log.debug(f"object_store overwrite: {key}")
+                return value
         if self.max_entries and len(self.store) >= self.max_entries:
             log.debug(f"object_store full ({self.max_entries})")
             return "full"
@@ -720,7 +726,7 @@ POLICIES = [
 def rollout(*, policy: Policy, episode: str) -> tuple[float, int, bool]:
     env = QuestionEnv(QUESTIONS)
     agent = t2f_agent
-    memory = Memory()
+    object_store: list = []  # shared across steps (episode-level persistence)
     obs = env.reset()
 
     rr.log(f"{episode}/meta/policy", rr.TextLog(policy.name))
@@ -732,6 +738,8 @@ def rollout(*, policy: Policy, episode: str) -> tuple[float, int, bool]:
     while not done:
         rr.set_time("env_step", sequence=step)
 
+        memory = Memory()  # fresh per step — no stale Finished on stack
+        memory.object_store = object_store  # shared store survives across steps
         answer = policy.runner(agent, obs, memory, tools=policy.tools)()
         obs, reward, done = env.step(answer)
         total += reward
