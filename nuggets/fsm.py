@@ -190,3 +190,6 @@ print(function_dispatched["timer"](1,2))
 
 
 # lets also go into PDAs
+
+# https://raganwald.com/2019/02/14/i-love-programming-and-programmers.html
+# https://volomn.com/blog/write-a-simple-json-parser-in-python

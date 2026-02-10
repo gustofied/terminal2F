@@ -25,7 +25,7 @@ dependencies = [
 ]
 
 [project.scripts]
-t2f = "terminal2f.main:main"
+t2f = "terminal2f.main:app"
 
 
 [build-system]

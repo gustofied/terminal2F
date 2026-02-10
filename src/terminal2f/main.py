@@ -179,8 +179,7 @@ class Memory:
 
     def __init__(self):
         self.messages: list = []
-        self.interaction_stack: list = []  # append-only trace of states visited. NOT the PDA stack.
-        self.pda_stack: list = []              # Z — LIFO computational stack. PDA memory.
+        self.stack: list = []              # LIFO computational stack. PDA pushes/pops state symbols here. FSM ignores it.
         self.object_store: list = []       # Long-term artifact storage. TM-level memory.
 
     def push(self, msg) -> None:
@@ -190,15 +189,10 @@ class Memory:
         """Raw message history. State + input, the basic back and forth."""
         return list(self.messages if k is None else self.messages[-k:]) # can break tooling a bitty yup tools break on 1 so yeh
 
-    # interaction_stack: append-only trace of every state visited. Top is always current state.
-    # This is NOT the PDA computational stack. PDA uses memory.pda_stack (LIFO push/pop).
-    # TODO: each interaction_stack entry could bookmark memory lengths (messages_len, pda_stack_depth,
-    # object_store_len) at that tick. Enables rewind to any step by truncating — no copies needed.
-
     def tape(self) -> list:
-        """Everything. Messages, interaction trace, stack, object store. The full picture.
+        """Everything. Messages, stack, object store. The full picture.
         Only the TC loop reads all of this."""
-        return [self.messages, self.interaction_stack, self.pda_stack, self.object_store]
+        return [self.messages, self.stack, self.object_store]
 
 # agents
 
@@ -263,25 +257,25 @@ class FSM:
         self.agent = agent
         self.memory = memory
         self.user_input = user_input
-        self.tools = tools
+        self.tools = tools if tools is not None else agent.tools
+        self.registry = {t.name: t.execute for t in self.tools}
         self.max_turns = max_turns
         self.last_message = None  # LLM response, needs to survive between states
         self.result = None  # the final answer when we hit Finished
-        self.memory.interaction_stack.append(FSM.State.LLMInteractions.UserMessage)
+        self.state = FSM.State.LLMInteractions.UserMessage
 
     def __call__(self):
         return self.loop()
 
     def transition(self):
-        self.current_state = self.memory.interaction_stack[-1]  # peek
-        match self.current_state:
+        match self.state:
 
             # User gave input → push it to memory, move to LLM
             case FSM.State.LLMInteractions.UserMessage:
                 self.memory.push({"role": "user", "content": self.user_input})
                 rr.log("agent/conversation", rr.TextLog(f"user: {self.user_input}"))
                 rr.log("agent/conversation", rr.TextLog(f"A test logging"))
-                self.memory.interaction_stack.append(FSM.State.LLMInteractions.AssistantMessage)
+                self.state = FSM.State.LLMInteractions.AssistantMessage
 
             case FSM.State.LLMInteractions.AssistantMessage:
                 response = self.agent.act(self.memory.get_messages(k=1), tools=self.tools)
@@ -291,9 +285,9 @@ class FSM:
                 if not self.last_message.tool_calls:
                     rr.log("agent/conversation", rr.TextLog(f"assistant: {self.last_message.content[:200]}"))
                     self.result = self.last_message.content
-                    self.memory.interaction_stack.append(FSM.State.FinalStates.Finished)
+                    self.state = FSM.State.FinalStates.Finished
                 else:
-                    self.memory.interaction_stack.append(FSM.State.ToolInteractions.ToolCall)
+                    self.state = FSM.State.ToolInteractions.ToolCall
 
             # Execute tools and push results immediately, one by one
             case FSM.State.ToolInteractions.ToolCall:
@@ -309,18 +303,16 @@ class FSM:
                         "content": str(function_result),
                         "tool_call_id": tool_call.id,
                     })
-                self.memory.interaction_stack.append(FSM.State.ToolInteractions.ToolResult)
+                self.state = FSM.State.ToolInteractions.ToolResult
 
             # Program has results. Decide what to do with them.
             case FSM.State.ToolInteractions.ToolResult:
                 # ToolResult is where your code can inspect results and decide what to do. Right now it just
                 # routes to AssistantMessage, but that's the hook for program-level agency later
-                self.memory.interaction_stack.append(FSM.State.LLMInteractions.AssistantMessage)
+                self.state = FSM.State.LLMInteractions.AssistantMessage
 
     def loop(self):
-        self.tools = self.tools if self.tools is not None else self.agent.tools
-        self.registry = {t.name: t.execute for t in self.tools}
-        while self.memory.interaction_stack[-1] != self.State.FinalStates.Finished:
+        while self.state != self.State.FinalStates.Finished:
             self.transition()
         return self.result
 
@@ -365,21 +357,26 @@ class LOOP:
 
 # Context-Free Agent ≃ Pushdown Automaton
 # δ: S × Σ × Z → S × Z*
-# Augments FSM finite control with LIFO stack (memory.pda_stack).
-# Push on subgoal entry, pop on completion. Strictly LIFO discipline.
+# Augments FSM finite control with LIFO stack (memory.stack).
+# Push on, pop on completion. Strictly LIFO discipline.
 class PDA(FSM):
 
     def __init__(self, agent: Agent, user_input: str, memory: Memory, *, tools: list | None = None, max_turns=10):
         super().__init__(agent, user_input, memory, tools=tools, max_turns=max_turns)
-        self.memory.pda_stack.append(user_input)  # Z₀ — initial goal symbol
+        self.memory.stack.append(FSM.State.LLMInteractions.UserMessage)  # Z₀ — initial stack symbol
 
     def transition(self):
-        current_state = self.memory.interaction_stack[-1]
-        stack_top = self.memory.pda_stack[-1] if self.memory.pda_stack else None
+        stack_top = self.memory.stack[-1]
 
-        match current_state:
-            # PDA reads full messages, not bounded k=1 like FA.
-            # Stack top (current goal) is what gives it structured memory.
+        match stack_top:
+            # PDA reads full messages, not bounded k=1 or k=n like FA.
+            # Stack top is what drives transitions, this is the real PDA.
+            case FSM.State.LLMInteractions.UserMessage:
+                self.memory.push({"role": "user", "content": self.user_input})
+                rr.log("agent/conversation", rr.TextLog(f"user: {self.user_input}"))
+                rr.log("agent/conversation", rr.TextLog(f"A test logging"))
+                self.memory.stack.append(FSM.State.LLMInteractions.AssistantMessage)
+
             case FSM.State.LLMInteractions.AssistantMessage:
                 response = self.agent.act(self.memory.get_messages(), tools=self.tools)
                 self.last_message = response.choices[0].message
@@ -387,34 +384,125 @@ class PDA(FSM):
                 if not self.last_message.tool_calls:
                     rr.log("agent/conversation", rr.TextLog(f"assistant: {self.last_message.content[:200]}"))
                     self.result = self.last_message.content
-                    self.memory.interaction_stack.append(FSM.State.FinalStates.Finished)
+                    self.memory.stack.pop()  # pop AssistantMessage
+                    self.memory.stack.pop()  # pop UserMessage
                 else:
-                    self.memory.interaction_stack.append(FSM.State.ToolInteractions.ToolCall)
+                    self.memory.stack.append(FSM.State.ToolInteractions.ToolCall)
 
-            # Finished: pop completed goal. Continue if stack has more.
-            case FSM.State.FinalStates.Finished:
-                self.memory.pda_stack.pop()
-                if self.memory.pda_stack:
-                    self.user_input = self.memory.pda_stack[-1]
-                    self.memory.interaction_stack.append(FSM.State.LLMInteractions.UserMessage)
-
-            case _:
-                super().transition()
+            case FSM.State.ToolInteractions.ToolCall:
+                for tool_call in self.last_message.tool_calls:  # ty:ignore[possibly-missing-attribute]
+                    function_name = tool_call.function.name
+                    function_params = json.loads(tool_call.function.arguments)
+                    rr.log("agent/tool_calls", rr.TextLog(f"{function_name}({function_params})"))
+                    function_result = self.registry[function_name](**function_params)
+                    rr.log("agent/tool_results", rr.TextLog(f"{function_name} -> {function_result}"))
+                    self.memory.push({
+                        "role": "tool",
+                        "name": function_name,
+                        "content": str(function_result),
+                        "tool_call_id": tool_call.id,
+                    })
+                self.memory.stack.pop()  # pop ToolCall
+                # back to AssistantMessage (still on stack)
 
     def loop(self):
-        self.tools = self.tools if self.tools is not None else self.agent.tools
-        self.registry = {t.name: t.execute for t in self.tools}
-        while self.memory.pda_stack:
+        while self.memory.stack:
             self.transition()
         return self.result
 
 
-class LBA:
-    pass
+# --- Scratchpad tools (object_store) ---
 
-# TC Agent (TM) — unbounded read/write memory, current implementation
-class TM(LOOP):
-    pass
+@dataclass
+class WriteArtifact:
+    """Write a keyed artifact to the agent's scratchpad."""
+    store: list
+    max_entries: int = 0  # 0 = unbounded
+    name: str = "write_artifact"
+    description: str = "Write a value to the scratchpad under a key. Overwrites if key exists."
+
+    @property
+    def schema(self) -> dict:
+        return {
+            "type": "function",
+            "function": {
+                "name": self.name,
+                "description": self.description,
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "key": {"type": "string", "description": "The key to store under"},
+                        "value": {"type": "string", "description": "The value to store"},
+                    },
+                    "required": ["key", "value"],
+                },
+            },
+        }
+
+    def execute(self, key: str, value: str):
+        for entry in self.store:
+            if entry["key"] == key:
+                entry["value"] = value
+                return f"updated '{key}'"
+        if self.max_entries and len(self.store) >= self.max_entries:
+            return f"scratchpad full ({self.max_entries} entries)"
+        self.store.append({"key": key, "value": value})
+        return f"wrote '{key}'"
+
+@dataclass
+class ReadArtifact:
+    """Read a keyed artifact from the agent's scratchpad."""
+    store: list
+    name: str = "read_artifact"
+    description: str = "Read a value from the scratchpad by key. Returns all keys if no key given."
+
+    @property
+    def schema(self) -> dict:
+        return {
+            "type": "function",
+            "function": {
+                "name": self.name,
+                "description": self.description,
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "key": {"type": "string", "description": "The key to read. Omit to list all keys."},
+                    },
+                    "required": [],
+                },
+            },
+        }
+
+    def execute(self, key: str | None = None):
+        if key is None:
+            return str([e["key"] for e in self.store])
+        for entry in self.store:
+            if entry["key"] == key:
+                return entry["value"]
+        return f"key '{key}' not found"
+
+# LBA — bounded random-access scratchpad on top of PDA
+class LBA(PDA):
+    MAX_ENTRIES = 16  # the bound — this is what makes it linear-bounded
+
+    def __init__(self, agent: Agent, user_input: str, memory: Memory, *, tools: list | None = None, max_turns=10):
+        scratchpad_tools = [
+            WriteArtifact(store=memory.object_store, max_entries=self.MAX_ENTRIES),
+            ReadArtifact(store=memory.object_store),
+        ]
+        all_tools = (tools if tools is not None else agent.tools) + scratchpad_tools
+        super().__init__(agent, user_input, memory, tools=all_tools, max_turns=max_turns)
+
+# TM — unbounded read/write, no cap on object_store
+class TM(PDA):
+
+    def __init__(self, agent: Agent, user_input: str, memory: Memory, *, tools: list | None = None, max_turns=10):
+        scratchpad_tools = [
+            WriteArtifact(store=memory.object_store),
+            ReadArtifact(store=memory.object_store),
+        ]
+        all_tools = (tools if tools is not None else agent.tools) + scratchpad_tools
+        super().__init__(agent, user_input, memory, tools=all_tools, max_turns=max_turns)
 
 # --- Environment ---
 
@@ -491,7 +579,7 @@ def rollout(*, policy: Policy, episode: str) -> tuple[float, int, bool]:
     return total, step, done
 
 # Episodic memory lives here — at the Run/episode level, not inside FSM/PDA/TM.
-# Within-episode computation uses Memory (messages, pda_stack, etc).
+# Within-episode computation uses Memory (messages, stack, etc).
 # Across-episode learning uses the recordings, tables, and metrics captured here.
 # The episode context manager is the natural boundary for an "episode" in the episodic memory sense.
 class Run:
@@ -607,9 +695,12 @@ def serve():
         except KeyboardInterrupt:
             pass
 
+RUNNERS = {"loop": LOOP, "fsm": FSM, "pda": PDA, "lba": LBA, "tm": TM}
+
 @app.command()
-def chat():
-    """Interactive chat with the agent."""
+def chat(runner: str = "loop"):
+    """Interactive chat with the agent. Runner: loop, fsm, pda."""
+    runner_cls = RUNNERS[runner]
     agent = t2f_agent
     memory = Memory()
     while True:
@@ -619,7 +710,15 @@ def chat():
                 continue
             if user_input in ("/q", "quit"):
                 break
-            print(LOOP(agent, user_input, memory)())
+            if user_input.startswith("/runner "):
+                name = user_input.split(maxsplit=1)[1]
+                if name in RUNNERS:
+                    runner_cls = RUNNERS[name]
+                    print(f"switched to {name}")
+                else:
+                    print(f"unknown runner: {name} (valid: {', '.join(RUNNERS)})")
+                continue
+            print(runner_cls(agent, user_input, memory)())
         except (KeyboardInterrupt, EOFError):
             break
 
