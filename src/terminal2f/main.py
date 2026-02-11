@@ -11,14 +11,13 @@
 
 from __future__ import annotations
 from enum import StrEnum, auto
-from terminal2f.mylogger import setup_logging
+from terminal2f.logging.mylogger import setup_logging
 import pyarrow as pa
 import ulid
 import rerun as rr
 import rerun.catalog as catalog
 import datetime
 import time
-from dataclasses import dataclass
 from pathlib import Path
 from contextlib import contextmanager
 from mistralai import Mistral
@@ -27,10 +26,17 @@ from dotenv import load_dotenv
 import json
 import logging
 import typer
+from terminal2f.agent import Agent
 from terminal2f.tools import t2f_tool, WriteArtifact, ReadArtifact, Delegate
+from terminal2f.states import (
+    UserMessage, AssistantMessage, ToolCall, ToolResult,
+    AgentCall, AgentResult, Finished, render_context,
+)
+from terminal2f.memory import Memory
+from terminal2f.envs import Session, QuestionEnv, QUESTIONS
  
 
-setup_logging(str(Path(__file__).parent / "config.json"))
+setup_logging(str(Path(__file__).parent / "logging" / "config.json"))
 log = logging.getLogger(__name__)
 
 # config this
@@ -101,175 +107,10 @@ def load_run_into_dataset(dataset, *, run_id: str, policies: list[Policy]):
         dataset.register_prefix(prefix, layer_name=policy.name).wait()
 
 
-
-# my agent stuff
-
 load_dotenv()
 api_key = os.environ["MISTRAL_API_KEY"]
 client = Mistral(api_key=api_key)
 
-
-
-
-# --- Interaction types ---
-# Typed entries for the interaction stack. Each has a to_message() that returns
-# the API dict (or None if not renderable). The stack is the single source of truth.
-
-@dataclass
-class UserMessage:
-    content: str
-    def to_message(self) -> dict:
-        return {"role": "user", "content": self.content}
-
-@dataclass
-class AssistantMessage:
-    content: str
-    tool_calls: list | None = None
-    def to_message(self) -> dict:
-        msg: dict = {"role": "assistant", "content": self.content}
-        if self.tool_calls:
-            msg["tool_calls"] = self.tool_calls
-        return msg
-
-@dataclass
-class ToolCall:
-    """Control flow marker — not rendered to API."""
-    name: str
-    args: dict
-    tool_call_id: str
-    def to_message(self) -> dict | None:
-        return None
-
-@dataclass
-class ToolResult:
-    name: str
-    output: str
-    tool_call_id: str
-    def to_message(self) -> dict:
-        return {"role": "tool", "name": self.name, "content": self.output, "tool_call_id": self.tool_call_id}
-
-@dataclass
-class AgentCall:
-    """Parent asked a sub-agent to do work."""
-    agent_name: str
-    instruction: str
-    def to_message(self) -> dict | None:
-        return None  # control flow only
-
-@dataclass
-class AgentResult:
-    """Sub-agent finished, result returned to parent."""
-    agent_name: str
-    result: str
-    def to_message(self) -> dict:
-        return {"role": "user", "content": self.result}  # fed back as user msg to parent
-
-
-@dataclass
-class Finished:
-    """Terminal marker — never popped, signals completion."""
-    result: str
-    def to_message(self) -> dict | None:
-        return None
-
-
-def render_context(stack: list, *, k: int | None = None) -> list[dict]:
-    """Build API messages from the interaction stack.
-    k=N for bounded window (FSM), k=None for full history (PDA/LBA/TM)."""
-    entries = stack if k is None else stack[-k:]
-    return [msg for entry in entries if (msg := entry.to_message()) is not None]
-
-
-
-
-# --- MEMOIR ---
-
-class Memory:
-    """Holds all the data an agent could ever touch.
-    The stack is the single source of truth for interaction history.
-    What gets used and how it gets read is up to the automaton (FSM/PDA/Loop),
-    not memory itself. Memory is just storage."""
-
-    def __init__(self):
-        self.messages: list = []           # Raw message dicts. LOOP uses this directly.
-        self.stack: list = []              # Interaction stack — typed entries, append-only.
-        self.object_store: list = []       # Long-term artifact storage. TM-level memory.
-
-    def push(self, msg) -> None:
-        self.messages.append(msg)
-
-    def get_messages(self, k: int | None = None) -> list:
-        return list(self.messages if k is None else self.messages[-k:])
-
-    def tape(self) -> list:
-        """Everything. Messages, stack, and object store. The full picture."""
-        return [self.messages, self.stack, self.object_store]
-
-# --- SESSION ---
-
-class Session:
-    """Execution environment for N agents on a shared clock.
-    Root agent owns the session. Sub-agents are spawned into it."""
-
-    def __init__(self, root_agent, runner_cls, *, tools: list | None = None):
-        self.object_store: list = []          # shared across all agents
-        self.agents: list = []                # list of (name, runner_instance) tuples
-        self.root_agent = root_agent
-        self.runner_cls = runner_cls
-        self.tools = tools
-
-    def spawn(self, name: str, instruction: str) -> str:
-        """Spawn a sub-agent into the session. Returns the agent name."""
-        memory = Memory()
-        memory.object_store = self.object_store  # shared store
-        runner = self.runner_cls(self.root_agent, instruction, memory, tools=self.tools)
-        self.agents.append((name, runner))
-        return name
-
-    def step(self) -> bool:
-        """Tick once — every non-finished agent steps. Returns True when all done."""
-        all_done = True
-        for name, runner in self.agents:
-            if runner.memory.stack and isinstance(runner.memory.stack[-1], Finished):
-                continue
-            runner.transition()
-            all_done = False
-        return all_done
-
-    def run(self, max_ticks: int = 100):
-        """Run the session until all agents are finished or max_ticks reached."""
-        for _ in range(max_ticks):
-            if self.step():
-                break
-        return {name: runner.result for name, runner in self.agents}
-
-# agents
-
-@dataclass
-class Agent:
-    """A simple AI agent"""
-    client: Mistral
-    model: str
-    system_message: str
-    tools: list
-    max_tokens: int = 1024
-    temperature: float = 0.7
-    tool_choice: str = "auto"
-
-    def act(self, messages: list, *, tools: list | None = None):
-        """Call the model with given messages, return response"""
-        tools = tools if tools is not None else self.tools
-        return self.client.chat.complete(
-            model=self.model,
-            max_tokens=self.max_tokens,
-            temperature=self.temperature,
-            tools=[t.schema for t in tools],
-            tool_choice=self.tool_choice,  # type: ignore[arg-type]
-            messages=[
-                {"role": "system", "content": self.system_message},
-                *messages,
-            ]  # type: ignore[arg-type]
-        )
 
 t2f_agent = Agent(
     client=client,
@@ -277,9 +118,6 @@ t2f_agent = Agent(
     system_message="Hey there, answer in norwegian always. You can use the following tools to help answer the user's questions related to terminal2f and t2f",
     tools=[t2f_tool],
 )
-
-# messages are passed in as a bare list for now; when we need a second loop variant (fsm/pda/tc)
-# this becomes a ContextStrategy object that controls memory discipline (see ludic for example)
 
 # Regular Agent (FA) — no memory across steps, each step is independent
 
@@ -515,34 +353,6 @@ class TM(PDA):
         all_tools = (tools if tools is not None else agent.tools) + scratchpad_tools
         super().__init__(agent, user_input, memory, tools=all_tools, max_turns=max_turns)
 
-# --- Environment ---
-
-# (question, expected_keyword)
-QUESTIONS = [
-    ("What is terminal2f? use code 10", "coding"),
-    ("What kind of project is terminal2f? use code 20", "observablity"),
-    ("What tech stack does terminal2f use? use code 40", "python"),
-]
-
-class QuestionEnv:
-    """Env that gives questions as observations and scores answers by keyword match."""
-    def __init__(self, questions: list[tuple[str, str]]):
-        self.questions = questions
-        self._step = 0
-
-    def reset(self) -> str:
-        """Return the first question."""
-        self._step = 0
-        return self.questions[0][0]
-
-    def step(self, answer: str) -> tuple[str, float, bool]:
-        """Score the answer, advance, return (next_obs, reward, done)."""
-        keyword = self.questions[self._step][1]
-        reward = 1.0 if keyword in (answer or "").lower() else 0.0
-        self._step += 1
-        done = self._step >= len(self.questions)
-        obs = self.questions[self._step][0] if not done else ""
-        return obs, reward, done
 
 
 # --- Policies ---
