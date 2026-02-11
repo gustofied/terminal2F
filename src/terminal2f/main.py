@@ -874,6 +874,8 @@ def serve():
 
 RUNNERS = {"loop": LOOP, "fsm": FSM, "pda": PDA, "lba": LBA, "tm": TM}
 
+
+
 @app.command()
 def chat(runner: str = "loop"):
     """Interactive chat with the agent. Runner: loop, fsm, pda, lba, tm."""
@@ -902,7 +904,8 @@ def chat(runner: str = "loop"):
                 continue
             if runner_cls is LOOP:
                 # LOOP has no transition(), use it directly
-                print(LOOP(agent, user_input, memory)())
+                typer.secho(LOOP(agent, user_input, memory)(), fg=typer.colors.GREEN, bold=True)
+
             else:
                 session.spawn("root", user_input)
                 results = session.run()
