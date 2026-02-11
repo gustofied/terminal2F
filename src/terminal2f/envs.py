@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import rerun as rr
+
 from terminal2f.memory import Memory
 from terminal2f.states import Finished
 
@@ -71,3 +73,36 @@ class QuestionEnv:
         done = self._step >= len(self.questions)
         obs = self.questions[self._step][0] if not done else ""
         return obs, reward, done
+
+
+# --- Rollout ---
+
+def rollout(*, env, policy, episode: str) -> tuple[float, int, bool]:
+    """Run the agent-env interaction loop. The core execution protocol."""
+    object_store: list = []  # shared across steps (episode-level persistence)
+    obs = env.reset()
+
+    rr.log(f"{episode}/meta/policy", rr.TextLog(policy.name))
+
+    total = 0.0
+    step = 0
+    done = False
+
+    while not done:
+        rr.set_time("env_step", sequence=step)
+
+        memory = Memory()  # fresh per step — no stale Finished on stack
+        memory.object_store = object_store  # shared store survives across steps
+        answer = policy.automaton(policy.agent, obs, memory, tools=policy.tools)()
+        obs, reward, done = env.step(answer)
+        total += reward
+
+        rr.log(f"{episode}/obs", rr.TextLog(obs))
+        rr.log(f"{episode}/answer", rr.TextLog(answer[:200]))
+        rr.log(f"{episode}/reward", rr.Scalars(float(reward)))
+        rr.log(f"{episode}/return", rr.Scalars(float(total)))
+        rr.log(f"{episode}/done", rr.TextLog(str(done)))
+
+        step += 1
+
+    return total, step, done

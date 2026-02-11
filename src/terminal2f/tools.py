@@ -167,9 +167,8 @@ class Delegate:
 
 t2f_tool = T2FTool()
 
+# TODO: remove — module-level tools/tool_registry are dead code (registry is built per-runner in FSM.__init__ and LOOP.__call__)
 tools = [t2f_tool]
-# tool_registry is built per-loop call from the tools passed in (policy can override) # meh idea
-# kept here as reference for the module-level mapping: name -> execute
 tool_registry = {t.name: t.execute for t in tools}
 
 
