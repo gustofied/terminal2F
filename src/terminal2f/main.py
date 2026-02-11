@@ -6,7 +6,8 @@
 #   envs.py         — QuestionEnv, environments
 #   cli.py          — typer commands (serve, chat)
 #   experiments/    — Run, Policy, rollout, episode management
-#   lean/           — Automata A/B datamodel (formal verification)
+    #   automata
+    #   lean           — Automata A/B datamodel (formal verification)
 
 from __future__ import annotations
 from enum import StrEnum, auto
