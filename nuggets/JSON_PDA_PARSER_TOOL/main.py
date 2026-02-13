@@ -48,9 +48,6 @@ response = client.chat.complete(
     tools = [schemaen], # The tools specifications
     tool_choice = "any",
     parallel_tool_calls = False,
-    response_format = {
-          "type": "json_object",
-      }
 )
 
 print(response)
