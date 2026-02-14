@@ -1,4 +1,5 @@
 from enum import Enum
+from functools import partial
 
 # FSM using Enum and Match
 # Enums for fixed states/actions, match for transitions, function returns the next state
@@ -185,11 +186,124 @@ function_dispatched = {
 print(function_dispatched["timer"](1,2))
 
 
-# let's get a meealy and moore machine
-# https://cs.lmu.edu/~ray/notes/cstheories/
+print("- - - - - - - - - - - - -")
+
+# Balanced https://raganwald.com/2018/10/17/recursive-pattern-matching.html
+# Pattern Matching and Recurssion
 
 
-# lets also go into PDAs
+def balanced(input: str):
+    openParenthesesCount: int = 0
+    closeParenthesesCount: int = 0
+
+    for x in range(0, len(input)):
+        c = input[x]
+
+        if c == '(':
+            openParenthesesCount += 1
+        
+        elif c == ')':
+            closeParenthesesCount += 1
+
+        if closeParenthesesCount > openParenthesesCount:
+            return False
+
+    return closeParenthesesCount == openParenthesesCount
+
+
+def just(target, text):
+    return target if text.startswith(target) else False
+
+caseA = partial(just, target="()")
+a = caseA(text="s())")
+print(a)
+
+print("- - - - ")
+
+def follows(*patterns):
+    def combined(text):
+        remaining = text
+        matched_parts = []
+
+        for pattern in patterns:
+            matched = pattern(remaining)
+            if matched is False:
+                return False
+
+            matched_parts.append(matched)
+            remaining = remaining[len(matched):]
+
+        return "".join(matched_parts)
+    return combined
+
+
+p = follows(partial(just, "fu"), partial(just, "bar"), partial(just, "fu"))
+print(p("foobar"))   
+print(p("fubar'd"))   
+print(p("fubarfu'd"))  
+
+def cases(*patterns):
+    def combined(text):
+        successful_matches = []
+
+        # Try every pattern on the same input text
+        for pattern in patterns:
+            matched = pattern(text)
+
+            # Our convention: False means "no match"
+            if matched is not False:
+                successful_matches.append(matched)
+
+        # If nothing matched, the whole cases() fails
+        if len(successful_matches) == 0:
+            return False
+
+        # Choose the longest match (by number of characters)
+        longest_match = successful_matches[0]
+        for matched in successful_matches[1:]:
+            if len(matched) > len(longest_match):
+                longest_match = matched
+
+        return longest_match
+
+    return combined
+
+
+print("- - -")
+
+badNews = cases(
+    partial(just, "fubar"),
+    partial(just, "snafu")
+)
+
+print(badNews("snafu'd"))  
+print(badNews("fubar'd"))   
+print(badNews("hello"))  
+
+
+
+
+def balanced(text):
+    return cases(
+        partial(just, "()"),                      
+        follows(partial(just, "()"), balanced),       
+        follows(partial(just, "("), balanced, partial(just, ")")),                
+        follows(partial(just, "("), balanced, partial(just, ")"), balanced),    
+    )(text)
+
+print("- - - ")
+
+print(balanced("(())("))     
+print(balanced("(()())()"))  
+print(balanced("())"))         
+print(balanced("xyz"))      
+
+print("- - - ")
 
 # https://raganwald.com/2019/02/14/i-love-programming-and-programmers.html
-# https://volomn.com/blog/write-a-simple-json-parser-in-python
+
+
+
+
+
+
