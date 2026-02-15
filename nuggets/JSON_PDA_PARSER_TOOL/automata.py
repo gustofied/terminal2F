@@ -317,12 +317,176 @@ class DeterministicFiniteAutomaton:
         self.recognized = True
         return self
     
-    
+    def halt(self):
+        self.halted = True
+        return self
+
+    def consume(self, token):         
+        return getattr(self, self.internal)(token)
+
+
+    @classmethod
+    def evaluate(cls, input_string):
+        current = cls()
+        for char in input_string:
+            current = current.consume(char)
+
+            if current is None or current.halted:
+                return False
+
+            if current.recognized:
+                return True
+
+        current = current.consume(DFAStates.END)
+        return current is not None and current.recognized
+
+
+# Recognizer
+
+class Raginald(DeterministicFiniteAutomaton):
+    def start(self, token):
+        if token == 'R':
+            return self.transitionTo('R')
+
+    def R(self, token):
+        if token == 'e':
+            return self.transitionTo('Re')
+
+    def Re(self, token):
+        if token == 'g':
+            return self.transitionTo('Reg')
+
+    def Reg(self, token):
+        if token == 'g':
+            return self.transitionTo('Regg')
+        if token == DFAStates.END:
+            return self.recognize()
+
+    def Regg(self, token):
+        if token == 'i':
+            return self.transitionTo('Reggi')
+
+    def Reggi(self, token):
+        if token == 'e':
+            return self.transitionTo('Reggie')
+
+    def Reggie(self, token):
+        if token == DFAStates.END:
+            return self.recognize()
+
+
+def test(recognizer, examples):
+    for example in examples:
+        print(f"'{example}' => {recognizer.evaluate(example)}")
+
+print("-- -- ")
+test(Raginald, ["Reg", "Reggie", "Re", "Hello"])
+
+class Binary(DeterministicFiniteAutomaton):
+    def start(self, token):
+        if token == '0':
+            return self.transitionTo('zero')
+        elif token == '1':
+            return self.transitionTo('oneOrMore')
+
+    def zero(self, token):
+        if token == DFAStates.END:
+            return self.recognize()
+
+    def oneOrMore(self, token):
+        if token == '0':
+            return self.transitionTo('oneOrMore')
+        elif token == '1':
+            return self.transitionTo('oneOrMore')
+        elif token == DFAStates.END:
+            return self.recognize()
+
+
+print("-- -- ")
+test(Binary, [
+    '', '0', '1', '00', '01', '10', '11',
+    '000', '001', '010', '011', '100',
+    '101', '110', '111',
+    '10100011011000001010011100101110111'
+])
+
+
+# Deterministic Pushdown Automaton
+
+class DeterministicPushdownAutomaton:
+    def __init__(self, internal='start', external=None):
+        self.internal = internal
+        self.external = external if external is not None else []
+        self.halted = False
+        self.recognized = False
+
+    def push(self, token):
+        self.external.append(token)
+        return self
+
+    def pop(self):
+        self.external.pop()
+        return self
+
+    def replace(self, token):
+        self.external[-1] = token
+        return self
+
+    def top(self):
+        return self.external[-1] if self.external else None
+
+    def hasEmptyStack(self):
+        return len(self.external) == 0
+
+    def transitionTo(self, internal):
+        self.internal = internal
+        return self
+
+    def recognize(self):
+        self.recognized = True
+        return self
+
     def halt(self):
         self.halted = True
         return self
 
     def consume(self, token):
-        return self.internal
-    
+        return getattr(self, self.internal)(token)
 
+    @classmethod
+    def evaluate(cls, input_string):
+        current = cls()
+        for char in input_string:
+            current = current.consume(char)
+            if current is None or current.halted:
+                return False
+            if current.recognized:
+                return True
+        current = current.consume(DFAStates.END)
+        return current is not None and current.recognized
+
+
+class BalancedParentheses(DeterministicPushdownAutomaton):
+    def start(self, token):
+        if token == '(':
+            return self.push(token)
+        elif token == '[':
+            return self.push(token)
+        elif token == '{':
+            return self.push(token)
+        elif token == ')' and self.top() == '(':
+            return self.pop()
+        elif token == ']' and self.top() == '[':
+            return self.pop()
+        elif token == '}' and self.top() == '{':
+            return self.pop()
+        elif token == DFAStates.END and self.hasEmptyStack():
+            return self.recognize()
+
+
+print("-- -- ")
+test(BalancedParentheses, [
+    '', '(', '()', '()()', '{()}',
+    '([()()]())', '([()())())',
+    '())()', '((())(())'
+])
