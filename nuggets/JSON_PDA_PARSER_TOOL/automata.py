@@ -1,4 +1,4 @@
-from enum import Enum
+from enum import Enum, StrEnum, auto
 from functools import partial
 
 # FSM using Enum and Match
@@ -188,122 +188,141 @@ print(function_dispatched["timer"](1,2))
 
 print("- - - - - - - - - - - - -")
 
-# Balanced https://raganwald.com/2018/10/17/recursive-pattern-matching.html
-# Pattern Matching and Recurssion
+# Pattern Matching and Recursion
+# https://raganwald.com/2018/10/17/recursive-pattern-matching.html
 
+# -- Counter-based balance check --
 
-def balanced(input: str):
-    openParenthesesCount: int = 0
-    closeParenthesesCount: int = 0
-
-    for x in range(0, len(input)):
-        c = input[x]
-
-        if c == '(':
-            openParenthesesCount += 1
-        
-        elif c == ')':
-            closeParenthesesCount += 1
-
-        if closeParenthesesCount > openParenthesesCount:
+def is_balanced(text: str) -> bool:
+    """Check if parentheses are balanced using a simple counter."""
+    depth = 0
+    for char in text:
+        if char == '(':
+            depth += 1
+        elif char == ')':
+            depth -= 1
+        if depth < 0:
             return False
+    return depth == 0
 
-    return closeParenthesesCount == openParenthesesCount
 
+# -- Matchers --
+# A matcher takes text and returns the matched portion, or False if no match.
+# This is the building block for parser combinators.
 
-def just(target, text):
+def literal(target: str, text: str) -> str | bool:
+    """Match an exact string at the start of text."""
     return target if text.startswith(target) else False
 
-caseA = partial(just, target="()")
-a = caseA(text="s())")
-print(a)
 
-print("- - - - ")
+# -- Combinators --
+# Combinators compose matchers into larger matchers.
 
-def follows(*patterns):
-    def combined(text):
+def sequence(*matchers):
+    """Match matchers one after another. All must succeed in order."""
+    def match(text: str):
         remaining = text
         matched_parts = []
-
-        for pattern in patterns:
-            matched = pattern(remaining)
-            if matched is False:
+        for matcher in matchers:
+            result = matcher(text=remaining)
+            if result is False:
                 return False
-
-            matched_parts.append(matched)
-            remaining = remaining[len(matched):]
-
+            matched_parts.append(result)
+            remaining = remaining[len(result):]
         return "".join(matched_parts)
-    return combined
+    return match
 
 
-p = follows(partial(just, "fu"), partial(just, "bar"), partial(just, "fu"))
-print(p("foobar"))   
-print(p("fubar'd"))   
-print(p("fubarfu'd"))  
-
-def cases(*patterns):
-    def combined(text):
-        successful_matches = []
-
-        # Try every pattern on the same input text
-        for pattern in patterns:
-            matched = pattern(text)
-
-            # Our convention: False means "no match"
-            if matched is not False:
-                successful_matches.append(matched)
-
-        # If nothing matched, the whole cases() fails
-        if len(successful_matches) == 0:
+def longest(*matchers):
+    """Try all matchers on the same input, return the longest match."""
+    def match(text: str):
+        matches = []
+        for matcher in matchers:
+            result = matcher(text=text)
+            if result is not False:
+                matches.append(result)
+        if not matches:
             return False
-
-        # Choose the longest match (by number of characters)
-        longest_match = successful_matches[0]
-        for matched in successful_matches[1:]:
-            if len(matched) > len(longest_match):
-                longest_match = matched
-
-        return longest_match
-
-    return combined
+        return max(matches, key=len)
+    return match
 
 
-print("- - -")
+# -- Examples --
 
-badNews = cases(
-    partial(just, "fubar"),
-    partial(just, "snafu")
+print("-- literal --")
+match_parens = partial(literal, "()")
+print(match_parens(text="())"))  # "()"
+
+print("-- sequence --")
+match_fubarfu = sequence(
+    partial(literal, "fu"),
+    partial(literal, "bar"),
+    partial(literal, "fu"),
 )
+print(match_fubarfu(text="foobar"))     # False
+print(match_fubarfu(text="fubar'd"))    # False
+print(match_fubarfu(text="fubarfu'd"))  # "fubarfu"
 
-print(badNews("snafu'd"))  
-print(badNews("fubar'd"))   
-print(badNews("hello"))  
+print("-- longest --")
+match_bad_news = longest(
+    partial(literal, "fubar"),
+    partial(literal, "snafu"),
+)
+print(match_bad_news("snafu'd"))  # "snafu"
+print(match_bad_news("fubar'd"))  # "fubar"
+print(match_bad_news("hello"))    # False
 
 
+# -- Recursive balanced parentheses --
+# Uses combinators to define a recursive grammar:
+#   balanced -> "()" | "()" balanced | "(" balanced ")" | "(" balanced ")" balanced
 
-
-def balanced(text):
-    return cases(
-        partial(just, "()"),                      
-        follows(partial(just, "()"), balanced),       
-        follows(partial(just, "("), balanced, partial(just, ")")),                
-        follows(partial(just, "("), balanced, partial(just, ")"), balanced),    
+def balanced(text: str):
+    return longest(
+        partial(literal, "()"),
+        sequence(partial(literal, "()"), balanced),
+        sequence(partial(literal, "("), balanced, partial(literal, ")")),
+        sequence(partial(literal, "("), balanced, partial(literal, ")"), balanced),
     )(text)
 
-print("- - - ")
+print("-- balanced --")
+print(balanced("(())("))      # False
+print(balanced("(()())()"))   # "(()())()"
+print(balanced("())"))        # "()"
+print(balanced("xyz"))        # False
 
-print(balanced("(())("))     
-print(balanced("(()())()"))  
-print(balanced("())"))         
-print(balanced("xyz"))      
 
-print("- - - ")
-
+# A brutal look at balanced parntheses, computing machines and pushdown automata
 # https://raganwald.com/2019/02/14/i-love-programming-and-programmers.html
 
 
+# DFA Deterministic Finite Automaton
 
+class DFAStates(StrEnum):
+    START = auto()
+    END = auto()
 
+class DeterministicFiniteAutomaton:
+    
+    def __init__(self, internal=DFAStates.START, halted=False, recognized=False):
+        self.internal = internal
+        self.halted = halted
+        self.recognized = recognized
 
+    def transitionTo(self, internal):
+        self.internal = internal
+        return self
+
+    def recognize(self):
+        self.recognized = True
+        return self
+    
+    
+    def halt(self):
+        self.halted = True
+        return self
+
+    def consume(self, token):
+        return self.internal
+    
 
