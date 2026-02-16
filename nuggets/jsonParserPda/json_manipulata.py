@@ -14,7 +14,7 @@ json_string = """
     },
     {
       "id": 1,
-      "name": "Joe",
+      "name": Joe",
       "age": 33,
       "full-time": false
     }
