@@ -11,8 +11,9 @@ import typer
 from terminal2f.agent import Agent
 from terminal2f.tools import t2f_tool, Delegate
 from terminal2f.memory import Memory
-from terminal2f.automaton import FSM, LOOP, PDA, LBA, TM
-from terminal2f.envs import Session, QuestionEnv, QUESTIONS, rollout
+from terminal2f.automata import FSM, LOOP, PDA, LBA, TM
+from terminal2f.systems import Session
+from terminal2f.envs import QuestionEnv, QUESTIONS, rollout
 from terminal2f.datamodel import (
     RUNS_SCHEMA, EPISODES_SCHEMA,
     recordings_path, init_dataset, get_or_make_table, load_run_into_dataset,

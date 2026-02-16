@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 
-from terminal2f.envs import Session
+from terminal2f.systems import Session
 
 log = logging.getLogger(__name__)
 
