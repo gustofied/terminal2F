@@ -116,7 +116,7 @@ wheels = [
 
 [[package]]
 name = "alphabet-sort"
-version = "0.1.12"
+version = "0.1.13"
 source = { editable = "environments/alphabet-sort" }
 dependencies = [
     { name = "verifiers" },
