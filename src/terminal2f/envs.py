@@ -14,6 +14,17 @@ QUESTIONS = [
     ("What tech stack does terminal2f use? use code 40", "python"),
 ]
 
+"""
+Considering this
+
+Creating a rollout strategy: The rollout strategy defines how the LM interacts with the environment. 
+Broadly, this can be thought of as a "single turn", where the LM is given a question and an answer is returned, or "multi turn", 
+where the LM is given a question and is allowed to interact with the environment multiple times until it decides to terminate (similar to ReAct).
+
+maybe the env should be a class with env method/subclass /rollout subclass hmm think more here
+
+"""
+
 class QuestionEnv:
     """Env that gives questions as observations and scores answers by keyword match."""
     def __init__(self, questions: list[tuple[str, str]]):
@@ -38,7 +49,7 @@ class QuestionEnv:
 # --- Rollout ---
 
 def rollout(*, env, policy, episode: str) -> tuple[float, int, bool]:
-    """Run the agent-env interaction loop. The core execution protocol."""
+    """Run the agent-env interaction loop. The core execution protocol.""" 
     object_store: list = []  # shared across steps (episode-level persistence)
     obs = env.reset()
 
