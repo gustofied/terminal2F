@@ -2524,6 +2524,7 @@ dependencies = [
     { name = "tqdm" },
     { name = "typer" },
     { name = "ulid-py" },
+    { name = "verifiers" },
     { name = "weasyprint" },
     { name = "wordle" },
 ]
@@ -2545,6 +2546,7 @@ requires-dist = [
     { name = "tqdm", specifier = ">=4.67.1" },
     { name = "typer", specifier = ">=0.21.1" },
     { name = "ulid-py", specifier = ">=1.1.0" },
+    { name = "verifiers", specifier = ">=0.1.10" },
     { name = "weasyprint", specifier = ">=68.0" },
     { name = "wordle", editable = "environments/wordle" },
 ]
