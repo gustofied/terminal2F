@@ -8,6 +8,7 @@ authors = [
 ]
 requires-python = ">=3.13"
 dependencies = [
+    "beginnings",
     "jinja2>=3.1.6",
     "matplotlib>=3.10.8",
     "mistral-common>=1.8.8",
@@ -23,12 +24,22 @@ dependencies = [
     "typer>=0.21.1",
     "ulid-py>=1.1.0",
     "weasyprint>=68.0",
+    "wordle",
 ]
 
 [project.scripts]
 t2f = "terminal2f.main:app"
 
-
 [build-system]
 requires = ["uv_build>=0.9.18,<0.10.0"]
 build-backend = "uv_build"
+
+[tool.uv.workspace]
+members = [
+    "environments/beginnings",
+    "environments/wordle",
+]
+
+[tool.uv.sources]
+beginnings = { workspace = true, editable = true }
+wordle = { workspace = true, editable = true }
