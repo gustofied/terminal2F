@@ -8,7 +8,7 @@ authors = [
 ]
 requires-python = ">=3.13"
 dependencies = [
-    "beginnings",
+    "alphabet-sort",
     "jinja2>=3.1.6",
     "matplotlib>=3.10.8",
     "mistral-common>=1.8.8",
@@ -25,7 +25,6 @@ dependencies = [
     "ulid-py>=1.1.0",
     "verifiers>=0.1.10",
     "weasyprint>=68.0",
-    "wordle",
 ]
 
 [project.scripts]
@@ -37,10 +36,8 @@ build-backend = "uv_build"
 
 [tool.uv.workspace]
 members = [
-    "environments/beginnings",
-    "environments/wordle",
+    "environments/alphabet-sort",
 ]
 
 [tool.uv.sources]
-beginnings = { workspace = true, editable = true }
-wordle = { workspace = true, editable = true }
+alphabet-sort = { workspace = true, editable = true }
