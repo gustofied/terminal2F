@@ -1,0 +1,53 @@
+# env 
+.venv/
+venv/
+env/
+.env
+.env.local
+uv.lock
+.claude/
+.cursorrules
+.ropeproject/
+.scratch/
+.chroma_db/
+/.codex/environments/
+
+# artifacts
+core.* 
+.coverage
+dist/
+build/
+_build/
+docs/build/
+*.egg-info/
+__pycache__/
+
+.pytest_cache/
+.ruff_cache/
+*.pyo
+*.pyd
+*.pyc
+
+# prime
+.prime
+
+# libraries
+/prime-rl
+
+# outputs
+wandb/
+outputs/
+reports/
+logs/
+.chroma_db/
+
+# development
+scratch/
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# CUA server (local dev artifacts)
+assets/templates/browserbase/cua/node_modules/
+assets/templates/browserbase/cua/pnpm-lock.yaml
