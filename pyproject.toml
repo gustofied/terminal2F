@@ -24,6 +24,7 @@ dependencies = [
     "typer>=0.21.1",
     "ulid-py>=1.1.0",
     "verifiers>=0.1.10",
+    "wandb>=0.25.0",
     "weasyprint>=68.0",
 ]
 
