@@ -25,7 +25,7 @@ def main():
         use_lora=False,
         # Batch config
         batch_size=64,          # total rollouts per batch (default 512, too big)
-        micro_batch_size=8,     # per GPU per step
+        micro_batch_size=4,     # per GPU per step
         rollouts_per_example=8, # GRPO group size (default 16)
         max_seq_len=2048,
         # Training
