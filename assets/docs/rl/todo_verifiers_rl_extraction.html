@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+    body {
+        background: #ffffff;
+        color: #1e1e1e;
+        font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', 'Menlo', monospace;
+        font-size: 14px;
+        line-height: 1.35;
+        padding: 0.5em 2em;
+        max-width: 960px;
+        margin: 0 auto;
+    }
+    pre {
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        margin: 0;
+    }
+    ::selection {
+        background: #d0e8ff;
+        color: #1e1e1e;
+    }
+    a { color: #268bd2; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    .back { color: #93a1a1; font-size: 12px; margin-bottom: 0; }
+</style>
+</head>
+<body>
+<p class="back"><a href="index.html">back</a></p>
+<pre><!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+.r1 {color: #cb4b16; text-decoration-color: #cb4b16; font-weight: bold}
+.r2 {color: #268bd2; text-decoration-color: #268bd2; font-weight: bold}
+.r3 {color: #cb4b16; text-decoration-color: #cb4b16}
+.r4 {color: #d33682; text-decoration-color: #d33682}
+.r5 {color: #d33682; text-decoration-color: #d33682; font-weight: bold}
+body {
+    color: #000000;
+    background-color: #f5f5f0;
+}
+</style>
+</head>
+<body>
+    <pre style="font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace"><code style="font-family:inherit">                              <span class="r1">TODO: Extract and Modernize verifiers-rl</span>                              
+
+<span class="r2">The Idea</span>                                                                                            
+
+Take the valuable parts of verifiers-rl out of the verifiers monorepo subtree and make it a         
+standalone, hackable package. Then upgrade it to work with modern TRL and vllm instead of being     
+frozen at July 2025 versions.                                                                       
+
+<span class="r2">Current State</span>                                                                                       
+
+verifiers-rl lives nested inside the verifiers subtree:                                             
+
+<span class="r3"> • </span><span class="r4">terminal2F/external/verifiers/packages/verifiers-rl/</span>                                             
+<span class="r3"> • </span>Also copied at <span class="r4">terminal2F/verifiers/packages/verifiers-rl/</span>                                       
+
+This is awkward for hacking on. It should be a top-level directory or its own repo.                 
+
+<span class="r2">What to Extract</span>                                                                                     
+
+The valuable parts are small and well-defined:                                                      
+
+<span class="r3"> 1 </span><span class="r5">orchestrator.py</span> - the multi-turn conversation loop. Model responds, environment gives new input, 
+<span class="r3">   </span>model responds again, score the whole trajectory. This is the piece TRL doesn&#x27;t have.            
+<span class="r3"> 2 </span><span class="r5">client.py</span> - vLLM weight sync. Pushes updated weights from training GPU to inference GPU via NCCL 
+<span class="r3">   </span>after each step.                                                                                 
+<span class="r3"> 3 </span><span class="r5">trainer.py</span> - glue that connects TRL&#x27;s GRPOTrainer to the orchestrator.                           
+<span class="r3"> 4 </span><span class="r5">config.py</span> - RLConfig (extends TRL&#x27;s GRPOConfig with multi-turn fields).                          
+
+<span class="r2">Modernization Path</span>                                                                                  
+
+<span class="r3"> • </span>Port the orchestrator logic into TRL&#x27;s <span class="r4">rollout_func</span> parameter (added recently, designed for      
+<span class="r3">   </span>custom rollout strategies)                                                                       
+<span class="r3"> • </span>Use modern vllm directly (no vf-vllm wrapper - handle weight sync differently or use vllm&#x27;s      
+<span class="r3">   </span>native mechanisms)                                                                               
+<span class="r3"> • </span>Drop the <span class="r4">vllm&gt;=0.10.0,&lt;0.11.0</span> pin - run on latest vllm                                           
+<span class="r3"> • </span>Drop flash-attn as a hard dependency (make it optional)                                          
+<span class="r3"> • </span>Keep it as a thin layer: just multi-turn orchestration + verifiers environment integration       
+
+<span class="r2">Steps</span>                                                                                               
+
+<span class="r3"> 1 </span>Copy <span class="r4">verifiers-rl/</span> to top-level in terminal2F (out of the subtree)                               
+<span class="r3"> 2 </span>Finish the tutorial first - understand what each piece does end to end                           
+<span class="r3"> 3 </span>Read TRL&#x27;s <span class="r4">rollout_func</span> docs and source                                                          
+<span class="r3"> 4 </span>Rewrite the orchestrator as a rollout function                                                   
+<span class="r3"> 5 </span>Test with alphabet-sort on a GPU node                                                            
+<span class="r3"> 6 </span>Optionally: make it its own repo                                                                 
+</code></pre>
+</body>
+</html>
+</pre>
+</body>
+</html>
