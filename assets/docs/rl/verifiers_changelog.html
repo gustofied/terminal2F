@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+    body {
+        background: #ffffff;
+        color: #1e1e1e;
+        font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', 'Menlo', monospace;
+        font-size: 14px;
+        line-height: 1.35;
+        padding: 0.5em 2em;
+        max-width: 960px;
+        margin: 0 auto;
+    }
+    pre {
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        margin: 0;
+    }
+    ::selection {
+        background: #d0e8ff;
+        color: #1e1e1e;
+    }
+    a { color: #268bd2; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    .back { color: #93a1a1; font-size: 12px; margin-bottom: 0; }
+</style>
+</head>
+<body>
+<p class="back"><a href="index.html">back</a></p>
+<pre><!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+.r1 {color: #268bd2; text-decoration-color: #268bd2; font-weight: bold}
+.r2 {color: #2aa198; text-decoration-color: #2aa198; font-weight: bold}
+.r3 {color: #d33682; text-decoration-color: #d33682}
+.r4 {font-weight: bold}
+.r5 {color: #cb4b16; text-decoration-color: #cb4b16}
+.r6 {background-color: #f5f5f0}
+.r7 {color: #268bd2; text-decoration-color: #268bd2; background-color: #f5f5f0}
+.r8 {color: #93a1a1; text-decoration-color: #93a1a1; background-color: #f5f5f0}
+.r9 {color: #657b83; text-decoration-color: #657b83; background-color: #f5f5f0}
+.r10 {color: #859900; text-decoration-color: #859900; background-color: #f5f5f0}
+.r11 {color: #2aa198; text-decoration-color: #2aa198; background-color: #f5f5f0}
+.r12 {color: #93a1a1; text-decoration-color: #93a1a1; background-color: #f5f5f0; font-style: italic}
+body {
+    color: #000000;
+    background-color: #f5f5f0;
+}
+</style>
+</head>
+<body>
+    <pre style="font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace"><code style="font-family:inherit"><span class="r1">Verifiers - Notable Changes</span>                                                                         
+
+Things that changed in the verifiers library worth knowing about.                                   
+
+<span class="r2">@vf.stop and is_completed</span>                                                                           
+
+<span class="r3">is_completed</span> lives on the base <span class="r3">Environment</span> class with <span class="r3">@final</span>, which means it cannot be overridden.  
+What it does internally is loop through all methods you&#x27;ve decorated with <span class="r3">@vf.stop</span> and check them   
+one by one. If any returns <span class="r3">True</span>, the rollout stops.                                                 
+
+So instead of overriding <span class="r3">is_completed</span>, you just define your own stop conditions with <span class="r3">@vf.stop</span> and   
+the base class picks them up automatically.                                                         
+
+<span class="r4">The old way:</span> you&#x27;d override <span class="r3">is_completed</span> and put all your stop logic in one big method. Problem is, 
+<span class="r3">MultiTurnEnv</span> also needs its own stops - error checking, max turns, prompt too long. If you override 
+<span class="r3">is_completed</span>, you either lose those or have to remember to call <span class="r3">super()</span>.                            
+
+<span class="r4">The new way:</span>                                                                                        
+
+<span class="r5"> • </span>The base class already registers built-in stops (errors, max turns, etc.) via <span class="r3">@vf.stop</span>           
+<span class="r5"> • </span>You add your own stops via <span class="r3">@vf.stop</span>                                                              
+<span class="r5"> • </span><span class="r3">is_completed</span> (which you can&#x27;t touch) runs them all automatically                                 
+
+It&#x27;s a plugin system basically. You just declare &quot;here&#x27;s a reason to stop&quot; and the framework handles
+the rest. No risk of accidentally breaking the built-in safety checks.                              
+
+<span class="r2">Writing stop conditions</span>                                                                             
+
+Each <span class="r3">@vf.stop</span> is one reason to end a rollout. You can have as many as you want:                     
+
+<span class="r6">                                                                                                    </span>
+<span class="r6"> </span><span class="r7">@vf</span><span class="r8">.</span><span class="r9">stop</span><span class="r6">                                                                                           </span>
+<span class="r6"> </span><span class="r10">async</span><span class="r9"> </span><span class="r10">def</span><span class="r9"> </span><span class="r7">all_turns_done</span><span class="r9">(</span><span class="r7">self</span><span class="r9">, state: State) </span><span class="r8">-&gt;</span><span class="r9"> </span><span class="r7">bool</span><span class="r9">:</span><span class="r6">                                              </span>
+<span class="r6"> </span><span class="r9">    </span><span class="r10">return</span><span class="r9"> </span><span class="r7">len</span><span class="r9">(state[</span><span class="r11">&quot;trajectory&quot;</span><span class="r9">]) </span><span class="r8">&gt;=</span><span class="r9"> state[</span><span class="r11">&quot;info&quot;</span><span class="r9">][</span><span class="r11">&quot;num_turns&quot;</span><span class="r9">]</span><span class="r6">                                  </span>
+<span class="r6">                                                                                                    </span>
+<span class="r6"> </span><span class="r7">@vf</span><span class="r8">.</span><span class="r9">stop</span><span class="r6">                                                                                           </span>
+<span class="r6"> </span><span class="r10">async</span><span class="r9"> </span><span class="r10">def</span><span class="r9"> </span><span class="r7">gave_up</span><span class="r9">(</span><span class="r7">self</span><span class="r9">, state: State) </span><span class="r8">-&gt;</span><span class="r9"> </span><span class="r7">bool</span><span class="r9">:</span><span class="r6">                                                     </span>
+<span class="r6"> </span><span class="r9">    last </span><span class="r8">=</span><span class="r9"> state[</span><span class="r11">&quot;trajectory&quot;</span><span class="r9">][</span><span class="r8">-</span><span class="r11">1</span><span class="r9">]</span><span class="r6">                                                                 </span>
+<span class="r6"> </span><span class="r9">    </span><span class="r10">return</span><span class="r9"> </span><span class="r11">&quot;I don&#x27;t know&quot;</span><span class="r9"> </span><span class="r10">in</span><span class="r9"> last</span><span class="r8">.</span><span class="r9">get(</span><span class="r11">&quot;content&quot;</span><span class="r9">, </span><span class="r11">&quot;&quot;</span><span class="r9">)</span><span class="r6">                                               </span>
+<span class="r6">                                                                                                    </span>
+<span class="r6"> </span><span class="r7">@vf</span><span class="r8">.</span><span class="r9">stop(priority</span><span class="r8">=</span><span class="r11">10</span><span class="r9">)  </span><span class="r12"># runs first</span><span class="r6">                                                                </span>
+<span class="r6"> </span><span class="r10">async</span><span class="r9"> </span><span class="r10">def</span><span class="r9"> </span><span class="r7">budget_exceeded</span><span class="r9">(</span><span class="r7">self</span><span class="r9">, state: State) </span><span class="r8">-&gt;</span><span class="r9"> </span><span class="r7">bool</span><span class="r9">:</span><span class="r6">                                             </span>
+<span class="r6"> </span><span class="r9">    </span><span class="r10">return</span><span class="r9"> state</span><span class="r8">.</span><span class="r9">get(</span><span class="r11">&quot;total_tokens&quot;</span><span class="r9">, </span><span class="r11">0</span><span class="r9">) </span><span class="r8">&gt;</span><span class="r9"> </span><span class="r11">4000</span><span class="r6">                                                     </span>
+<span class="r6">                                                                                                    </span>
+
+Each one is a separate, named condition. When any returns <span class="r3">True</span>, the rollout stops and               
+<span class="r3">state[&quot;stop_condition&quot;]</span> tells you which one fired. Makes it easy to debug and track why rollouts    
+ended.                                                                                              
+</code></pre>
+</body>
+</html>
+</pre>
+</body>
+</html>

@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+    body {
+        background: #ffffff;
+        color: #1e1e1e;
+        font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', 'Menlo', monospace;
+        font-size: 14px;
+        line-height: 1.35;
+        padding: 0.5em 2em;
+        max-width: 960px;
+        margin: 0 auto;
+    }
+    pre {
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        margin: 0;
+    }
+    ::selection {
+        background: #d0e8ff;
+        color: #1e1e1e;
+    }
+    a { color: #268bd2; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    .back { color: #93a1a1; font-size: 12px; margin-bottom: 0; }
+</style>
+</head>
+<body>
+<p class="back"><a href="index.html">back</a></p>
+<pre><!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+.r1 {color: #268bd2; text-decoration-color: #268bd2; font-weight: bold}
+.r2 {color: #2aa198; text-decoration-color: #2aa198; font-weight: bold}
+.r3 {font-weight: bold}
+.r4 {background-color: #f5f5f0}
+.r5 {color: #657b83; text-decoration-color: #657b83; background-color: #f5f5f0}
+.r6 {color: #93a1a1; text-decoration-color: #93a1a1; background-color: #f5f5f0; font-style: italic}
+.r7 {color: #d33682; text-decoration-color: #d33682}
+.r8 {color: #008080; text-decoration-color: #008080}
+.r9 {color: #cb4b16; text-decoration-color: #cb4b16}
+body {
+    color: #000000;
+    background-color: #f5f5f0;
+}
+</style>
+</head>
+<body>
+    <pre style="font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace"><code style="font-family:inherit"><span class="r1">Environment Workflow</span>                                                                                
+
+Environments are versioned Python packages - importable, reproducible, pinned with deps.            
+
+<span class="r2">The Two Modes</span>                                                                                       
+
+<span class="r3">Consumer mode</span> - install and use, can&#x27;t edit:                                                        
+
+<span class="r4">                                                                                                    </span>
+<span class="r4"> </span><span class="r5">prime env install owner/env-name</span><span class="r4">                                                                   </span>
+<span class="r4">                                                                                                    </span>
+
+Goes into site-packages. Meant for running, not editing.                                            
+
+<span class="r3">Developer mode</span> - pull source, install editable, hack on it:                                         
+
+<span class="r4">                                                                                                    </span>
+<span class="r4"> </span><span class="r5">prime env pull owner/env-name@latest --target ./environments/env-name</span><span class="r4">                              </span>
+<span class="r4"> </span><span class="r5">uv add --editable ./environments/env-name</span><span class="r4">                                                          </span>
+<span class="r4">                                                                                                    </span>
+
+Source is in your tree. Changes take effect immediately.                                            
+
+<span class="r2">Preferred Workflow</span>                                                                                  
+
+Always pull + editable. Never blind install.                                                        
+
+Why: you always want to see what you&#x27;re running. Editable installs mean you can read and modify the 
+environment code directly, debug reward functions, tweak prompts - without reinstalling anything.   
+When something breaks during training you can trace it right to the source. Blind installs hide the 
+code in site-packages where you&#x27;ll never look at it.                                                
+
+<span class="r4">                                                                                                    </span>
+<span class="r4"> </span><span class="r6"># 1. Pull the source</span><span class="r4">                                                                               </span>
+<span class="r4"> </span><span class="r5">prime env pull owner/env-name@latest --target ./environments/env-name</span><span class="r4">                              </span>
+<span class="r4">                                                                                                    </span>
+<span class="r4"> </span><span class="r6"># 2. Make it editable in your project (recorded in pyproject.toml)</span><span class="r4">                                 </span>
+<span class="r4"> </span><span class="r5">uv add --editable ./environments/env-name</span><span class="r4">                                                          </span>
+<span class="r4">                                                                                                    </span>
+<span class="r4"> </span><span class="r6"># 3. Hack on it, run eval, iterate</span><span class="r4">                                                                 </span>
+<span class="r4"> </span><span class="r5">vf-eval configs/eval.toml -e configs/endpoints.toml</span><span class="r4">                                                </span>
+<span class="r4">                                                                                                    </span>
+<span class="r4"> </span><span class="r6"># 4. Push changes back (auto-bumps version)</span><span class="r4">                                                        </span>
+<span class="r4"> </span><span class="r5">prime env push --auto-bump</span><span class="r4">                                                                         </span>
+<span class="r4">                                                                                                    </span>
+
+<span class="r7">--auto-bump</span> automatically increments the version number in pyproject.toml so you don&#x27;t need to      
+manually update it each time you push.                                                              
+
+<span class="r2">Quick vs Recorded Install</span>                                                                           
+
+<span class="r8">                                                                                                  </span>
+<span class="r8"> </span><span class="r8">Command</span><span class="r1">                  </span><span class="r8"> </span><span class="r8">What it does</span><span class="r1">                              </span><span class="r8"> </span><span class="r8">Recorded in pyproject.toml?</span><span class="r8"> </span>
+<span class="r8"> ──────────────────────────────────────────────────────────────────────────────────────────────── </span>
+<span class="r8"> </span><span class="r7">uv pip install -e ./path</span> <span class="r8"> </span>Editable install into venv                <span class="r8"> </span>No - <span class="r7">uv sync</span> can forget it <span class="r8"> </span>
+<span class="r8"> </span><span class="r7">uv add --editable ./path</span> <span class="r8"> </span>Editable install + writes path dependency <span class="r8"> </span>Yes - stays part of project<span class="r8"> </span>
+<span class="r8">                                                                                                  </span>
+
+Use <span class="r7">uv add --editable</span> when you want it to persist. Use <span class="r7">uv pip install -e</span> for quick throwaway        
+testing.                                                                                            
+
+<span class="r2">Creating a New Environment</span>                                                                          
+
+<span class="r4">                                                                                                    </span>
+<span class="r4"> </span><span class="r6"># Scaffold files (does NOT make it importable)</span><span class="r4">                                                     </span>
+<span class="r4"> </span><span class="r5">prime env init my-env --path ./environments/my-env</span><span class="r4">                                                 </span>
+<span class="r4">                                                                                                    </span>
+<span class="r4"> </span><span class="r6"># Make it importable</span><span class="r4">                                                                               </span>
+<span class="r4"> </span><span class="r5">uv add --editable ./environments/my-env</span><span class="r4">                                                            </span>
+<span class="r4">                                                                                                    </span>
+
+<span class="r7">prime env init</span> only creates files. You still need the editable install for Python to find it.       
+
+<span class="r2">Notes</span>                                                                                               
+
+<span class="r9"> • </span><span class="r7">vf-eval</span> defaults to Prime Inference unless you configure an endpoint or pass <span class="r7">-b</span> and <span class="r7">-k</span>.          
+<span class="r9">   </span>Preferably configure endpoints via a TOML file (<span class="r7">configs/endpoints.toml</span>) so you don&#x27;t have to pass
+<span class="r9">   </span>flags every time - keeps commands short and settings reproducible.                               
+<span class="r9"> • </span>For remote GPU nodes: scp your environment folder, then <span class="r7">uv pip install -e ./path</span> on the node.    
+<span class="r9">   </span>Same editable workflow - you can still read and tweak the code on the node.                      
+<span class="r9"> • </span><span class="r7">--target</span> is for <span class="r7">prime env pull</span>, <span class="r7">--path</span> is for <span class="r7">prime env init</span>                                     
+</code></pre>
+</body>
+</html>
+</pre>
+</body>
+</html>

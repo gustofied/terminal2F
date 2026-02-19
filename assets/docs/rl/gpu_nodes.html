@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+    body {
+        background: #ffffff;
+        color: #1e1e1e;
+        font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', 'Menlo', monospace;
+        font-size: 14px;
+        line-height: 1.35;
+        padding: 0.5em 2em;
+        max-width: 960px;
+        margin: 0 auto;
+    }
+    pre {
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        margin: 0;
+    }
+    ::selection {
+        background: #d0e8ff;
+        color: #1e1e1e;
+    }
+    a { color: #268bd2; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    .back { color: #93a1a1; font-size: 12px; margin-bottom: 0; }
+</style>
+</head>
+<body>
+<p class="back"><a href="index.html">back</a></p>
+<pre><!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+.r1 {color: #268bd2; text-decoration-color: #268bd2; font-weight: bold}
+.r2 {font-weight: bold}
+.r3 {color: #cb4b16; text-decoration-color: #cb4b16}
+.r4 {color: #d33682; text-decoration-color: #d33682}
+.r5 {color: #2aa198; text-decoration-color: #2aa198; font-weight: bold}
+.r6 {color: #000080; text-decoration-color: #000080; text-decoration: underline}
+.r7 {background-color: #f5f5f0}
+.r8 {color: #657b83; text-decoration-color: #657b83; background-color: #f5f5f0}
+.r9 {color: #2aa198; text-decoration-color: #2aa198; background-color: #f5f5f0}
+body {
+    color: #000000;
+    background-color: #f5f5f0;
+}
+</style>
+</head>
+<body>
+    <pre style="font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace"><code style="font-family:inherit"><span class="r1">GPU Nodes and Shapes</span>                                                                                
+
+A node is one machine. A GPU is one accelerator inside a machine. These are different &quot;shapes&quot;:     
+
+<span class="r2">1 node, 1 GPU</span> - simplest. You can serve or train small jobs. If you try to both serve and train,    
+they&#x27;ll fight for the same GPU (memory/compute), so it&#x27;s usually painful unless everything is tiny. 
+
+<span class="r2">1 node, 2 GPUs</span> - still one machine, but you can separate roles by GPU. This is the common pattern   
+for RL/RFT setups:                                                                                  
+
+<span class="r3"> • </span>Inference server pinned to <span class="r4">CUDA_VISIBLE_DEVICES=0</span>                                                
+<span class="r3"> • </span>Trainer/workers on <span class="r4">CUDA_VISIBLE_DEVICES=1</span>                                                        
+<span class="r3"> • </span>This is what people mean by &quot;need 2 GPUs&quot; - not two nodes, just two GPUs available on the same   
+<span class="r3">   </span>box.                                                                                             
+
+<span class="r2">2 nodes, 1 GPU each</span> - distributed across machines. You need networking, orchestration, and          
+distributed training comms (NCCL etc). More complex and only worth it if you can&#x27;t fit the work on  
+one box or you need to scale.                                                                       
+
+<span class="r2">2 nodes, 2+ GPUs each</span> - full multi-node cluster. Best for scaling up, not for starting.             
+
+<span class="r5">SSH Key Auth</span>                                                                                        
+
+Useful videos:                                                                                      
+
+<span class="r3"> • </span><a class="r6" href="https://www.youtube.com/watch?v=j4J_MxkY-4s">SSH Public Key Authentication Oversimplified</a>                                                     
+<span class="r3"> • </span><a class="r6" href="https://www.youtube.com/watch?v=dPAw4opzN9g">SSH Keys</a>                                                                                         
+
+You generate the keypair on your machine because the private key must never leave it. If the        
+server/provider generated it, they could keep a copy, which defeats the point.                      
+
+<span class="r2">How it works:</span>                                                                                       
+
+<span class="r3"> 1 </span>You upload the public key to the server (goes into <span class="r4">~/.ssh/authorized_keys</span>)                       
+<span class="r3"> 2 </span>When you connect, the server says &quot;prove you have the matching private key&quot;                      
+<span class="r3"> 3 </span>Your laptop signs a one-time challenge with the private key                                      
+<span class="r3"> 4 </span>The server verifies the signature with the public key. If it checks out, you&#x27;re in.              
+
+It&#x27;s not encryption - it&#x27;s proof of identity. The public key is safe to share. Adding a passphrase  
+protects you if your laptop is stolen.                                                              
+
+<span class="r5">Getting on a GPU Node</span>                                                                               
+
+<span class="r3"> 1 </span>Pick a single-node GPU instance with 2x GPUs (one machine, two GPUs)                             
+<span class="r3"> 2 </span>Generate a dedicated SSH keypair on your Mac:                                                    
+<span class="r3">   </span><span class="r7">                                                                                                 </span>
+<span class="r3">   </span><span class="r7"> </span><span class="r8">ssh-keygen -t ed25519 -a </span><span class="r9">64</span><span class="r8"> -f ~/.ssh/primeintellect_ed25519 -C </span><span class="r9">&quot;primeintellect&quot;</span><span class="r7">                </span>
+<span class="r3">   </span><span class="r7">                                                                                                 </span>
+<span class="r3"> 3 </span>Copy the public key: <span class="r4">cat ~/.ssh/primeintellect_ed25519.pub</span>                                       
+<span class="r3"> 4 </span>In the provider dashboard, add a new SSH key and paste the public key                            
+<span class="r3"> 5 </span>Deploy the instance                                                                              
+<span class="r3"> 6 </span>SSH in:                                                                                          
+<span class="r3">   </span><span class="r7">                                                                                                 </span>
+<span class="r3">   </span><span class="r7"> </span><span class="r8">ssh -i ~/.ssh/primeintellect_ed25519 -p &lt;port&gt; root@&lt;ip&gt;</span><span class="r7">                                        </span>
+<span class="r3">   </span><span class="r7">                                                                                                 </span>
+<span class="r3"> 7 </span>Verify GPUs: <span class="r4">nvidia-smi</span> (should show GPU 0 and GPU 1)                                            
+<span class="r3"> 8 </span>Check storage: <span class="r4">df -h /workspace</span> (network mount) and <span class="r4">df -h /</span> (local disk)                         
+
+<span class="r5">Gotchas from First Run</span>                                                                              
+
+<span class="r3"> • </span><span class="r4">/workspace</span> is a network mount on RunPod; local disk is <span class="r4">/</span>                                         
+<span class="r3"> • </span><span class="r4">prime env install</span> downloads environments from the hub; private envs need <span class="r4">prime login</span> on the node 
+<span class="r3"> • </span><span class="r4">prime</span> and <span class="r4">vf-eval</span> installed via <span class="r4">uv tool</span> end up in isolated tool envs - they can&#x27;t see each       
+<span class="r3">   </span>other&#x27;s packages. Fix: create one project venv and install everything there.                     
+</code></pre>
+</body>
+</html>
+</pre>
+</body>
+</html>

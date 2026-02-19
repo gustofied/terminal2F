@@ -1,0 +1,21 @@
+title = "RL"
+
+[[groups]]
+name = "Getting Started"
+docs = [
+    { file = "gpu_nodes", title = "GPU Nodes and Shapes" },
+    { file = "environment_workflow", title = "Environment Workflow" },
+]
+
+[[groups]]
+name = "Concepts"
+docs = [
+    { file = "grpo_example", title = "How GRPO Works" },
+]
+
+[[groups]]
+name = "Verifiers"
+docs = [
+    { file = "verifiers_tips", title = "Small Learnings" },
+    { file = "verifiers_changelog", title = "Notable Changes" },
+]

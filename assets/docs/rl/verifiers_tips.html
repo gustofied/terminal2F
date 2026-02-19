@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+    body {
+        background: #ffffff;
+        color: #1e1e1e;
+        font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', 'Menlo', monospace;
+        font-size: 14px;
+        line-height: 1.35;
+        padding: 0.5em 2em;
+        max-width: 960px;
+        margin: 0 auto;
+    }
+    pre {
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        margin: 0;
+    }
+    ::selection {
+        background: #d0e8ff;
+        color: #1e1e1e;
+    }
+    a { color: #268bd2; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    .back { color: #93a1a1; font-size: 12px; margin-bottom: 0; }
+</style>
+</head>
+<body>
+<p class="back"><a href="index.html">back</a></p>
+<pre><!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+.r1 {color: #268bd2; text-decoration-color: #268bd2; font-weight: bold}
+.r2 {color: #2aa198; text-decoration-color: #2aa198; font-weight: bold}
+.r3 {color: #d33682; text-decoration-color: #d33682}
+.r4 {background-color: #f5f5f0}
+.r5 {color: #657b83; text-decoration-color: #657b83; background-color: #f5f5f0}
+.r6 {color: #cb4b16; text-decoration-color: #cb4b16}
+.r7 {color: #d33682; text-decoration-color: #d33682; font-weight: bold}
+.r8 {color: #268bd2; text-decoration-color: #268bd2; background-color: #f5f5f0}
+.r9 {color: #2aa198; text-decoration-color: #2aa198; background-color: #f5f5f0}
+body {
+    color: #000000;
+    background-color: #f5f5f0;
+}
+</style>
+</head>
+<body>
+    <pre style="font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace"><code style="font-family:inherit"><span class="r1">Verifiers - Small Learnings</span>                                                                         
+
+Things worth knowing when working with the verifiers library.                                       
+
+<span class="r2">Dataset auto-wrapping</span>                                                                               
+
+If your dataset rows have a <span class="r3">question</span> string column, Verifiers will auto-wrap it into a user message 
+for you:                                                                                            
+
+<span class="r4">                                                                                                    </span>
+<span class="r4"> </span><span class="r5"># you provide:</span><span class="r4">                                                                                     </span>
+<span class="r4"> </span><span class="r5">&quot;question&quot;: &quot;What is 2+2?&quot;</span><span class="r4">                                                                         </span>
+<span class="r4">                                                                                                    </span>
+<span class="r4"> </span><span class="r5"># it becomes:</span><span class="r4">                                                                                      </span>
+<span class="r4"> </span><span class="r5">prompt = [{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;What is 2+2?&quot;}]</span><span class="r4">                                             </span>
+<span class="r4">                                                                                                    </span>
+
+You don&#x27;t need to manually build the messages list. Just give it a string and it handles the chat   
+format.                                                                                             
+
+<span class="r2">Environment IDs vs Hub references</span>                                                                   
+
+Two different formats for two different commands:                                                   
+
+<span class="r6"> • </span><span class="r7">prime env install</span> takes the full Hub reference: <span class="r3">owner/name@version</span>                               
+<span class="r6">   </span><span class="r4">                                                                                                 </span>
+<span class="r6">   </span><span class="r4"> </span><span class="r5">prime env install primeintellect/alphabet-sort@0.1.15</span><span class="r4">                                           </span>
+<span class="r6">   </span><span class="r4">                                                                                                 </span>
+<span class="r6"> • </span><span class="r7">vf-eval</span> takes just the environment id: <span class="r3">alphabet-sort</span>                                             
+<span class="r6">   </span><span class="r4">                                                                                                 </span>
+<span class="r6">   </span><span class="r4"> </span><span class="r5">prime </span><span class="r8">eval</span><span class="r5"> run alphabet-sort -m gpt-4.1-mini -n </span><span class="r9">10</span><span class="r4">                                              </span>
+<span class="r6">   </span><span class="r4">                                                                                                 </span>
+
+The <span class="r3">@0.1.15</span> is the Hub package version for installing. At eval time, it just needs the name - it    
+imports the installed Python module (<span class="r3">alphabet_sort</span>) regardless of what version you installed.       
+</code></pre>
+</body>
+</html>
+</pre>
+</body>
+</html>
