@@ -46,9 +46,11 @@ repeat
 
 This depends on which trainer you use:
 
-**t2f-trainer / verifiers-rl** — verifiers computes advantages itself in `rubric.py` (`reward - mean(reward)`, no std normalization) and passes them pre-computed to the trainer. The trainer just uses them directly. This is opinionated — you're locked into verifiers' advantage formula.
+**t2f-trainer** — computes its own advantages from raw rewards in `orchestrator.py`. Currently uses GRPO (`reward - group_mean`), but we own the formula and can swap in std normalization, KL penalty, or different algorithms without touching verifiers.
 
-**prime-rl, SkyRL, rLLM, etc.** — verifiers only returns rollouts + reward scores. The trainer computes its own advantages from the raw rewards using whatever algorithm it wants. More flexible — the trainer owns the full RL math.
+**prime-rl, SkyRL, rLLM, etc.** — same idea. Verifiers only returns rollouts + reward scores. The trainer computes its own advantages using whatever algorithm it wants.
+
+Note: verifiers still computes and attaches its own `advantage` field in `rubric.py`, but t2f-trainer ignores it and uses the raw `reward` values instead.
 
 ### Why Verifiers is Trainer-Agnostic
 

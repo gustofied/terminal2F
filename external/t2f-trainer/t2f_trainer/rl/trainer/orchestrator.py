@@ -243,8 +243,27 @@ class Orchestrator:
         advantages: list[float] = []
 
         outputs = env_results["outputs"]
+
+        # Collect raw rewards per rollout, then compute advantages per group ourselves
+        # instead of using verifiers' pre-computed advantage values.
+        # Outputs are sorted by example_id — every `rollouts_per_example` consecutive
+        # outputs belong to the same prompt group.
+        raw_rewards = [output["reward"] for output in outputs]
+
+        # Compute group-relative advantages: advantage = reward - group_mean
+        computed_advantages: list[float] = []
+        for g in range(0, len(raw_rewards), self.rollouts_per_example):
+            group = raw_rewards[g : g + self.rollouts_per_example]
+            group_mean = sum(group) / len(group) if group else 0.0
+            computed_advantages.extend(r - group_mean for r in group)
+
+        # Map rollout-level advantages to trajectory steps
+        # Each rollout may have multiple trajectory steps; all steps in a rollout
+        # share that rollout's advantage.
+        rollout_idx = 0
         for output in outputs:
             trajectory = output["trajectory"]
+            rollout_adv = computed_advantages[rollout_idx]
             for step in trajectory:
                 tokens = step["tokens"]
                 if tokens is None:
@@ -254,7 +273,7 @@ class Orchestrator:
                 completion_ids.append(tokens["completion_ids"])
                 completion_mask.append(tokens["completion_mask"])
                 completion_logprobs.append(tokens["completion_logprobs"])
-                advantages.append(step["advantage"])
+                advantages.append(rollout_adv)
             prompts.append(output["prompt"])
             completions.append(output["completion"])
             rewards.append(output["reward"])
@@ -262,6 +281,7 @@ class Orchestrator:
                 if k not in metrics:
                     metrics[k] = []
                 metrics[k].append(v)
+            rollout_idx += 1
 
         # Build rewards_dict from rollout-level data (for logging only)
         rewards_dict = {"reward": rewards}
