@@ -42,8 +42,10 @@
 .r5 {color: #2aa198; text-decoration-color: #2aa198; font-weight: bold}
 .r6 {color: #000080; text-decoration-color: #000080; text-decoration: underline}
 .r7 {background-color: #f5f5f0}
-.r8 {color: #657b83; text-decoration-color: #657b83; background-color: #f5f5f0}
-.r9 {color: #2aa198; text-decoration-color: #2aa198; background-color: #f5f5f0}
+.r8 {color: #268bd2; text-decoration-color: #268bd2; background-color: #f5f5f0}
+.r9 {color: #657b83; text-decoration-color: #657b83; background-color: #f5f5f0}
+.r10 {color: #2aa198; text-decoration-color: #2aa198; background-color: #f5f5f0}
+.r11 {color: #859900; text-decoration-color: #859900; background-color: #f5f5f0}
 body {
     color: #000000;
     background-color: #f5f5f0;
@@ -92,19 +94,34 @@ server/provider generated it, they could keep a copy, which defeats the point.
 It&#x27;s not encryption - it&#x27;s proof of identity. The public key is safe to share. Adding a passphrase  
 protects you if your laptop is stolen.                                                              
 
+<span class="r2">ssh-agent</span> - holds your decrypted private key in memory so you don&#x27;t have to pass <span class="r4">-i</span> every time or   
+re-enter the passphrase:                                                                            
+
+<span class="r7">                                                                                                    </span>
+<span class="r7"> </span><span class="r8">eval</span><span class="r9"> </span><span class="r10">&quot;</span><span class="r11">$(</span><span class="r9">ssh-agent -s</span><span class="r11">)</span><span class="r10">&quot;</span><span class="r7">                                                                             </span>
+<span class="r7"> </span><span class="r9">ssh-add ~/.ssh/primeintellect_ed25519</span><span class="r7">                                                              </span>
+<span class="r7">                                                                                                    </span>
+
+Now <span class="r4">ssh -p &lt;port&gt; root@&lt;ip&gt;</span> just works. On macOS, add <span class="r4">--apple-use-keychain</span> to persist across        
+reboots:                                                                                            
+
+<span class="r7">                                                                                                    </span>
+<span class="r7"> </span><span class="r9">ssh-add --apple-use-keychain ~/.ssh/primeintellect_ed25519</span><span class="r7">                                         </span>
+<span class="r7">                                                                                                    </span>
+
 <span class="r5">Getting on a GPU Node</span>                                                                               
 
 <span class="r3"> 1 </span>Pick a single-node GPU instance with 2x GPUs (one machine, two GPUs)                             
 <span class="r3"> 2 </span>Generate a dedicated SSH keypair on your Mac:                                                    
 <span class="r3">   </span><span class="r7">                                                                                                 </span>
-<span class="r3">   </span><span class="r7"> </span><span class="r8">ssh-keygen -t ed25519 -a </span><span class="r9">64</span><span class="r8"> -f ~/.ssh/primeintellect_ed25519 -C </span><span class="r9">&quot;primeintellect&quot;</span><span class="r7">                </span>
+<span class="r3">   </span><span class="r7"> </span><span class="r9">ssh-keygen -t ed25519 -a </span><span class="r10">64</span><span class="r9"> -f ~/.ssh/primeintellect_ed25519 -C </span><span class="r10">&quot;primeintellect&quot;</span><span class="r7">                </span>
 <span class="r3">   </span><span class="r7">                                                                                                 </span>
 <span class="r3"> 3 </span>Copy the public key: <span class="r4">cat ~/.ssh/primeintellect_ed25519.pub</span>                                       
 <span class="r3"> 4 </span>In the provider dashboard, add a new SSH key and paste the public key                            
 <span class="r3"> 5 </span>Deploy the instance                                                                              
 <span class="r3"> 6 </span>SSH in:                                                                                          
 <span class="r3">   </span><span class="r7">                                                                                                 </span>
-<span class="r3">   </span><span class="r7"> </span><span class="r8">ssh -i ~/.ssh/primeintellect_ed25519 -p &lt;port&gt; root@&lt;ip&gt;</span><span class="r7">                                        </span>
+<span class="r3">   </span><span class="r7"> </span><span class="r9">ssh -i ~/.ssh/primeintellect_ed25519 -p &lt;port&gt; root@&lt;ip&gt;</span><span class="r7">                                        </span>
 <span class="r3">   </span><span class="r7">                                                                                                 </span>
 <span class="r3"> 7 </span>Verify GPUs: <span class="r4">nvidia-smi</span> (should show GPU 0 and GPU 1)                                            
 <span class="r3"> 8 </span>Check storage: <span class="r4">df -h /workspace</span> (network mount) and <span class="r4">df -h /</span> (local disk)                         
@@ -114,7 +131,11 @@ protects you if your laptop is stolen.
 <span class="r3"> • </span><span class="r4">/workspace</span> is a network mount on RunPod; local disk is <span class="r4">/</span>                                         
 <span class="r3"> • </span><span class="r4">prime env install</span> downloads environments from the hub; private envs need <span class="r4">prime login</span> on the node 
 <span class="r3"> • </span><span class="r4">prime</span> and <span class="r4">vf-eval</span> installed via <span class="r4">uv tool</span> end up in isolated tool envs - they can&#x27;t see each       
-<span class="r3">   </span>other&#x27;s packages. Fix: create one project venv and install everything there.                     
+<span class="r3">   </span>other&#x27;s packages. Options:                                                                       
+<span class="r3">    • </span>Inject deps: <span class="r4">uv tool install prime --with verifiers</span> (adds verifiers into prime&#x27;s tool env)    
+<span class="r3">    • </span>One project venv: put everything in a <span class="r4">pyproject.toml</span> and <span class="r4">uv pip install</span> together              
+<span class="r3">    • </span>Editable installs: <span class="r4">uv pip install -e ./external/verifiers -e ./external/t2f-trainer</span> in one    
+<span class="r3">      </span>venv                                                                                          
 </code></pre>
 </body>
 </html>
