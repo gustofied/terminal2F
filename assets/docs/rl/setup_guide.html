@@ -36,17 +36,18 @@
 <meta charset="UTF-8">
 <style>
 .r1 {color: #268bd2; text-decoration-color: #268bd2; font-weight: bold}
-.r2 {color: #2aa198; text-decoration-color: #2aa198; font-weight: bold}
-.r3 {color: #cb4b16; text-decoration-color: #cb4b16}
-.r4 {background-color: #f5f5f0}
-.r5 {color: #657b83; text-decoration-color: #657b83; background-color: #f5f5f0}
-.r6 {color: #268bd2; text-decoration-color: #268bd2; background-color: #f5f5f0}
-.r7 {color: #93a1a1; text-decoration-color: #93a1a1; background-color: #f5f5f0}
-.r8 {color: #2aa198; text-decoration-color: #2aa198; background-color: #f5f5f0}
-.r9 {color: #93a1a1; text-decoration-color: #93a1a1; background-color: #f5f5f0; font-style: italic}
+.r2 {color: #000080; text-decoration-color: #000080; text-decoration: underline}
+.r3 {color: #2aa198; text-decoration-color: #2aa198; font-weight: bold}
+.r4 {color: #cb4b16; text-decoration-color: #cb4b16}
+.r5 {background-color: #f5f5f0}
+.r6 {color: #657b83; text-decoration-color: #657b83; background-color: #f5f5f0}
+.r7 {color: #268bd2; text-decoration-color: #268bd2; background-color: #f5f5f0}
+.r8 {color: #93a1a1; text-decoration-color: #93a1a1; background-color: #f5f5f0}
+.r9 {color: #2aa198; text-decoration-color: #2aa198; background-color: #f5f5f0}
 .r10 {color: #d33682; text-decoration-color: #d33682}
-.r11 {font-weight: bold}
-.r12 {color: #008080; text-decoration-color: #008080}
+.r11 {color: #93a1a1; text-decoration-color: #93a1a1; background-color: #f5f5f0; font-style: italic}
+.r12 {font-weight: bold}
+.r13 {color: #008080; text-decoration-color: #008080}
 body {
     color: #000000;
     background-color: #f5f5f0;
@@ -56,90 +57,111 @@ body {
 <body>
     <pre style="font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace"><code style="font-family:inherit"><span class="r1">Setup Guide: GRPO Training on a GPU Node</span>                                                            
 
+Based on the <a class="r2" href="https://www.primeintellect.ai/blog/verifiers-tutorial">PrimeIntellect tutorial</a>, adjusted for our local setup.                                 
+
 Step-by-step for training Qwen3-0.6B on alphabet-sort using verifiers-rl.                           
 
-<span class="r2">Prerequisites</span>                                                                                       
+<span class="r3">Prerequisites</span>                                                                                       
 
-<span class="r3"> • </span>GPU node with 2x GPUs (e.g. 2x A6000 48GB, 2x RTX Pro 6000 96GB)                                 
-<span class="r3"> • </span>SSH access with your key (see GPU Nodes doc)                                                     
-<span class="r3"> • </span>HuggingFace token (write access for push_to_hub)                                                 
-<span class="r3"> • </span>WandB API key                                                                                    
+<span class="r4"> • </span>GPU node with 2x GPUs (e.g. 2x A6000 48GB, 2x RTX Pro 6000 96GB)                                 
+<span class="r4"> • </span>SSH access with your key (see GPU Nodes doc)                                                     
+<span class="r4"> • </span>HuggingFace token (write access for push_to_hub)                                                 
+<span class="r4"> • </span>WandB API key                                                                                    
 
-<span class="r2">Step 1: SSH in</span>                                                                                      
+<span class="r3">Step 1: SSH in</span>                                                                                      
 
-<span class="r4">                                                                                                    </span>
-<span class="r4"> </span><span class="r5">ssh -i ~/.ssh/primeintellect_ed25519 -p &lt;port&gt; root@&lt;ip&gt;</span><span class="r4">                                           </span>
-<span class="r4">                                                                                                    </span>
+<span class="r5">                                                                                                    </span>
+<span class="r5"> </span><span class="r6">ssh -i ~/.ssh/primeintellect_ed25519 -p &lt;port&gt; root@&lt;ip&gt;</span><span class="r5">                                           </span>
+<span class="r5">                                                                                                    </span>
 
-<span class="r2">Step 2: Create workspace</span>                                                                            
+<span class="r3">Step 2: Create workspace</span>                                                                            
 
-<span class="r4">                                                                                                    </span>
-<span class="r4"> </span><span class="r6">cd</span><span class="r5"> /workspace</span><span class="r4">                                                                                      </span>
-<span class="r4"> </span><span class="r5">mkdir -p verifiers-tutorial </span><span class="r7">&amp;&amp;</span><span class="r5"> </span><span class="r6">cd</span><span class="r5"> verifiers-tutorial</span><span class="r4">                                               </span>
-<span class="r4">                                                                                                    </span>
+<span class="r5">                                                                                                    </span>
+<span class="r5"> </span><span class="r7">cd</span><span class="r6"> /workspace</span><span class="r5">                                                                                      </span>
+<span class="r5"> </span><span class="r6">mkdir -p verifiers-tutorial </span><span class="r8">&amp;&amp;</span><span class="r6"> </span><span class="r7">cd</span><span class="r6"> verifiers-tutorial</span><span class="r5">                                               </span>
+<span class="r5">                                                                                                    </span>
 
-<span class="r2">Step 3: Install uv and create venv</span>                                                                  
+<span class="r3">Step 3: Install uv and create venv</span>                                                                  
 
-<span class="r4">                                                                                                    </span>
-<span class="r4"> </span><span class="r5">curl -LsSf https://astral.sh/uv/install.sh | sh</span><span class="r4">                                                    </span>
-<span class="r4"> </span><span class="r6">source</span><span class="r5"> </span><span class="r6">$HOME</span><span class="r5">/.local/bin/env</span><span class="r4">                                                                        </span>
-<span class="r4"> </span><span class="r5">uv venv --python </span><span class="r8">3</span><span class="r5">.12 --seed</span><span class="r4">                                                                       </span>
-<span class="r4"> </span><span class="r6">source</span><span class="r5"> .venv/bin/activate</span><span class="r4">                                                                          </span>
-<span class="r4">                                                                                                    </span>
+<span class="r5">                                                                                                    </span>
+<span class="r5"> </span><span class="r6">curl -LsSf https://astral.sh/uv/install.sh | sh</span><span class="r5">                                                    </span>
+<span class="r5"> </span><span class="r7">source</span><span class="r6"> </span><span class="r7">$HOME</span><span class="r6">/.local/bin/env</span><span class="r5">                                                                        </span>
+<span class="r5"> </span><span class="r6">uv venv --python </span><span class="r9">3</span><span class="r6">.12 --seed</span><span class="r5">                                                                       </span>
+<span class="r5"> </span><span class="r7">source</span><span class="r6"> .venv/bin/activate</span><span class="r5">                                                                          </span>
+<span class="r5">                                                                                                    </span>
 
-<span class="r2">Step 4: Upload local files</span>                                                                          
+Why <span class="r10">--seed</span>? It installs pip and setuptools into the venv. Not strictly needed with uv, but some     
+packages (like flash-attn) shell out to pip during build. Without <span class="r10">--seed</span> those builds can fail.     
 
-From your local machine (not the node). We scp verifiers-rl, alphabet-sort, and the training script 
-from local instead of cloning repos on the node.                                                    
+<span class="r3">Step 4: Upload local files</span>                                                                          
 
-<span class="r4">                                                                                                    </span>
-<span class="r4"> </span><span class="r9"># verifiers-rl package</span><span class="r4">                                                                             </span>
-<span class="r4"> </span><span class="r5">scp -P &lt;port&gt; -i ~/.ssh/primeintellect_ed25519 -r </span><span class="r8">\</span><span class="r4">                                                </span>
-<span class="r4"> </span><span class="r5">  ~/projects/terminal2F/external/verifiers/packages/verifiers-rl </span><span class="r8">\</span><span class="r4">                                 </span>
-<span class="r4"> </span><span class="r5">  root@&lt;ip&gt;:/workspace/verifiers-tutorial/verifiers-rl</span><span class="r4">                                             </span>
-<span class="r4">                                                                                                    </span>
-<span class="r4"> </span><span class="r9"># alphabet-sort environment</span><span class="r4">                                                                        </span>
-<span class="r4"> </span><span class="r5">scp -P &lt;port&gt; -i ~/.ssh/primeintellect_ed25519 -r </span><span class="r8">\</span><span class="r4">                                                </span>
-<span class="r4"> </span><span class="r5">  ~/projects/terminal2F/environments/alphabet-sort </span><span class="r8">\</span><span class="r4">                                               </span>
-<span class="r4"> </span><span class="r5">  root@&lt;ip&gt;:/workspace/verifiers-tutorial/alphabet-sort</span><span class="r4">                                            </span>
-<span class="r4">                                                                                                    </span>
-<span class="r4"> </span><span class="r9"># training script</span><span class="r4">                                                                                  </span>
-<span class="r4"> </span><span class="r5">scp -P &lt;port&gt; -i ~/.ssh/primeintellect_ed25519 </span><span class="r8">\</span><span class="r4">                                                   </span>
-<span class="r4"> </span><span class="r5">  ~/projects/terminal2F/training_script.py </span><span class="r8">\</span><span class="r4">                                                       </span>
-<span class="r4"> </span><span class="r5">  root@&lt;ip&gt;:/workspace/verifiers-tutorial/training_script.py</span><span class="r4">                                       </span>
-<span class="r4">                                                                                                    </span>
+From your local machine (not the node):                                                             
 
-<span class="r2">Step 5: Install verifiers-rl (with all deps)</span>                                                        
+<span class="r5">                                                                                                    </span>
+<span class="r5"> </span><span class="r11"># verifiers-rl package</span><span class="r5">                                                                             </span>
+<span class="r5"> </span><span class="r6">scp -P &lt;port&gt; -i ~/.ssh/primeintellect_ed25519 -r </span><span class="r9">\</span><span class="r5">                                                </span>
+<span class="r5"> </span><span class="r6">  ~/projects/terminal2F/external/verifiers/packages/verifiers-rl </span><span class="r9">\</span><span class="r5">                                 </span>
+<span class="r5"> </span><span class="r6">  root@&lt;ip&gt;:/workspace/verifiers-tutorial/verifiers-rl</span><span class="r5">                                             </span>
+<span class="r5">                                                                                                    </span>
+<span class="r5"> </span><span class="r11"># alphabet-sort environment</span><span class="r5">                                                                        </span>
+<span class="r5"> </span><span class="r6">scp -P &lt;port&gt; -i ~/.ssh/primeintellect_ed25519 -r </span><span class="r9">\</span><span class="r5">                                                </span>
+<span class="r5"> </span><span class="r6">  ~/projects/terminal2F/environments/alphabet-sort </span><span class="r9">\</span><span class="r5">                                               </span>
+<span class="r5"> </span><span class="r6">  root@&lt;ip&gt;:/workspace/verifiers-tutorial/alphabet-sort</span><span class="r5">                                            </span>
+<span class="r5">                                                                                                    </span>
+<span class="r5"> </span><span class="r11"># training script</span><span class="r5">                                                                                  </span>
+<span class="r5"> </span><span class="r6">scp -P &lt;port&gt; -i ~/.ssh/primeintellect_ed25519 </span><span class="r9">\</span><span class="r5">                                                   </span>
+<span class="r5"> </span><span class="r6">  ~/projects/terminal2F/training_script.py </span><span class="r9">\</span><span class="r5">                                                       </span>
+<span class="r5"> </span><span class="r6">  root@&lt;ip&gt;:/workspace/verifiers-tutorial/training_script.py</span><span class="r5">                                       </span>
+<span class="r5">                                                                                                    </span>
+
+<span class="r12">Why scp instead of cloning or pip install?</span>                                                          
+
+In a normal setup you&#x27;d just <span class="r10">pip install verifiers-rl</span> from PyPI and <span class="r10">prime env install </span>              
+<span class="r10">owner/alphabet-sort</span> from the hub. But:                                                              
+
+<span class="r4"> • </span><span class="r12">verifiers-rl</span> wasn&#x27;t published as a standalone package on PyPI - it lives inside the verifiers    
+<span class="r4">   </span>monorepo under <span class="r10">packages/verifiers-rl/</span>. You can&#x27;t <span class="r10">pip install</span> it directly. So we scp the directory
+<span class="r4">   </span>and install from the local copy.                                                                 
+<span class="r4"> • </span><span class="r12">alphabet-sort</span> was a local/private environment we were developing, not yet on the hub. Same deal -
+<span class="r4">   </span>scp it over, install editable.                                                                   
+<span class="r4"> • </span><span class="r12">training_script.py</span> was our custom Python script with corrected RLConfig fields (see Training     
+<span class="r4">   </span>Script doc). Now this could be replaced with a TOML config and <span class="r10">vf-rl @ config.toml</span> instead.      
+
+If everything were published (verifiers-rl on PyPI, environment on the hub), you&#x27;d skip scp entirely
+and just install on the node. The scp approach is for when you&#x27;re working with local/unpublished    
+code.                                                                                               
+
+<span class="r3">Step 5: Install verifiers-rl (with all deps)</span>                                                        
 
 Back on the node. This is the critical step - do NOT use <span class="r10">--no-deps</span>.                                 
 
-<span class="r4">                                                                                                    </span>
-<span class="r4"> </span><span class="r6">cd</span><span class="r5"> /workspace/verifiers-tutorial</span><span class="r4">                                                                   </span>
-<span class="r4"> </span><span class="r5">uv pip install ./verifiers-rl</span><span class="r4">                                                                      </span>
-<span class="r4">                                                                                                    </span>
+<span class="r5">                                                                                                    </span>
+<span class="r5"> </span><span class="r7">cd</span><span class="r6"> /workspace/verifiers-tutorial</span><span class="r5">                                                                   </span>
+<span class="r5"> </span><span class="r6">uv pip install ./verifiers-rl</span><span class="r5">                                                                      </span>
+<span class="r5">                                                                                                    </span>
 
 This installs everything at compatible versions: vllm, flash-attn (compiles from source, ~15 min),  
 deepspeed, liger-kernel, trl, accelerate, torch.                                                    
 
-<span class="r11">Do NOT start vLLM during this step.</span> flash-attn compilation eats RAM. If vLLM is running too, the    
+<span class="r12">Do NOT start vLLM during this step.</span> flash-attn compilation eats RAM. If vLLM is running too, the    
 node can OOM and crash.                                                                             
 
 If flash-attn OOM&#x27;s during compile even without vLLM: <span class="r10">MAX_JOBS=4 uv pip install ./verifiers-rl</span>      
 
-<span class="r2">Step 6: Install extras</span>                                                                              
+<span class="r3">Step 6: Install extras</span>                                                                              
 
-<span class="r4">                                                                                                    </span>
-<span class="r4"> </span><span class="r5">uv pip install wandb</span><span class="r4">                                                                               </span>
-<span class="r4"> </span><span class="r5">uv pip install -e ./alphabet-sort</span><span class="r4">                                                                  </span>
-<span class="r4">                                                                                                    </span>
+<span class="r5">                                                                                                    </span>
+<span class="r5"> </span><span class="r6">uv pip install wandb</span><span class="r5">                                                                               </span>
+<span class="r5"> </span><span class="r6">uv pip install -e ./alphabet-sort</span><span class="r5">                                                                  </span>
+<span class="r5">                                                                                                    </span>
 
-<span class="r2">Step 7: Start vf-vllm on GPU 0</span>                                                                      
+<span class="r3">Step 7: Start vf-vllm on GPU 0</span>                                                                      
 
-<span class="r4">                                                                                                    </span>
-<span class="r4"> </span><span class="r6">export</span><span class="r5"> </span><span class="r6">HF_TOKEN</span><span class="r7">=</span><span class="r5">your_token</span><span class="r4">                                                                         </span>
-<span class="r4"> </span><span class="r6">CUDA_VISIBLE_DEVICES</span><span class="r7">=</span><span class="r8">0</span><span class="r5"> vf-vllm --model willcb/Qwen3-0.6B </span><span class="r8">\</span><span class="r4">                                         </span>
-<span class="r4"> </span><span class="r5">  --enforce-eager --disable-log-requests</span><span class="r4">                                                           </span>
-<span class="r4">                                                                                                    </span>
+<span class="r5">                                                                                                    </span>
+<span class="r5"> </span><span class="r7">export</span><span class="r6"> </span><span class="r7">HF_TOKEN</span><span class="r8">=</span><span class="r6">your_token</span><span class="r5">                                                                         </span>
+<span class="r5"> </span><span class="r7">CUDA_VISIBLE_DEVICES</span><span class="r8">=</span><span class="r9">0</span><span class="r6"> vf-vllm --model willcb/Qwen3-0.6B </span><span class="r9">\</span><span class="r5">                                         </span>
+<span class="r5"> </span><span class="r6">  --enforce-eager --disable-log-requests</span><span class="r5">                                                           </span>
+<span class="r5">                                                                                                    </span>
 
 Wait for <span class="r10">Application startup complete.</span>                                                              
 
@@ -150,48 +172,51 @@ weights from GPU 1 to GPU 0 via NCCL. <span class="r10">vf-vllm</span> adds <spa
 Why <span class="r10">willcb/Qwen3-0.6B</span>? The original Qwen3 strips <span class="r10">&lt;think&gt;</span> sections between turns, breaking multi-turn
 GRPO. The willcb fork preserves them.                                                               
 
-<span class="r2">Step 8: Run training on GPU 1</span>                                                                       
+<span class="r3">Step 8: Run training on GPU 1</span>                                                                       
 
 In a second tmux pane:                                                                              
 
-<span class="r4">                                                                                                    </span>
-<span class="r4"> </span><span class="r6">cd</span><span class="r5"> /workspace/verifiers-tutorial </span><span class="r7">&amp;&amp;</span><span class="r5"> </span><span class="r6">source</span><span class="r5"> .venv/bin/activate</span><span class="r4">                                      </span>
-<span class="r4"> </span><span class="r6">export</span><span class="r5"> </span><span class="r6">HF_TOKEN</span><span class="r7">=</span><span class="r5">your_token</span><span class="r4">                                                                         </span>
-<span class="r4"> </span><span class="r6">export</span><span class="r5"> </span><span class="r6">WANDB_API_KEY</span><span class="r7">=</span><span class="r5">your_key</span><span class="r4">                                                                      </span>
-<span class="r4"> </span><span class="r6">CUDA_VISIBLE_DEVICES</span><span class="r7">=</span><span class="r8">1</span><span class="r5"> python training_script.py</span><span class="r4">                                                   </span>
-<span class="r4">                                                                                                    </span>
+<span class="r5">                                                                                                    </span>
+<span class="r5"> </span><span class="r7">cd</span><span class="r6"> /workspace/verifiers-tutorial </span><span class="r8">&amp;&amp;</span><span class="r6"> </span><span class="r7">source</span><span class="r6"> .venv/bin/activate</span><span class="r5">                                      </span>
+<span class="r5"> </span><span class="r7">export</span><span class="r6"> </span><span class="r7">HF_TOKEN</span><span class="r8">=</span><span class="r6">your_token</span><span class="r5">                                                                         </span>
+<span class="r5"> </span><span class="r7">export</span><span class="r6"> </span><span class="r7">WANDB_API_KEY</span><span class="r8">=</span><span class="r6">your_key</span><span class="r5">                                                                      </span>
+<span class="r5"> </span><span class="r7">CUDA_VISIBLE_DEVICES</span><span class="r8">=</span><span class="r9">1</span><span class="r6"> python training_script.py</span><span class="r5">                                                   </span>
+<span class="r5">                                                                                                    </span>
 
 Monitor at wandb.ai. Training takes ~8 hours for 1000 steps.                                        
 
-<span class="r2">Step 9: Evaluate</span>                                                                                    
+There&#x27;s also a TOML-based approach (<span class="r10">vf-rl @ config.toml</span>) that automates the two-pane tmux setup. See
+Training Script doc. Either way works.                                                              
+
+<span class="r3">Step 9: Evaluate</span>                                                                                    
 
 Kill vf-vllm, serve the trained model, run eval:                                                    
 
-<span class="r4">                                                                                                    </span>
-<span class="r4"> </span><span class="r6">CUDA_VISIBLE_DEVICES</span><span class="r7">=</span><span class="r8">0</span><span class="r5"> vf-vllm --model ./mymodel </span><span class="r8">\</span><span class="r4">                                                 </span>
-<span class="r4"> </span><span class="r5">  --enforce-eager --disable-log-requests</span><span class="r4">                                                           </span>
-<span class="r4">                                                                                                    </span>
+<span class="r5">                                                                                                    </span>
+<span class="r5"> </span><span class="r7">CUDA_VISIBLE_DEVICES</span><span class="r8">=</span><span class="r9">0</span><span class="r6"> vf-vllm --model ./mymodel </span><span class="r9">\</span><span class="r5">                                                 </span>
+<span class="r5"> </span><span class="r6">  --enforce-eager --disable-log-requests</span><span class="r5">                                                           </span>
+<span class="r5">                                                                                                    </span>
 
-<span class="r2">Common Errors</span>                                                                                       
+<span class="r3">Common Errors</span>                                                                                       
 
-<span class="r12">                                                                         </span>
-<span class="r12"> </span><span class="r12">Problem</span><span class="r1">                       </span><span class="r12"> </span><span class="r12">Fix</span><span class="r1">                                     </span><span class="r12"> </span>
-<span class="r12"> ─────────────────────────────────────────────────────────────────────── </span>
-<span class="r12"> </span>flash-attn OOM during install <span class="r12"> </span>Kill vLLM first, or <span class="r10">MAX_JOBS=4</span>          <span class="r12"> </span>
-<span class="r12"> </span><span class="r10">vf-vllm: command not found</span>    <span class="r12"> </span><span class="r10">source .venv/bin/activate</span>               <span class="r12"> </span>
-<span class="r12"> </span>404 on <span class="r10">/get_world_size</span>        <span class="r12"> </span>Used <span class="r10">vllm serve</span> instead of <span class="r10">vf-vllm</span>      <span class="r12"> </span>
-<span class="r12"> </span><span class="r10">401 Unauthorized</span> on HF Hub    <span class="r12"> </span><span class="r10">export HF_TOKEN=xxx</span> (needs write access)<span class="r12"> </span>
-<span class="r12"> </span>NCCL error after Ctrl+C       <span class="r12"> </span>Restart both vf-vllm and training       <span class="r12"> </span>
-<span class="r12"> </span>SSH disconnect kills training <span class="r12"> </span>Use tmux                                <span class="r12"> </span>
-<span class="r12"> </span>CUDA OOM on backward pass     <span class="r12"> </span>Reduce <span class="r10">micro_batch_size</span> (4 instead of 8)<span class="r12"> </span>
-<span class="r12">                                                                         </span>
+<span class="r13">                                                                         </span>
+<span class="r13"> </span><span class="r13">Problem</span><span class="r1">                       </span><span class="r13"> </span><span class="r13">Fix</span><span class="r1">                                     </span><span class="r13"> </span>
+<span class="r13"> ─────────────────────────────────────────────────────────────────────── </span>
+<span class="r13"> </span>flash-attn OOM during install <span class="r13"> </span>Kill vLLM first, or <span class="r10">MAX_JOBS=4</span>          <span class="r13"> </span>
+<span class="r13"> </span><span class="r10">vf-vllm: command not found</span>    <span class="r13"> </span><span class="r10">source .venv/bin/activate</span>               <span class="r13"> </span>
+<span class="r13"> </span>404 on <span class="r10">/get_world_size</span>        <span class="r13"> </span>Used <span class="r10">vllm serve</span> instead of <span class="r10">vf-vllm</span>      <span class="r13"> </span>
+<span class="r13"> </span><span class="r10">401 Unauthorized</span> on HF Hub    <span class="r13"> </span><span class="r10">export HF_TOKEN=xxx</span> (needs write access)<span class="r13"> </span>
+<span class="r13"> </span>NCCL error after Ctrl+C       <span class="r13"> </span>Restart both vf-vllm and training       <span class="r13"> </span>
+<span class="r13"> </span>SSH disconnect kills training <span class="r13"> </span>Use tmux                                <span class="r13"> </span>
+<span class="r13"> </span>CUDA OOM on backward pass     <span class="r13"> </span>Reduce <span class="r10">micro_batch_size</span> (4 instead of 8)<span class="r13"> </span>
+<span class="r13">                                                                         </span>
 
-<span class="r2">Tips</span>                                                                                                
+<span class="r3">Tips</span>                                                                                                
 
-<span class="r3"> • </span>Use tmux: <span class="r10">tmux new -s train</span>, Ctrl+B D to detach, <span class="r10">tmux attach -t train</span> to reconnect               
-<span class="r3"> • </span>Split tmux: Ctrl+B % (vertical), Ctrl+B &quot; (horizontal), Ctrl+B arrow to switch                   
-<span class="r3"> • </span>Check GPU usage: <span class="r10">nvidia-smi --query-gpu=index,memory.used,utilization.gpu --format=csv</span>           
-<span class="r3"> • </span>scp uses uppercase <span class="r10">-P</span> for port                                                                   
+<span class="r4"> • </span>Use tmux: <span class="r10">tmux new -s train</span>, Ctrl+B D to detach, <span class="r10">tmux attach -t train</span> to reconnect               
+<span class="r4"> • </span>Split tmux: Ctrl+B % (vertical), Ctrl+B &quot; (horizontal), Ctrl+B arrow to switch                   
+<span class="r4"> • </span>Check GPU usage: <span class="r10">nvidia-smi --query-gpu=index,memory.used,utilization.gpu --format=csv</span>           
+<span class="r4"> • </span>scp uses uppercase <span class="r10">-P</span> for port                                                                   
 </code></pre>
 </body>
 </html>

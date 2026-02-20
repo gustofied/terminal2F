@@ -29,6 +29,16 @@ You generate the keypair on your machine because the private key must never leav
 
 It's not encryption - it's proof of identity. The public key is safe to share. Adding a passphrase protects you if your laptop is stolen.
 
+**ssh-agent** — holds your decrypted private key in memory so you don't have to pass `-i` every time or re-enter the passphrase:
+```bash
+eval "$(ssh-agent -s)"
+ssh-add ~/.ssh/primeintellect_ed25519
+```
+Now `ssh -p <port> root@<ip>` just works. On macOS, add `--apple-use-keychain` to persist across reboots:
+```bash
+ssh-add --apple-use-keychain ~/.ssh/primeintellect_ed25519
+```
+
 ### Getting on a GPU Node
 
 1. Pick a single-node GPU instance with 2x GPUs (one machine, two GPUs)
@@ -50,4 +60,7 @@ It's not encryption - it's proof of identity. The public key is safe to share. A
 
 - `/workspace` is a network mount on RunPod; local disk is `/`
 - `prime env install` downloads environments from the hub; private envs need `prime login` on the node
-- `prime` and `vf-eval` installed via `uv tool` end up in isolated tool envs - they can't see each other's packages. Fix: create one project venv and install everything there.
+- `prime` and `vf-eval` installed via `uv tool` end up in isolated tool envs — they can't see each other's packages. Options:
+  - Inject deps: `uv tool install prime --with verifiers` (adds verifiers into prime's tool env)
+  - One project venv: put everything in a `pyproject.toml` and `uv pip install` together
+  - Editable installs: `uv pip install -e ./external/verifiers -e ./external/t2f-trainer` in one venv

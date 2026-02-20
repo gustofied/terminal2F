@@ -9,6 +9,7 @@
 - Extracted verifiers-rl out of the verifiers subtree into `external/t2f-trainer/`
 - Renamed package to `t2f_trainer`, commands to `t2f-rl`, `t2f-train`, `t2f-vllm`
 - All internal imports updated, standalone from upstream
+- Compute our own advantages from raw rewards instead of using verifiers' pre-computed values (same contract as prime-rl and other trainers)
 
 ### What We Have
 
@@ -51,8 +52,9 @@ The codebase is small and well-defined:
 ### Next Steps
 
 1. Read through t2f-trainer source end to end - understand every file
-2. Unpin vllm, test with latest
-3. Make flash-attn optional (not everyone needs it)
+2. Unpin vllm — update `server.py` imports for newer vLLM (the `collective_rpc` / `worker_extension_cls` pattern is stable and officially supported, just the internal import paths move between versions)
+3. Make flash-attn optional — move to `[project.optional-dependencies]`, vLLM handles attention itself
 4. Add KL penalty option to prevent training collapse
-5. Read Ludic source for ideas on better multi-turn abstractions
-6. Test on a GPU node with alphabet-sort
+5. Add SFT training mode (for SFT + LoRA → RLVR + LoRA pipeline)
+6. Read Ludic source for ideas on better multi-turn abstractions
+7. Test on a GPU node with alphabet-sort

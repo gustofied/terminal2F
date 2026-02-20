@@ -1,5 +1,7 @@
 ## Setup Guide: GRPO Training on a GPU Node
 
+Based on the [PrimeIntellect tutorial](https://www.primeintellect.ai/blog/verifiers-tutorial), adjusted for our local setup.
+
 Step-by-step for training Qwen3-0.6B on alphabet-sort using verifiers-rl.
 
 ### Prerequisites
@@ -31,9 +33,11 @@ uv venv --python 3.12 --seed
 source .venv/bin/activate
 ```
 
+Why `--seed`? It installs pip and setuptools into the venv. Not strictly needed with uv, but some packages (like flash-attn) shell out to pip during build. Without `--seed` those builds can fail.
+
 ### Step 4: Upload local files
 
-From your local machine (not the node). We scp verifiers-rl, alphabet-sort, and the training script from local instead of cloning repos on the node.
+From your local machine (not the node):
 
 ```bash
 # verifiers-rl package
@@ -51,6 +55,16 @@ scp -P <port> -i ~/.ssh/primeintellect_ed25519 \
   ~/projects/terminal2F/training_script.py \
   root@<ip>:/workspace/verifiers-tutorial/training_script.py
 ```
+
+**Why scp instead of cloning or pip install?**
+
+In a normal setup you'd just `pip install verifiers-rl` from PyPI and `prime env install owner/alphabet-sort` from the hub. But:
+
+- **verifiers-rl** wasn't published as a standalone package on PyPI — it lives inside the verifiers monorepo under `packages/verifiers-rl/`. You can't `pip install` it directly. So we scp the directory and install from the local copy.
+- **alphabet-sort** was a local/private environment we were developing, not yet on the hub. Same deal — scp it over, install editable.
+- **training_script.py** was our custom Python script with corrected RLConfig fields (see Training Script doc). Now this could be replaced with a TOML config and `vf-rl @ config.toml` instead.
+
+If everything were published (verifiers-rl on PyPI, environment on the hub), you'd skip scp entirely and just install on the node. The scp approach is for when you're working with local/unpublished code.
 
 ### Step 5: Install verifiers-rl (with all deps)
 
@@ -100,6 +114,8 @@ CUDA_VISIBLE_DEVICES=1 python training_script.py
 ```
 
 Monitor at wandb.ai. Training takes ~8 hours for 1000 steps.
+
+There's also a TOML-based approach (`vf-rl @ config.toml`) that automates the two-pane tmux setup. See Training Script doc. Either way works.
 
 ### Step 9: Evaluate
 
