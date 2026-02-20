@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+    body {
+        background: #ffffff;
+        color: #1e1e1e;
+        font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', 'Menlo', monospace;
+        font-size: 14px;
+        line-height: 1.35;
+        padding: 0.5em 2em;
+        max-width: 960px;
+        margin: 0 auto;
+    }
+    pre {
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        margin: 0;
+    }
+    ::selection {
+        background: #d0e8ff;
+        color: #1e1e1e;
+    }
+    a { color: #268bd2; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    .back { color: #93a1a1; font-size: 12px; margin-bottom: 0; }
+</style>
+</head>
+<body>
+<p class="back"><a href="index.html">back</a></p>
+<pre><!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+.r1 {color: #268bd2; text-decoration-color: #268bd2; font-weight: bold}
+.r2 {color: #d33682; text-decoration-color: #d33682}
+.r3 {color: #2aa198; text-decoration-color: #2aa198; font-weight: bold}
+.r4 {background-color: #f5f5f0}
+.r5 {color: #cb4b16; text-decoration-color: #cb4b16; background-color: #f5f5f0}
+.r6 {color: #657b83; text-decoration-color: #657b83; background-color: #f5f5f0}
+.r7 {color: #268bd2; text-decoration-color: #268bd2; background-color: #f5f5f0}
+.r8 {color: #859900; text-decoration-color: #859900; background-color: #f5f5f0}
+.r9 {color: #93a1a1; text-decoration-color: #93a1a1; background-color: #f5f5f0}
+.r10 {color: #2aa198; text-decoration-color: #2aa198; background-color: #f5f5f0}
+.r11 {color: #cb4b16; text-decoration-color: #cb4b16}
+.r12 {color: #93a1a1; text-decoration-color: #93a1a1; background-color: #f5f5f0; font-style: italic}
+body {
+    color: #000000;
+    background-color: #f5f5f0;
+}
+</style>
+</head>
+<body>
+    <pre style="font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace"><code style="font-family:inherit"><span class="r1">Training Script: Legacy vs Corrected</span>                                                                
+
+The tutorial blog uses <span class="r2">vf.GRPOTrainer</span> with <span class="r2">grpo_defaults()</span>. This has issues. Here&#x27;s the legacy      
+version and what we actually use.                                                                   
+
+<span class="r3">Legacy (from the tutorial blog)</span>                                                                     
+
+<span class="r4">                                                                                                    </span>
+<span class="r4"> </span><span class="r5">import</span><span class="r6"> </span><span class="r7">verifiers</span><span class="r6"> </span><span class="r8">as</span><span class="r6"> </span><span class="r7">vf</span><span class="r4">                                                                             </span>
+<span class="r4"> </span><span class="r5">import</span><span class="r6"> </span><span class="r7">wandb</span><span class="r4">                                                                                       </span>
+<span class="r4">                                                                                                    </span>
+<span class="r4"> </span><span class="r8">def</span><span class="r6"> </span><span class="r7">main</span><span class="r6">():</span><span class="r4">                                                                                        </span>
+<span class="r4"> </span><span class="r6">    wandb</span><span class="r9">.</span><span class="r6">login()</span><span class="r4">                                                                                  </span>
+<span class="r4"> </span><span class="r6">    model_name </span><span class="r9">=</span><span class="r6"> </span><span class="r10">&quot;willcb/Qwen3-0.6B&quot;</span><span class="r4">                                                               </span>
+<span class="r4"> </span><span class="r6">    model, tokenizer </span><span class="r9">=</span><span class="r6"> vf</span><span class="r9">.</span><span class="r6">get_model_and_tokenizer(model_name)</span><span class="r4">                                      </span>
+<span class="r4"> </span><span class="r6">    vf_env </span><span class="r9">=</span><span class="r6"> vf</span><span class="r9">.</span><span class="r6">load_environment(</span><span class="r10">&quot;alphabet-sort&quot;</span><span class="r6">)</span><span class="r4">                                                  </span>
+<span class="r4">                                                                                                    </span>
+<span class="r4"> </span><span class="r6">    training_args </span><span class="r9">=</span><span class="r6"> vf</span><span class="r9">.</span><span class="r6">grpo_defaults(run_name</span><span class="r9">=</span><span class="r10">&quot;alphasort-grpo-qwen-3&quot;</span><span class="r6">)</span><span class="r4">                             </span>
+<span class="r4"> </span><span class="r6">    training_args</span><span class="r9">.</span><span class="r6">per_device_train_batch_size </span><span class="r9">=</span><span class="r6"> </span><span class="r10">8</span><span class="r4">                                                  </span>
+<span class="r4"> </span><span class="r6">    training_args</span><span class="r9">.</span><span class="r6">gradient_accumulation_steps </span><span class="r9">=</span><span class="r6"> </span><span class="r10">8</span><span class="r4">                                                  </span>
+<span class="r4"> </span><span class="r6">    training_args</span><span class="r9">.</span><span class="r6">num_generations </span><span class="r9">=</span><span class="r6"> </span><span class="r10">8</span><span class="r4">                                                              </span>
+<span class="r4"> </span><span class="r6">    training_args</span><span class="r9">.</span><span class="r6">max_completion_length </span><span class="r9">=</span><span class="r6"> </span><span class="r10">2048</span><span class="r4">                                                     </span>
+<span class="r4"> </span><span class="r6">    training_args</span><span class="r9">.</span><span class="r6">max_steps </span><span class="r9">=</span><span class="r6"> </span><span class="r10">1000</span><span class="r4">                                                                 </span>
+<span class="r4"> </span><span class="r6">    training_args</span><span class="r9">.</span><span class="r6">logging_steps </span><span class="r9">=</span><span class="r6"> </span><span class="r10">1</span><span class="r4">                                                                </span>
+<span class="r4"> </span><span class="r6">    training_args</span><span class="r9">.</span><span class="r6">report_to </span><span class="r9">=</span><span class="r6"> </span><span class="r10">&quot;wandb&quot;</span><span class="r4">                                                              </span>
+<span class="r4"> </span><span class="r6">    training_args</span><span class="r9">.</span><span class="r6">output_dir </span><span class="r9">=</span><span class="r6"> </span><span class="r10">&quot;./mymodel&quot;</span><span class="r4">                                                         </span>
+<span class="r4"> </span><span class="r6">    training_args</span><span class="r9">.</span><span class="r6">push_to_hub </span><span class="r9">=</span><span class="r6"> </span><span class="r10">True</span><span class="r4">                                                               </span>
+<span class="r4">                                                                                                    </span>
+<span class="r4"> </span><span class="r6">    trainer </span><span class="r9">=</span><span class="r6"> vf</span><span class="r9">.</span><span class="r6">GRPOTrainer(</span><span class="r4">                                                                      </span>
+<span class="r4"> </span><span class="r6">        model</span><span class="r9">=</span><span class="r6">model,</span><span class="r4">                                                                               </span>
+<span class="r4"> </span><span class="r6">        processing_class</span><span class="r9">=</span><span class="r6">tokenizer,</span><span class="r4">                                                                </span>
+<span class="r4"> </span><span class="r6">        env</span><span class="r9">=</span><span class="r6">vf_env,</span><span class="r4">                                                                                </span>
+<span class="r4"> </span><span class="r6">        args</span><span class="r9">=</span><span class="r6">training_args,</span><span class="r4">                                                                        </span>
+<span class="r4"> </span><span class="r6">    )</span><span class="r4">                                                                                              </span>
+<span class="r4"> </span><span class="r6">    trainer</span><span class="r9">.</span><span class="r6">train()</span><span class="r4">                                                                                </span>
+<span class="r4">                                                                                                    </span>
+
+Problems with this:                                                                                 
+
+<span class="r11"> • </span><span class="r2">vf.GRPOTrainer</span> is a wrapper with a broken positional arg order                                   
+<span class="r11"> • </span><span class="r2">grpo_defaults()</span> is deprecated, returns an <span class="r2">RLConfig</span> anyway                                        
+<span class="r11"> • </span>Field names like <span class="r2">per_device_train_batch_size</span> and <span class="r2">num_generations</span> are old TRL names - <span class="r2">RLConfig</span>    
+<span class="r11">   </span>uses <span class="r2">micro_batch_size</span> and <span class="r2">rollouts_per_example</span>                                                   
+<span class="r11"> • </span><span class="r2">use_lora</span> defaults to <span class="r2">True</span> (tutorial assumes full fine-tuning)                                    
+<span class="r11"> • </span><span class="r2">gradient_accumulation_steps</span> is hardcoded to 1 in <span class="r2">RLConfig.__post_init__</span>                          
+
+<span class="r3">Corrected (what we actually run)</span>                                                                    
+
+<span class="r4">                                                                                                    </span>
+<span class="r4"> </span><span class="r5">from</span><span class="r6"> </span><span class="r7">verifiers_rl.rl.trainer</span><span class="r6"> </span><span class="r5">import</span><span class="r6"> (</span><span class="r4">                                                              </span>
+<span class="r4"> </span><span class="r6">    RLTrainer, RLConfig, get_model_and_tokenizer</span><span class="r4">                                                   </span>
+<span class="r4"> </span><span class="r6">)</span><span class="r4">                                                                                                  </span>
+<span class="r4"> </span><span class="r5">import</span><span class="r6"> </span><span class="r7">verifiers</span><span class="r6"> </span><span class="r8">as</span><span class="r6"> </span><span class="r7">vf</span><span class="r4">                                                                             </span>
+<span class="r4"> </span><span class="r5">import</span><span class="r6"> </span><span class="r7">wandb</span><span class="r4">                                                                                       </span>
+<span class="r4">                                                                                                    </span>
+<span class="r4"> </span><span class="r8">def</span><span class="r6"> </span><span class="r7">main</span><span class="r6">():</span><span class="r4">                                                                                        </span>
+<span class="r4"> </span><span class="r6">    wandb</span><span class="r9">.</span><span class="r6">login()</span><span class="r4">                                                                                  </span>
+<span class="r4"> </span><span class="r6">    model_name </span><span class="r9">=</span><span class="r6"> </span><span class="r10">&quot;willcb/Qwen3-0.6B&quot;</span><span class="r4">                                                               </span>
+<span class="r4"> </span><span class="r6">    vf_env </span><span class="r9">=</span><span class="r6"> vf</span><span class="r9">.</span><span class="r6">load_environment(</span><span class="r10">&quot;alphabet-sort&quot;</span><span class="r6">)</span><span class="r4">                                                  </span>
+<span class="r4">                                                                                                    </span>
+<span class="r4"> </span><span class="r6">    args </span><span class="r9">=</span><span class="r6"> RLConfig(</span><span class="r4">                                                                               </span>
+<span class="r4"> </span><span class="r6">        run_name</span><span class="r9">=</span><span class="r10">&quot;alphasort-grpo-qwen-3&quot;</span><span class="r6">,</span><span class="r4">                                                          </span>
+<span class="r4"> </span><span class="r6">        use_liger</span><span class="r9">=</span><span class="r10">True</span><span class="r6">,</span><span class="r4">                                                                            </span>
+<span class="r4"> </span><span class="r6">        use_lora</span><span class="r9">=</span><span class="r10">False</span><span class="r6">,           </span><span class="r12"># tutorial wants full fine-tuning</span><span class="r4">                                </span>
+<span class="r4"> </span><span class="r6">        batch_size</span><span class="r9">=</span><span class="r10">64</span><span class="r6">,            </span><span class="r12"># total rollouts per batch</span><span class="r4">                                       </span>
+<span class="r4"> </span><span class="r6">        micro_batch_size</span><span class="r9">=</span><span class="r10">4</span><span class="r6">,       </span><span class="r12"># per GPU per step (reduced from 8, OOM)</span><span class="r4">                         </span>
+<span class="r4"> </span><span class="r6">        rollouts_per_example</span><span class="r9">=</span><span class="r10">8</span><span class="r6">,   </span><span class="r12"># GRPO group size</span><span class="r4">                                                </span>
+<span class="r4"> </span><span class="r6">        max_seq_len</span><span class="r9">=</span><span class="r10">2048</span><span class="r6">,</span><span class="r4">                                                                          </span>
+<span class="r4"> </span><span class="r6">        max_steps</span><span class="r9">=</span><span class="r10">1000</span><span class="r6">,</span><span class="r4">                                                                            </span>
+<span class="r4"> </span><span class="r6">        max_concurrent</span><span class="r9">=</span><span class="r10">1024</span><span class="r6">,</span><span class="r4">                                                                       </span>
+<span class="r4"> </span><span class="r6">        generation_timeout</span><span class="r9">=</span><span class="r10">300.0</span><span class="r6">,</span><span class="r4">                                                                  </span>
+<span class="r4"> </span><span class="r6">        logging_steps</span><span class="r9">=</span><span class="r10">1</span><span class="r6">,</span><span class="r4">                                                                           </span>
+<span class="r4"> </span><span class="r6">        report_to</span><span class="r9">=</span><span class="r10">&quot;wandb&quot;</span><span class="r6">,</span><span class="r4">                                                                         </span>
+<span class="r4"> </span><span class="r6">        output_dir</span><span class="r9">=</span><span class="r10">&quot;./mymodel&quot;</span><span class="r6">,</span><span class="r4">                                                                    </span>
+<span class="r4"> </span><span class="r6">        overwrite_output_dir</span><span class="r9">=</span><span class="r10">True</span><span class="r6">,</span><span class="r4">                                                                 </span>
+<span class="r4"> </span><span class="r6">        hub_model_id</span><span class="r9">=</span><span class="r10">&quot;gustofied/Qwen3-0.6B-alphabet-sort-grpo&quot;</span><span class="r6">,</span><span class="r4">                                    </span>
+<span class="r4"> </span><span class="r6">        hub_strategy</span><span class="r9">=</span><span class="r10">&quot;every_save&quot;</span><span class="r6">,</span><span class="r4">                                                                 </span>
+<span class="r4"> </span><span class="r6">        save_strategy</span><span class="r9">=</span><span class="r10">&quot;steps&quot;</span><span class="r6">,</span><span class="r4">                                                                     </span>
+<span class="r4"> </span><span class="r6">        save_steps</span><span class="r9">=</span><span class="r10">100</span><span class="r6">,</span><span class="r4">                                                                            </span>
+<span class="r4"> </span><span class="r6">        save_total_limit</span><span class="r9">=</span><span class="r10">1</span><span class="r6">,</span><span class="r4">                                                                        </span>
+<span class="r4"> </span><span class="r6">        push_to_hub</span><span class="r9">=</span><span class="r10">True</span><span class="r6">,</span><span class="r4">                                                                          </span>
+<span class="r4"> </span><span class="r6">    )</span><span class="r4">                                                                                              </span>
+<span class="r4">                                                                                                    </span>
+<span class="r4"> </span><span class="r6">    model, tokenizer </span><span class="r9">=</span><span class="r6"> get_model_and_tokenizer(</span><span class="r4">                                                    </span>
+<span class="r4"> </span><span class="r6">        model_name, use_liger</span><span class="r9">=</span><span class="r10">True</span><span class="r4">                                                                 </span>
+<span class="r4"> </span><span class="r6">    )</span><span class="r4">                                                                                              </span>
+<span class="r4">                                                                                                    </span>
+<span class="r4"> </span><span class="r6">    </span><span class="r12"># Use RLTrainer directly, not the GRPOTrainer wrapper</span><span class="r4">                                          </span>
+<span class="r4"> </span><span class="r6">    trainer </span><span class="r9">=</span><span class="r6"> RLTrainer(</span><span class="r4">                                                                           </span>
+<span class="r4"> </span><span class="r6">        model</span><span class="r9">=</span><span class="r6">model,</span><span class="r4">                                                                               </span>
+<span class="r4"> </span><span class="r6">        env</span><span class="r9">=</span><span class="r6">vf_env,</span><span class="r4">                                                                                </span>
+<span class="r4"> </span><span class="r6">        args</span><span class="r9">=</span><span class="r6">args,</span><span class="r4">                                                                                 </span>
+<span class="r4"> </span><span class="r6">        processing_class</span><span class="r9">=</span><span class="r6">tokenizer,</span><span class="r4">                                                                </span>
+<span class="r4"> </span><span class="r6">    )</span><span class="r4">                                                                                              </span>
+<span class="r4"> </span><span class="r6">    trainer</span><span class="r9">.</span><span class="r6">train()</span><span class="r4">                                                                                </span>
+<span class="r4">                                                                                                    </span>
+
+Key differences:                                                                                    
+
+<span class="r11"> • </span>Import <span class="r2">RLTrainer</span> and <span class="r2">RLConfig</span> directly from <span class="r2">verifiers_rl</span>                                         
+<span class="r11"> • </span>Use the correct field names (<span class="r2">micro_batch_size</span>, <span class="r2">rollouts_per_example</span>, <span class="r2">batch_size</span>)                 
+<span class="r11"> • </span>Explicitly set <span class="r2">use_lora=False</span> and <span class="r2">use_liger=True</span>                                                 
+<span class="r11"> • </span>Use keyword args to avoid positional arg confusion                                               
+<span class="r11"> • </span><span class="r2">micro_batch_size=4</span> instead of 8 (OOM fix on 48GB GPUs)                                           
+
+<span class="r3">Next step: TOML instead of Python</span>                                                                   
+
+Even verifiers-rl supports TOML config via <span class="r2">vf-rl</span>. No Python script needed:                          
+
+<span class="r4">                                                                                                    </span>
+<span class="r4"> </span><span class="r6">model </span><span class="r9">=</span><span class="r6"> </span><span class="r10">&quot;willcb/Qwen3-0.6B&quot;</span><span class="r4">                                                                        </span>
+<span class="r4">                                                                                                    </span>
+<span class="r4"> </span><span class="r8">[env]</span><span class="r4">                                                                                              </span>
+<span class="r4"> </span><span class="r6">id </span><span class="r9">=</span><span class="r6"> </span><span class="r10">&quot;primeintellect/alphabet-sort&quot;</span><span class="r4">                                                                </span>
+<span class="r4">                                                                                                    </span>
+<span class="r4"> </span><span class="r8">[inference]</span><span class="r4">                                                                                        </span>
+<span class="r4"> </span><span class="r6">gpus </span><span class="r9">=</span><span class="r6"> </span><span class="r10">1</span><span class="r4">                                                                                           </span>
+<span class="r4"> </span><span class="r6">args </span><span class="r9">=</span><span class="r6"> { enforce_eager = </span><span class="r10">true</span><span class="r6">, disable_log_requests = </span><span class="r10">true</span><span class="r6"> }</span><span class="r4">                                       </span>
+<span class="r4">                                                                                                    </span>
+<span class="r4"> </span><span class="r8">[trainer]</span><span class="r4">                                                                                          </span>
+<span class="r4"> </span><span class="r6">gpus </span><span class="r9">=</span><span class="r6"> </span><span class="r10">1</span><span class="r4">                                                                                           </span>
+<span class="r4">                                                                                                    </span>
+
+<span class="r4">                                                                                                    </span>
+<span class="r4"> </span><span class="r6">vf-rl @ configs/train.toml</span><span class="r4">                                                                         </span>
+<span class="r4">                                                                                                    </span>
+
+This spins up a tmux session with vf-vllm in the top pane and <span class="r2">vf-train</span> in the bottom, auto-assigns  
+GPUs (inference gets GPU 0, trainer gets GPU 1). Same thing we did manually with two terminals.     
+
+For production, use <span class="r2">prime-rl</span> instead - same TOML idea but actively maintained, multi-node support,  
+difficulty filtering, and more:                                                                     
+
+<span class="r4">                                                                                                    </span>
+<span class="r4"> </span><span class="r6">prime lab setup --prime-rl</span><span class="r4">                                                                         </span>
+<span class="r4"> </span><span class="r6">uv run prime-rl configs/prime-rl/alphabet-sort.toml</span><span class="r4">                                                </span>
+<span class="r4">                                                                                                    </span>
+
+<span class="r3">Results</span>                                                                                             
+
+<span class="r11"> • </span>Base Qwen3-0.6B: ~0.06-0.16 reward                                                               
+<span class="r11"> • </span>After GRPO (step 300 checkpoint): 0.84 reward                                                    
+<span class="r11"> • </span>GPT baseline: 0.86 reward                                                                        
+
+Training collapsed after step ~250 (entropy exploded, mismatch_kl spiked). The step 300 checkpoint  
+was from before the collapse. No KL penalty in verifiers-rl may have contributed.                   
+</code></pre>
+</body>
+</html>
+</pre>
+</body>
+</html>

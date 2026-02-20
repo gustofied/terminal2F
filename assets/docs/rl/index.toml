@@ -1,9 +1,11 @@
 title = "RL"
 
 [[groups]]
-name = "Getting Started"
+name = "Tutorial"
 docs = [
     { file = "gpu_nodes", title = "GPU Nodes and Shapes" },
+    { file = "setup_guide", title = "Setup Guide" },
+    { file = "training_script", title = "Training Script (Legacy vs Corrected)" },
     { file = "environment_workflow", title = "Environment Workflow" },
 ]
 
