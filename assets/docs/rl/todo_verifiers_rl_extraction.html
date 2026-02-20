@@ -35,11 +35,12 @@
 <head>
 <meta charset="UTF-8">
 <style>
-.r1 {color: #cb4b16; text-decoration-color: #cb4b16; font-weight: bold}
-.r2 {color: #268bd2; text-decoration-color: #268bd2; font-weight: bold}
-.r3 {color: #cb4b16; text-decoration-color: #cb4b16}
-.r4 {color: #d33682; text-decoration-color: #d33682}
+.r1 {color: #268bd2; text-decoration-color: #268bd2; font-weight: bold}
+.r2 {color: #2aa198; text-decoration-color: #2aa198; font-weight: bold}
+.r3 {color: #d33682; text-decoration-color: #d33682}
+.r4 {color: #cb4b16; text-decoration-color: #cb4b16}
 .r5 {color: #d33682; text-decoration-color: #d33682; font-weight: bold}
+.r6 {font-weight: bold}
 body {
     color: #000000;
     background-color: #f5f5f0;
@@ -47,52 +48,70 @@ body {
 </style>
 </head>
 <body>
-    <pre style="font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace"><code style="font-family:inherit">                              <span class="r1">TODO: Extract and Modernize verifiers-rl</span>                              
+    <pre style="font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace"><code style="font-family:inherit"><span class="r1">TODO: t2f-trainer</span>                                                                                   
 
-<span class="r2">The Idea</span>                                                                                            
+<span class="r2">What This Is</span>                                                                                        
 
-Take the valuable parts of verifiers-rl out of the verifiers monorepo subtree and make it a         
-standalone, hackable package. Then upgrade it to work with modern TRL and vllm instead of being     
-frozen at July 2025 versions.                                                                       
+<span class="r3">t2f-trainer</span> is our own RL trainer, forked from verifiers-rl. Lives at <span class="r3">external/t2f-trainer/</span>. The    
+goal is to build our own trainer over time using verifiers-rl as the starting base.                 
 
-<span class="r2">Current State</span>                                                                                       
+<span class="r2">Done</span>                                                                                                
 
-verifiers-rl lives nested inside the verifiers subtree:                                             
+<span class="r4"> • </span>Extracted verifiers-rl out of the verifiers subtree into <span class="r3">external/t2f-trainer/</span>                   
+<span class="r4"> • </span>Renamed package to <span class="r3">t2f_trainer</span>, commands to <span class="r3">t2f-rl</span>, <span class="r3">t2f-train</span>, <span class="r3">t2f-vllm</span>                          
+<span class="r4"> • </span>All internal imports updated, standalone from upstream                                           
 
-<span class="r3"> • </span><span class="r4">terminal2F/external/verifiers/packages/verifiers-rl/</span>                                             
-<span class="r3"> • </span>Also copied at <span class="r4">terminal2F/verifiers/packages/verifiers-rl/</span>                                       
+<span class="r2">What We Have</span>                                                                                        
 
-This is awkward for hacking on. It should be a top-level directory or its own repo.                 
+The codebase is small and well-defined:                                                             
 
-<span class="r2">What to Extract</span>                                                                                     
+<span class="r4"> 1 </span><span class="r5">orchestrator.py</span> - the multi-turn conversation loop. Model responds, environment gives new input, 
+<span class="r4">   </span>model responds again, score the whole trajectory. This is the core valuable piece.               
+<span class="r4"> 2 </span><span class="r5">client.py</span> - vLLM weight sync. Pushes updated weights from training GPU to inference GPU via NCCL.
+<span class="r4"> 3 </span><span class="r5">trainer.py</span> - subclasses <span class="r3">transformers.Trainer</span> directly (not TRL). Runs GRPO with importance ratio 
+<span class="r4">   </span>clipping.                                                                                        
+<span class="r4"> 4 </span><span class="r5">config.py</span> - RLConfig with multi-turn fields.                                                     
+<span class="r4"> 5 </span><span class="r5">server.py</span> - custom vLLM server with weight sync endpoints.                                       
 
-The valuable parts are small and well-defined:                                                      
+<span class="r2">What We Learned</span>                                                                                     
 
-<span class="r3"> 1 </span><span class="r5">orchestrator.py</span> - the multi-turn conversation loop. Model responds, environment gives new input, 
-<span class="r3">   </span>model responds again, score the whole trajectory. This is the piece TRL doesn&#x27;t have.            
-<span class="r3"> 2 </span><span class="r5">client.py</span> - vLLM weight sync. Pushes updated weights from training GPU to inference GPU via NCCL 
-<span class="r3">   </span>after each step.                                                                                 
-<span class="r3"> 3 </span><span class="r5">trainer.py</span> - glue that connects TRL&#x27;s GRPOTrainer to the orchestrator.                           
-<span class="r3"> 4 </span><span class="r5">config.py</span> - RLConfig (extends TRL&#x27;s GRPOConfig with multi-turn fields).                          
+<span class="r4"> • </span>verifiers-rl does NOT use TRL at all - it&#x27;s pure <span class="r3">transformers.Trainer</span>                            
+<span class="r4"> • </span>The earlier plan to port into TRL&#x27;s <span class="r3">rollout_func</span> is one option but not the only one              
+<span class="r4"> • </span>Ludic exists as a purpose-built multi-turn/agentic RL library (custom trainer, no TRL)           
+<span class="r4"> • </span>prime-rl is production-grade but not meant for hacking                                           
+<span class="r4"> • </span>The real value is the orchestrator + weight sync, the trainer itself is fairly standard GRPO     
 
-<span class="r2">Modernization Path</span>                                                                                  
+<span class="r2">Directions</span>                                                                                          
 
-<span class="r3"> • </span>Port the orchestrator logic into TRL&#x27;s <span class="r4">rollout_func</span> parameter (added recently, designed for      
-<span class="r3">   </span>custom rollout strategies)                                                                       
-<span class="r3"> • </span>Use modern vllm directly (no vf-vllm wrapper - handle weight sync differently or use vllm&#x27;s      
-<span class="r3">   </span>native mechanisms)                                                                               
-<span class="r3"> • </span>Drop the <span class="r4">vllm&gt;=0.10.0,&lt;0.11.0</span> pin - run on latest vllm                                           
-<span class="r3"> • </span>Drop flash-attn as a hard dependency (make it optional)                                          
-<span class="r3"> • </span>Keep it as a thin layer: just multi-turn orchestration + verifiers environment integration       
+<span class="r6">Option A: Keep evolving t2f-trainer</span>                                                                 
 
-<span class="r2">Steps</span>                                                                                               
+<span class="r4"> • </span>Simplest path. We own it, it works, it&#x27;s small enough to understand fully.                       
+<span class="r4"> • </span>Unpin vllm (currently locked to 0.10.x), make flash-attn optional                                
+<span class="r4"> • </span>Add KL penalty (training collapsed without it)                                                   
+<span class="r4"> • </span>Add more algorithms beyond GRPO                                                                  
+<span class="r4"> • </span>Improve the TOML config support                                                                  
 
-<span class="r3"> 1 </span>Copy <span class="r4">verifiers-rl/</span> to top-level in terminal2F (out of the subtree)                               
-<span class="r3"> 2 </span>Finish the tutorial first - understand what each piece does end to end                           
-<span class="r3"> 3 </span>Read TRL&#x27;s <span class="r4">rollout_func</span> docs and source                                                          
-<span class="r3"> 4 </span>Rewrite the orchestrator as a rollout function                                                   
-<span class="r3"> 5 </span>Test with alphabet-sort on a GPU node                                                            
-<span class="r3"> 6 </span>Optionally: make it its own repo                                                                 
+<span class="r6">Option B: Study Ludic&#x27;s architecture</span>                                                                
+
+<span class="r4"> • </span>Ludic is designed for exactly this - agentic multi-turn RL                                       
+<span class="r4"> • </span>Clean separation: agents, environments, interaction protocols                                    
+<span class="r4"> • </span>Modular credit assignment and loss functions                                                     
+<span class="r4"> • </span>Supports GRPO, SAPO, REINFORCE, SFT out of the box                                               
+<span class="r4"> • </span>Could adopt ideas or patterns into t2f-trainer                                                   
+
+<span class="r6">Option C: Contribute to prime-rl / upstream</span>                                                         
+
+<span class="r4"> • </span>If the changes are useful broadly, push them upstream                                            
+<span class="r4"> • </span>Less control but more community                                                                  
+
+<span class="r2">Next Steps</span>                                                                                          
+
+<span class="r4"> 1 </span>Read through t2f-trainer source end to end - understand every file                               
+<span class="r4"> 2 </span>Unpin vllm, test with latest                                                                     
+<span class="r4"> 3 </span>Make flash-attn optional (not everyone needs it)                                                 
+<span class="r4"> 4 </span>Add KL penalty option to prevent training collapse                                               
+<span class="r4"> 5 </span>Read Ludic source for ideas on better multi-turn abstractions                                    
+<span class="r4"> 6 </span>Test on a GPU node with alphabet-sort                                                            
 </code></pre>
 </body>
 </html>
