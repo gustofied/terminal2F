@@ -16,20 +16,26 @@ prompt = [{"role": "user", "content": "What is 2+2?"}]
 
 You don't need to manually build the messages list. Just give it a string and it handles the chat format.
 
-### Environment IDs vs Hub references
+### Environment references
 
-Two different formats for two different commands:
+Three formats depending on what you're doing:
 
-- **`prime env install`** takes the full Hub reference: `owner/name@version`
+- **Hub reference** — `owner/name@version` — for installing from the hub:
   ```bash
-  prime env install primeintellect/alphabet-sort@0.1.15
-  ```
-- **`vf-eval`** takes just the environment id: `alphabet-sort`
-  ```bash
-  prime eval run alphabet-sort -m gpt-4.1-mini -n 10
+  prime env install owner/my-env@0.1.0
   ```
 
-The `@0.1.15` is the Hub package version for installing. At eval time, it just needs the name - it imports the installed Python module (`alphabet_sort`) regardless of what version you installed.
+- **Hub slug** — `owner/name` — for running eval via prime (auto-installs if not local):
+  ```bash
+  prime eval run owner/my-env -m gpt-4.1-mini -n 10 -r 3
+  ```
+
+- **Environment ID** — just the name — for local eval with vf-eval:
+  ```bash
+  uv run vf-eval my-env
+  ```
+
+Under the hood it's all the same: the environment ID gets converted to a Python module name (hyphens → underscores) and imported. `prime eval` can also resolve from the hub by slug, `vf-eval` only looks locally.
 
 ### Rubric vs reward function
 

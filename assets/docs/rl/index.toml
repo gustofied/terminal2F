@@ -29,4 +29,5 @@ docs = [
 name = "TODO"
 docs = [
     { file = "todo_verifiers_rl_extraction", title = "Extract and Modernize verifiers-rl" },
+    { file = "todo_t2f_eval", title = "t2f-eval: Eval Runner with Rerun Logging" },
 ]

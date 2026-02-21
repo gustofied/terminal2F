@@ -41,7 +41,7 @@
 .r4 {background-color: #f5f5f0}
 .r5 {color: #657b83; text-decoration-color: #657b83; background-color: #f5f5f0}
 .r6 {color: #cb4b16; text-decoration-color: #cb4b16}
-.r7 {color: #d33682; text-decoration-color: #d33682; font-weight: bold}
+.r7 {font-weight: bold}
 .r8 {color: #268bd2; text-decoration-color: #268bd2; background-color: #f5f5f0}
 .r9 {color: #2aa198; text-decoration-color: #2aa198; background-color: #f5f5f0}
 .r10 {color: #93a1a1; text-decoration-color: #93a1a1; background-color: #f5f5f0}
@@ -73,21 +73,26 @@ for you:
 You don&#x27;t need to manually build the messages list. Just give it a string and it handles the chat   
 format.                                                                                             
 
-<span class="r2">Environment IDs vs Hub references</span>                                                                   
+<span class="r2">Environment references</span>                                                                              
 
-Two different formats for two different commands:                                                   
+Three formats depending on what you&#x27;re doing:                                                       
 
-<span class="r6"> • </span><span class="r7">prime env install</span> takes the full Hub reference: <span class="r3">owner/name@version</span>                               
+<span class="r6"> • </span><span class="r7">Hub reference</span> - <span class="r3">owner/name@version</span> - for installing from the hub:                                
 <span class="r6">   </span><span class="r4">                                                                                                 </span>
-<span class="r6">   </span><span class="r4"> </span><span class="r5">prime env install primeintellect/alphabet-sort@0.1.15</span><span class="r4">                                           </span>
+<span class="r6">   </span><span class="r4"> </span><span class="r5">prime env install owner/my-env@0.1.0</span><span class="r4">                                                            </span>
 <span class="r6">   </span><span class="r4">                                                                                                 </span>
-<span class="r6"> • </span><span class="r7">vf-eval</span> takes just the environment id: <span class="r3">alphabet-sort</span>                                             
+<span class="r6"> • </span><span class="r7">Hub slug</span> - <span class="r3">owner/name</span> - for running eval via prime (auto-installs if not local):                 
 <span class="r6">   </span><span class="r4">                                                                                                 </span>
-<span class="r6">   </span><span class="r4"> </span><span class="r5">prime </span><span class="r8">eval</span><span class="r5"> run alphabet-sort -m gpt-4.1-mini -n </span><span class="r9">10</span><span class="r4">                                              </span>
+<span class="r6">   </span><span class="r4"> </span><span class="r5">prime </span><span class="r8">eval</span><span class="r5"> run owner/my-env -m gpt-4.1-mini -n </span><span class="r9">10</span><span class="r5"> -r </span><span class="r9">3</span><span class="r4">                                          </span>
+<span class="r6">   </span><span class="r4">                                                                                                 </span>
+<span class="r6"> • </span><span class="r7">Environment ID</span> - just the name - for local eval with vf-eval:                                    
+<span class="r6">   </span><span class="r4">                                                                                                 </span>
+<span class="r6">   </span><span class="r4"> </span><span class="r5">uv run vf-eval my-env</span><span class="r4">                                                                           </span>
 <span class="r6">   </span><span class="r4">                                                                                                 </span>
 
-The <span class="r3">@0.1.15</span> is the Hub package version for installing. At eval time, it just needs the name - it    
-imports the installed Python module (<span class="r3">alphabet_sort</span>) regardless of what version you installed.       
+Under the hood it&#x27;s all the same: the environment ID gets converted to a Python module name (hyphens
+→ underscores) and imported. <span class="r3">prime eval</span> can also resolve from the hub by slug, <span class="r3">vf-eval</span> only looks   
+locally.                                                                                            
 
 <span class="r2">Rubric vs reward function</span>                                                                           
 

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+    body {
+        background: #ffffff;
+        color: #1e1e1e;
+        font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', 'Menlo', monospace;
+        font-size: 14px;
+        line-height: 1.35;
+        padding: 0.5em 2em;
+        max-width: 960px;
+        margin: 0 auto;
+    }
+    pre {
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        margin: 0;
+    }
+    ::selection {
+        background: #d0e8ff;
+        color: #1e1e1e;
+    }
+    a { color: #268bd2; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    .back { color: #93a1a1; font-size: 12px; margin-bottom: 0; }
+</style>
+</head>
+<body>
+<p class="back"><a href="index.html">back</a></p>
+<pre><!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+.r1 {color: #268bd2; text-decoration-color: #268bd2; font-weight: bold}
+.r2 {color: #2aa198; text-decoration-color: #2aa198; font-weight: bold}
+.r3 {color: #d33682; text-decoration-color: #d33682}
+body {
+    color: #000000;
+    background-color: #f5f5f0;
+}
+</style>
+</head>
+<body>
+    <pre style="font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace"><code style="font-family:inherit"><span class="r1">TODO: t2f-eval</span>                                                                                      
+
+<span class="r2">Idea</span>                                                                                                
+
+Custom eval runner with Rerun logging instead of the Rich TUI that <span class="r3">vf-eval</span> and <span class="r3">prime eval</span> use.      
+
+<span class="r2">Why</span>                                                                                                 
+
+<span class="r3">vf-eval</span> and <span class="r3">prime eval</span> hardcode their display logic (Rich TUI / progress bars). No way to plug in   
+custom logging through the CLI. But verifiers&#x27; <span class="r3">run_evaluation()</span> in <span class="r3">eval_utils.py</span> already takes      
+<span class="r3">on_progress</span> and <span class="r3">on_log</span> callbacks - the TUI is just one implementation of those callbacks.           
+
+<span class="r2">How</span>                                                                                                 
+
+Write a <span class="r3">t2f-eval</span> command that calls <span class="r3">run_evaluation()</span> directly with Rerun callbacks instead of Rich  
+ones. Same eval logic, different visualization. No verifiers changes needed.                        
+
+The callbacks fire on every completed rollout, so logging is live - not a post-processing step.     
+</code></pre>
+</body>
+</html>
+</pre>
+</body>
+</html>
