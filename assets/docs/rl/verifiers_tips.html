@@ -44,6 +44,8 @@
 .r7 {color: #d33682; text-decoration-color: #d33682; font-weight: bold}
 .r8 {color: #268bd2; text-decoration-color: #268bd2; background-color: #f5f5f0}
 .r9 {color: #2aa198; text-decoration-color: #2aa198; background-color: #f5f5f0}
+.r10 {color: #93a1a1; text-decoration-color: #93a1a1; background-color: #f5f5f0}
+.r11 {color: #859900; text-decoration-color: #859900; background-color: #f5f5f0}
 body {
     color: #000000;
     background-color: #f5f5f0;
@@ -86,6 +88,22 @@ Two different formats for two different commands:
 
 The <span class="r3">@0.1.15</span> is the Hub package version for installing. At eval time, it just needs the name - it    
 imports the installed Python module (<span class="r3">alphabet_sort</span>) regardless of what version you installed.       
+
+<span class="r2">Rubric vs reward function</span>                                                                           
+
+A rubric is a collection of reward functions. Each reward function scores one aspect (e.g.          
+<span class="r3">to_correct</span>, <span class="r3">cc_correct</span>, <span class="r3">bcc_correct</span>), and the rubric combines them into the final reward score.     
+
+In verifiers, a rubric has multiple scoring functions decorated with weights, and it aggregates     
+them:                                                                                               
+
+<span class="r4">                                                                                                    </span>
+<span class="r4"> </span><span class="r8">@rubric</span><span class="r10">.</span><span class="r5">metric(weight</span><span class="r10">=</span><span class="r9">1.0</span><span class="r5">)</span><span class="r4">                                                                         </span>
+<span class="r4"> </span><span class="r11">def</span><span class="r5"> </span><span class="r8">to_correct</span><span class="r5">(</span><span class="r10">...</span><span class="r5">): </span><span class="r10">...</span><span class="r4">                                                                           </span>
+<span class="r4">                                                                                                    </span>
+<span class="r4"> </span><span class="r8">@rubric</span><span class="r10">.</span><span class="r5">metric(weight</span><span class="r10">=</span><span class="r9">1.0</span><span class="r5">)</span><span class="r4">                                                                         </span>
+<span class="r4"> </span><span class="r11">def</span><span class="r5"> </span><span class="r8">cc_correct</span><span class="r5">(</span><span class="r10">...</span><span class="r5">): </span><span class="r10">...</span><span class="r4">                                                                           </span>
+<span class="r4">                                                                                                    </span>
 </code></pre>
 </body>
 </html>

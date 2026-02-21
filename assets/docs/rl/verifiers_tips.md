@@ -30,3 +30,17 @@ Two different formats for two different commands:
   ```
 
 The `@0.1.15` is the Hub package version for installing. At eval time, it just needs the name - it imports the installed Python module (`alphabet_sort`) regardless of what version you installed.
+
+### Rubric vs reward function
+
+A rubric is a collection of reward functions. Each reward function scores one aspect (e.g. `to_correct`, `cc_correct`, `bcc_correct`), and the rubric combines them into the final reward score.
+
+In verifiers, a rubric has multiple scoring functions decorated with weights, and it aggregates them:
+
+```python
+@rubric.metric(weight=1.0)
+def to_correct(...): ...
+
+@rubric.metric(weight=1.0)
+def cc_correct(...): ...
+```
