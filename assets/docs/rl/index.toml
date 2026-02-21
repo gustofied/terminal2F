@@ -15,6 +15,7 @@ docs = [
     { file = "training_architecture", title = "Training Architecture: Who Does What" },
     { file = "grpo_example", title = "How GRPO Works" },
     { file = "dr_grpo", title = "Dr.GRPO: What It Fixes" },
+    { file = "multi_turn_envs", title = "Multi-Turn Environments" },
 ]
 
 [[groups]]

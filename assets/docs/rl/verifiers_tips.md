@@ -50,3 +50,33 @@ def to_correct(...): ...
 @rubric.metric(weight=1.0)
 def cc_correct(...): ...
 ```
+
+### Reward function parameters
+
+Verifiers auto-maps parameter names to available data. You can ask for any combination:
+
+```python
+def score(completion, answer, **kwargs)   # completion + answer column
+def score(completion, info, **kwargs)     # completion + info dict
+def score(completion, state, **kwargs)    # completion + full state
+def score(state, **kwargs)               # just state, pull everything yourself
+```
+
+`async` is optional — verifiers uses `maybe_await` so both sync and async reward functions work. Use `async` when your reward function makes API calls (e.g. LLM-as-judge).
+
+### `info` is static, `state` is live
+
+`info` is a dict on the dataset row — it stays the same for the entire rollout. Put ground truths, follow-up questions, rules, or any reference data here.
+
+`state` updates every turn — it holds the growing trajectory, completion, turn count, rewards, etc.
+
+For multi-turn, index into `info` by turn number:
+
+```python
+turn = len(state["trajectory"])
+expected = state["info"]["expected"][turn]
+```
+
+### `answer` is just a convention
+
+Nothing in verifiers requires an `answer` column. It's just a dataset column name that gets passed to reward functions. You can use `info` for everything, or any column name you want — as long as your reward function parameters match.

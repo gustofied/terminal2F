@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+    body {
+        background: #ffffff;
+        color: #1e1e1e;
+        font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', 'Menlo', monospace;
+        font-size: 14px;
+        line-height: 1.35;
+        padding: 0.5em 2em;
+        max-width: 960px;
+        margin: 0 auto;
+    }
+    pre {
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        margin: 0;
+    }
+    ::selection {
+        background: #d0e8ff;
+        color: #1e1e1e;
+    }
+    a { color: #268bd2; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    .back { color: #93a1a1; font-size: 12px; margin-bottom: 0; }
+</style>
+</head>
+<body>
+<p class="back"><a href="index.html">back</a></p>
+<pre><!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+.r1 {color: #268bd2; text-decoration-color: #268bd2; font-weight: bold}
+.r2 {color: #2aa198; text-decoration-color: #2aa198; font-weight: bold}
+.r3 {font-weight: bold}
+.r4 {color: #d33682; text-decoration-color: #d33682}
+.r5 {background-color: #f5f5f0}
+.r6 {color: #657b83; text-decoration-color: #657b83; background-color: #f5f5f0}
+.r7 {color: #2aa198; text-decoration-color: #2aa198; background-color: #f5f5f0}
+.r8 {color: #d33682; text-decoration-color: #d33682; font-weight: bold}
+.r9 {color: #859900; text-decoration-color: #859900; background-color: #f5f5f0}
+.r10 {color: #268bd2; text-decoration-color: #268bd2; background-color: #f5f5f0}
+.r11 {color: #93a1a1; text-decoration-color: #93a1a1; background-color: #f5f5f0}
+.r12 {color: #93a1a1; text-decoration-color: #93a1a1; background-color: #f5f5f0; font-style: italic}
+.r13 {color: #cb4b16; text-decoration-color: #cb4b16}
+body {
+    color: #000000;
+    background-color: #f5f5f0;
+}
+</style>
+</head>
+<body>
+    <pre style="font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace"><code style="font-family:inherit"><span class="r1">Multi-Turn Environments in Verifiers</span>                                                                
+
+<span class="r2">The Pieces</span>                                                                                          
+
+<span class="r3">Dataset row</span> - the starting state. Has <span class="r4">prompt</span> (initial message), plus any extra data you need during 
+the rollout. Extra data goes in <span class="r4">info</span>:                                                               
+
+<span class="r5">                                                                                                    </span>
+<span class="r5"> </span><span class="r6">{</span><span class="r5">                                                                                                  </span>
+<span class="r5"> </span><span class="r6">    </span><span class="r7">&quot;prompt&quot;</span><span class="r6">: [{</span><span class="r7">&quot;role&quot;</span><span class="r6">: </span><span class="r7">&quot;user&quot;</span><span class="r6">, </span><span class="r7">&quot;content&quot;</span><span class="r6">: </span><span class="r7">&quot;Sort these names: Alice, Bob&quot;</span><span class="r6">}],</span><span class="r5">                       </span>
+<span class="r5"> </span><span class="r6">    </span><span class="r7">&quot;info&quot;</span><span class="r6">: {</span><span class="r5">                                                                                      </span>
+<span class="r5"> </span><span class="r6">        </span><span class="r7">&quot;follow_ups&quot;</span><span class="r6">: [</span><span class="r7">&quot;Now add Charlie&quot;</span><span class="r6">, </span><span class="r7">&quot;Now add Dan&quot;</span><span class="r6">],</span><span class="r5">                                          </span>
+<span class="r5"> </span><span class="r6">        </span><span class="r7">&quot;ground_truths&quot;</span><span class="r6">: [[</span><span class="r7">&quot;Alice&quot;</span><span class="r6">, </span><span class="r7">&quot;Bob&quot;</span><span class="r6">], [</span><span class="r7">&quot;Alice&quot;</span><span class="r6">, </span><span class="r7">&quot;Bob&quot;</span><span class="r6">, </span><span class="r7">&quot;Charlie&quot;</span><span class="r6">], [</span><span class="r7">&quot;Alice&quot;</span><span class="r6">, </span><span class="r7">&quot;Bob&quot;</span><span class="r6">, </span><span class="r5">         </span>
+<span class="r5"> </span><span class="r7">&quot;Charlie&quot;</span><span class="r6">, </span><span class="r7">&quot;Dan&quot;</span><span class="r6">]],</span><span class="r5">                                                                                </span>
+<span class="r5"> </span><span class="r6">        </span><span class="r7">&quot;num_turns&quot;</span><span class="r6">: </span><span class="r7">3</span><span class="r6">,</span><span class="r5">                                                                            </span>
+<span class="r5"> </span><span class="r6">    }</span><span class="r5">                                                                                              </span>
+<span class="r5"> </span><span class="r6">}</span><span class="r5">                                                                                                  </span>
+<span class="r5">                                                                                                    </span>
+
+<span class="r3">State</span> - a dict that carries everything through the rollout. Your dataset row fields (<span class="r4">prompt</span>, <span class="r4">answer</span>,
+<span class="r4">info</span>, <span class="r4">task</span>) are accessible via <span class="r4">state[&quot;info&quot;]</span>, <span class="r4">state[&quot;answer&quot;]</span>, etc. Runtime fields get added during 
+the rollout: <span class="r4">trajectory</span>, <span class="r4">completion</span>, <span class="r4">reward</span>, <span class="r4">is_completed</span>.                                          
+
+<span class="r8">env_response(messages, state)</span> - your function. Called after each model turn. Gets the full          
+conversation so far + state. Returns new messages to append. This is where your environment logic   
+lives.                                                                                              
+
+<span class="r8">@vf.stop</span> - methods that check if the rollout is done. Called after each turn. Return <span class="r4">True</span> to end.   
+
+<span class="r2">The Loop</span>                                                                                            
+
+<span class="r5">                                                                                                    </span>
+<span class="r5"> </span><span class="r6">1. Model sees initial prompt → responds</span><span class="r5">                                                            </span>
+<span class="r5"> </span><span class="r6">2. Response appended to conversation</span><span class="r5">                                                               </span>
+<span class="r5"> </span><span class="r6">3. Check @vf.stop → if done, go to 6</span><span class="r5">                                                               </span>
+<span class="r5"> </span><span class="r6">4. env_response() called → returns new messages</span><span class="r5">                                                    </span>
+<span class="r5"> </span><span class="r6">5. New messages appended to conversation → go to 1</span><span class="r5">                                                 </span>
+<span class="r5"> </span><span class="r6">6. Whole conversation scored by rubric</span><span class="r5">                                                             </span>
+<span class="r5">                                                                                                    </span>
+
+The messages list keeps growing until stop. By the end it&#x27;s the full conversation:                  
+
+<span class="r5">                                                                                                    </span>
+<span class="r5"> </span><span class="r6">Turn 1: [{user: &quot;Sort: Alice, Bob&quot;}, {assistant: &quot;Alice, Bob&quot;}, {user: &quot;Now add Charlie&quot;}]</span><span class="r5">         </span>
+<span class="r5"> </span><span class="r6">Turn 2: [...all above..., {assistant: &quot;Alice, Bob, Charlie&quot;}, {user: &quot;Now add Dan&quot;}]</span><span class="r5">               </span>
+<span class="r5"> </span><span class="r6">Turn 3: [...all above..., {assistant: &quot;Alice, Bob, Charlie, Dan&quot;}] → @vf.stop → score</span><span class="r5">              </span>
+<span class="r5">                                                                                                    </span>
+
+<span class="r2">Where Data Comes From</span>                                                                               
+
+<span class="r3">Pre-planned</span> - store follow-up questions in <span class="r4">info</span>, pull them out in <span class="r4">env_response</span>:                     
+
+<span class="r5">                                                                                                    </span>
+<span class="r5"> </span><span class="r9">async</span><span class="r6"> </span><span class="r9">def</span><span class="r6"> </span><span class="r10">env_response</span><span class="r6">(</span><span class="r10">self</span><span class="r6">, messages, state):</span><span class="r5">                                                     </span>
+<span class="r5"> </span><span class="r6">    turn </span><span class="r11">=</span><span class="r6"> </span><span class="r10">len</span><span class="r6">([m </span><span class="r9">for</span><span class="r6"> m </span><span class="r9">in</span><span class="r6"> messages </span><span class="r9">if</span><span class="r6"> m[</span><span class="r7">&quot;role&quot;</span><span class="r6">] </span><span class="r11">==</span><span class="r6"> </span><span class="r7">&quot;assistant&quot;</span><span class="r6">]) </span><span class="r11">-</span><span class="r6"> </span><span class="r7">1</span><span class="r5">                              </span>
+<span class="r5"> </span><span class="r6">    follow_ups </span><span class="r11">=</span><span class="r6"> state[</span><span class="r7">&quot;info&quot;</span><span class="r6">][</span><span class="r7">&quot;follow_ups&quot;</span><span class="r6">]</span><span class="r5">                                                       </span>
+<span class="r5"> </span><span class="r6">    </span><span class="r9">return</span><span class="r6"> [{</span><span class="r7">&quot;role&quot;</span><span class="r6">: </span><span class="r7">&quot;user&quot;</span><span class="r6">, </span><span class="r7">&quot;content&quot;</span><span class="r6">: follow_ups[turn]}]</span><span class="r5">                                         </span>
+<span class="r5">                                                                                                    </span>
+
+<span class="r3">Dynamic</span> - generate responses based on what the model did:                                           
+
+<span class="r5">                                                                                                    </span>
+<span class="r5"> </span><span class="r9">async</span><span class="r6"> </span><span class="r9">def</span><span class="r6"> </span><span class="r10">env_response</span><span class="r6">(</span><span class="r10">self</span><span class="r6">, messages, state):</span><span class="r5">                                                     </span>
+<span class="r5"> </span><span class="r6">    last_response </span><span class="r11">=</span><span class="r6"> messages[</span><span class="r11">-</span><span class="r7">1</span><span class="r6">][</span><span class="r7">&quot;content&quot;</span><span class="r6">]</span><span class="r5">                                                        </span>
+<span class="r5"> </span><span class="r6">    result </span><span class="r11">=</span><span class="r6"> execute_action(last_response)  </span><span class="r12"># run in browser, sandbox, etc.</span><span class="r5">                        </span>
+<span class="r5"> </span><span class="r6">    </span><span class="r9">return</span><span class="r6"> [{</span><span class="r7">&quot;role&quot;</span><span class="r6">: </span><span class="r7">&quot;user&quot;</span><span class="r6">, </span><span class="r7">&quot;content&quot;</span><span class="r6">: result}]</span><span class="r5">                                                   </span>
+<span class="r5">                                                                                                    </span>
+
+<span class="r3">Hybrid</span> - dataset has the scaffolding, <span class="r4">env_response</span> adapts based on what happens. Most real          
+environments are this.                                                                              
+
+<span class="r2">SingleTurnEnv vs MultiTurnEnv</span>                                                                       
+
+<span class="r4">SingleTurnEnv</span> - one prompt, one response, score. No <span class="r4">env_response</span> needed. Use <span class="r4">question</span> string or     
+<span class="r4">prompt</span> messages list.                                                                               
+
+<span class="r4">MultiTurnEnv</span> - conversation grows turn by turn. Must override <span class="r4">env_response</span>. The dataset <span class="r4">prompt</span> is   
+just the seed.                                                                                      
+
+<span class="r2">final_env_response</span>                                                                                  
+
+If your <span class="r4">env_response</span> sets <span class="r4">state[&quot;final_env_response&quot;]</span>, the loop stops without making another model  
+call. Used when the environment knows the conversation is done and wants to add a final message     
+(e.g. &quot;Game over, you scored 8/10&quot;) without waiting for the model to respond.                       
+
+<span class="r2">The Environment Hierarchy</span>                                                                           
+
+Everything is a <span class="r4">MultiTurnEnv</span> with a different <span class="r4">env_response</span>:                                         
+
+<span class="r5">                                                                                                    </span>
+<span class="r5"> </span><span class="r6">Environment (base)</span><span class="r5">                                                                                 </span>
+<span class="r5"> </span><span class="r6">  └── MultiTurnEnv (adds the env_response loop)</span><span class="r5">                                                    </span>
+<span class="r5"> </span><span class="r6">        ├── SingleTurnEnv (one turn, no env_response)</span><span class="r5">                                              </span>
+<span class="r5"> </span><span class="r6">        ├── ToolEnv (env_response = execute tool calls, return results)</span><span class="r5">                            </span>
+<span class="r5"> </span><span class="r6">        │     ├── StatefulToolEnv (persistent state between turns)</span><span class="r5">                                 </span>
+<span class="r5"> </span><span class="r6">        │     │     ├── SandboxEnv (tools run in isolated sandbox)</span><span class="r5">                                 </span>
+<span class="r5"> </span><span class="r6">        │     │     └── BrowserEnv (browser automation)</span><span class="r5">                                            </span>
+<span class="r5"> </span><span class="r6">        │     └── MCPEnv (MCP server tools)</span><span class="r5">                                                        </span>
+<span class="r5"> </span><span class="r6">        ├── OpenEnvEnv (talks to OpenEnv server)</span><span class="r5">                                                   </span>
+<span class="r5"> </span><span class="r6">        ├── TextArenaEnv (game environments)</span><span class="r5">                                                       </span>
+<span class="r5"> </span><span class="r6">        └── CliAgentEnv (terminal/CLI agent in sandbox)</span><span class="r5">                                            </span>
+<span class="r5">                                                                                                    </span>
+
+The pattern is always the same inside <span class="r4">env_response</span>:                                                 
+
+<span class="r13"> 1 </span>Parse the model&#x27;s last message (what action did it take?)                                        
+<span class="r13"> 2 </span>Execute that action (click browser, run CLI command, call API, step game)                        
+<span class="r13"> 3 </span>Get back an observation (new page state, command output, game board)                             
+<span class="r13"> 4 </span>Return the observation as messages                                                               
+
+For example, OpenEnvEnv&#x27;s <span class="r4">env_response</span>:                                                             
+
+<span class="r13"> • </span>Parses the model&#x27;s action from its text response                                                 
+<span class="r13"> • </span>Sends <span class="r4">client.step(action)</span> to the OpenEnv server                                                  
+<span class="r13"> • </span>Gets back <span class="r4">observation</span>, <span class="r4">reward</span>, <span class="r4">done</span>                                                              
+<span class="r13"> • </span>Renders the observation into messages and returns them                                           
+
+The model never talks to the real system directly. <span class="r4">env_response</span> is always the bridge.               
+
+<span class="r2">Alphabet-Sort Example</span>                                                                               
+
+Real multi-turn environment from verifiers. Dataset holds pre-planned follow-ups, <span class="r4">env_response</span> feeds
+them one at a time:                                                                                 
+
+<span class="r5">                                                                                                    </span>
+<span class="r5"> </span><span class="r9">class</span><span class="r6"> </span><span class="r10">SortingEnv</span><span class="r6">(vf</span><span class="r11">.</span><span class="r6">MultiTurnEnv):</span><span class="r5">                                                                 </span>
+<span class="r5"> </span><span class="r6">    </span><span class="r10">@vf</span><span class="r11">.</span><span class="r6">stop</span><span class="r5">                                                                                       </span>
+<span class="r5"> </span><span class="r6">    </span><span class="r9">async</span><span class="r6"> </span><span class="r9">def</span><span class="r6"> </span><span class="r10">max_turns</span><span class="r6">(</span><span class="r10">self</span><span class="r6">, state):</span><span class="r5">                                                              </span>
+<span class="r5"> </span><span class="r6">        </span><span class="r9">return</span><span class="r6"> </span><span class="r10">len</span><span class="r6">(state[</span><span class="r7">&quot;trajectory&quot;</span><span class="r6">]) </span><span class="r11">&gt;=</span><span class="r6"> state[</span><span class="r7">&quot;info&quot;</span><span class="r6">][</span><span class="r7">&quot;num_turns&quot;</span><span class="r6">]</span><span class="r5">                              </span>
+<span class="r5">                                                                                                    </span>
+<span class="r5"> </span><span class="r6">    </span><span class="r9">async</span><span class="r6"> </span><span class="r9">def</span><span class="r6"> </span><span class="r10">env_response</span><span class="r6">(</span><span class="r10">self</span><span class="r6">, messages, state):</span><span class="r5">                                                 </span>
+<span class="r5"> </span><span class="r6">        turn </span><span class="r11">=</span><span class="r6"> </span><span class="r10">len</span><span class="r6">([m </span><span class="r9">for</span><span class="r6"> m </span><span class="r9">in</span><span class="r6"> messages </span><span class="r9">if</span><span class="r6"> m[</span><span class="r7">&quot;role&quot;</span><span class="r6">] </span><span class="r11">==</span><span class="r6"> </span><span class="r7">&quot;assistant&quot;</span><span class="r6">]) </span><span class="r11">-</span><span class="r6"> </span><span class="r7">1</span><span class="r5">                          </span>
+<span class="r5"> </span><span class="r6">        </span><span class="r9">return</span><span class="r6"> [{</span><span class="r7">&quot;role&quot;</span><span class="r6">: </span><span class="r7">&quot;user&quot;</span><span class="r6">, </span><span class="r7">&quot;content&quot;</span><span class="r6">: state[</span><span class="r7">&quot;info&quot;</span><span class="r6">][</span><span class="r7">&quot;follow_ups&quot;</span><span class="r6">][turn]}]</span><span class="r5">                    </span>
+<span class="r5">                                                                                                    </span>
+</code></pre>
+</body>
+</html>
+</pre>
+</body>
+</html>

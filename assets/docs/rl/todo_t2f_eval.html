@@ -37,7 +37,16 @@
 <style>
 .r1 {color: #268bd2; text-decoration-color: #268bd2; font-weight: bold}
 .r2 {color: #2aa198; text-decoration-color: #2aa198; font-weight: bold}
-.r3 {color: #d33682; text-decoration-color: #d33682}
+.r3 {font-weight: bold}
+.r4 {color: #d33682; text-decoration-color: #d33682; font-weight: bold}
+.r5 {color: #d33682; text-decoration-color: #d33682}
+.r6 {background-color: #f5f5f0}
+.r7 {color: #859900; text-decoration-color: #859900; background-color: #f5f5f0}
+.r8 {color: #657b83; text-decoration-color: #657b83; background-color: #f5f5f0}
+.r9 {color: #268bd2; text-decoration-color: #268bd2; background-color: #f5f5f0}
+.r10 {color: #93a1a1; text-decoration-color: #93a1a1; background-color: #f5f5f0}
+.r11 {color: #2aa198; text-decoration-color: #2aa198; background-color: #f5f5f0}
+.r12 {color: #cb4b16; text-decoration-color: #cb4b16}
 body {
     color: #000000;
     background-color: #f5f5f0;
@@ -45,24 +54,48 @@ body {
 </style>
 </head>
 <body>
-    <pre style="font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace"><code style="font-family:inherit"><span class="r1">TODO: t2f-eval</span>                                                                                      
+    <pre style="font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace"><code style="font-family:inherit"><span class="r1">TODO: t2f-eval and Rerun Logging</span>                                                                    
 
 <span class="r2">Idea</span>                                                                                                
 
-Custom eval runner with Rerun logging instead of the Rich TUI that <span class="r3">vf-eval</span> and <span class="r3">prime eval</span> use.      
+Custom eval/training visualization with Rerun instead of Rich TUI.                                  
 
-<span class="r2">Why</span>                                                                                                 
+<span class="r2">Two Approaches</span>                                                                                      
 
-<span class="r3">vf-eval</span> and <span class="r3">prime eval</span> hardcode their display logic (Rich TUI / progress bars). No way to plug in   
-custom logging through the CLI. But verifiers&#x27; <span class="r3">run_evaluation()</span> in <span class="r3">eval_utils.py</span> already takes      
-<span class="r3">on_progress</span> and <span class="r3">on_log</span> callbacks - the TUI is just one implementation of those callbacks.           
+<span class="r3">1. Eval-level: </span><span class="r4">t2f-eval</span><span class="r3"> command</span>                                                                     
 
-<span class="r2">How</span>                                                                                                 
+Verifiers&#x27; <span class="r5">run_evaluation()</span> in <span class="r5">eval_utils.py</span> takes <span class="r5">on_progress</span> and <span class="r5">on_log</span> callbacks. The Rich TUI is
+just one implementation. Write a <span class="r5">t2f-eval</span> that passes Rerun callbacks instead. Fires on every       
+completed rollout - live logging, not post-processing.                                              
 
-Write a <span class="r3">t2f-eval</span> command that calls <span class="r3">run_evaluation()</span> directly with Rerun callbacks instead of Rich  
-ones. Same eval logic, different visualization. No verifiers changes needed.                        
+<span class="r3">2. Environment-level: callback on </span><span class="r4">env_response</span>                                                      
 
-The callbacks fire on every completed rollout, so logging is live - not a post-processing step.     
+Log from inside the multi-turn loop via an optional callback on the environment. No Rerun dependency
+in the environment itself - keep it portable for the hub:                                           
+
+<span class="r6">                                                                                                    </span>
+<span class="r6"> </span><span class="r7">class</span><span class="r8"> </span><span class="r9">MyEnv</span><span class="r8">(vf</span><span class="r10">.</span><span class="r8">MultiTurnEnv):</span><span class="r6">                                                                      </span>
+<span class="r6"> </span><span class="r8">    </span><span class="r7">def</span><span class="r8"> </span><span class="r9">__init__</span><span class="r8">(</span><span class="r9">self</span><span class="r8">, on_step</span><span class="r10">=</span><span class="r11">None</span><span class="r8">, </span><span class="r10">**</span><span class="r8">kwargs):</span><span class="r6">                                                    </span>
+<span class="r6"> </span><span class="r8">        </span><span class="r9">self</span><span class="r10">.</span><span class="r8">on_step </span><span class="r10">=</span><span class="r8"> on_step</span><span class="r6">                                                                     </span>
+<span class="r6"> </span><span class="r8">        </span><span class="r9">super</span><span class="r8">()</span><span class="r10">.</span><span class="r9">__init__</span><span class="r8">(</span><span class="r10">**</span><span class="r8">kwargs)</span><span class="r6">                                                                 </span>
+<span class="r6">                                                                                                    </span>
+<span class="r6"> </span><span class="r8">    </span><span class="r7">async</span><span class="r8"> </span><span class="r7">def</span><span class="r8"> </span><span class="r9">env_response</span><span class="r8">(</span><span class="r9">self</span><span class="r8">, messages, state):</span><span class="r6">                                                 </span>
+<span class="r6"> </span><span class="r8">        result </span><span class="r10">=</span><span class="r8"> do_stuff(messages)</span><span class="r6">                                                                </span>
+<span class="r6"> </span><span class="r8">        </span><span class="r7">if</span><span class="r8"> </span><span class="r9">self</span><span class="r10">.</span><span class="r8">on_step:</span><span class="r6">                                                                           </span>
+<span class="r6"> </span><span class="r8">            </span><span class="r9">self</span><span class="r10">.</span><span class="r8">on_step(messages, state, result)</span><span class="r6">                                                  </span>
+<span class="r6"> </span><span class="r8">        </span><span class="r7">return</span><span class="r8"> result</span><span class="r6">                                                                              </span>
+<span class="r6">                                                                                                    </span>
+
+This gives you per-turn data in real time: model actions, observations, trajectory, turn count,     
+info. Scores are 1 step behind (computed after the full rollout), but everything else is live.      
+
+<span class="r2">Tradeoffs</span>                                                                                           
+
+<span class="r12"> • </span><span class="r3">Eval-level</span> - sees final scores and metrics per rollout, no verifiers changes needed, but no      
+<span class="r12">   </span>per-turn visibility                                                                              
+<span class="r12"> • </span><span class="r3">Environment-level</span> - sees every turn in real time, but only the data available at that point (no  
+<span class="r12">   </span>final score yet). Keeps Rerun out of the environment via optional callback                       
+<span class="r12"> • </span>Both can work together - per-turn logging in <span class="r5">env_response</span>, final scores via eval callback        
 </code></pre>
 </body>
 </html>
