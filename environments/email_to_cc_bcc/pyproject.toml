@@ -1,7 +1,7 @@
 [project]
 name = "email-to-cc-bcc"
-description = "Pass the test"
-tags = ["placeholder-tag", "train", "eval"]
+description = "Correctly assign email recipients to To, CC, and BCC fields based on roles and privacy constraints"
+tags = ["structured-output", "rules", "email", "train", "eval"]
 version = "0.1.0"
 requires-python = ">=3.10"
 dependencies = [
