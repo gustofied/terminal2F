@@ -15,6 +15,7 @@ resolution-markers = [
 [manifest]
 members = [
     "alphabet-sort",
+    "email-to-cc-bcc",
     "terminal2f",
 ]
 
@@ -537,6 +538,17 @@ sdist = { url = "https://files.pythonhosted.org/packages/fc/f8/98eea607f65de6527
 wheels = [
     { url = "https://files.pythonhosted.org/packages/12/b3/231ffd4ab1fc9d679809f356cebee130ac7daa00d6d6f3206dd4fd137e9e/distro-1.9.0-py3-none-any.whl", hash = "sha256:7bffd925d65168f85027d8da9af6bddab658135b840670a223589bc0c8ef02b2", size = 20277, upload-time = "2023-12-24T09:54:30.421Z" },
 ]
+
+[[package]]
+name = "email-to-cc-bcc"
+version = "0.1.0"
+source = { editable = "environments/email_to_cc_bcc" }
+dependencies = [
+    { name = "verifiers" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "verifiers", specifier = ">=0.1.10" }]
 
 [[package]]
 name = "eval-type-backport"
@@ -2549,6 +2561,7 @@ version = "0.1.1"
 source = { editable = "." }
 dependencies = [
     { name = "alphabet-sort" },
+    { name = "email-to-cc-bcc" },
     { name = "jinja2" },
     { name = "matplotlib" },
     { name = "mistral-common" },
@@ -2572,6 +2585,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "alphabet-sort", editable = "environments/alphabet-sort" },
+    { name = "email-to-cc-bcc", editable = "environments/email_to_cc_bcc" },
     { name = "jinja2", specifier = ">=3.1.6" },
     { name = "matplotlib", specifier = ">=3.10.8" },
     { name = "mistral-common", specifier = ">=1.8.8" },

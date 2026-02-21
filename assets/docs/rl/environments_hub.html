@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+    body {
+        background: #ffffff;
+        color: #1e1e1e;
+        font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', 'Menlo', monospace;
+        font-size: 14px;
+        line-height: 1.35;
+        padding: 0.5em 2em;
+        max-width: 960px;
+        margin: 0 auto;
+    }
+    pre {
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        margin: 0;
+    }
+    ::selection {
+        background: #d0e8ff;
+        color: #1e1e1e;
+    }
+    a { color: #268bd2; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    .back { color: #93a1a1; font-size: 12px; margin-bottom: 0; }
+</style>
+</head>
+<body>
+<p class="back"><a href="index.html">back</a></p>
+<pre><!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+.r1 {color: #268bd2; text-decoration-color: #268bd2; font-weight: bold}
+.r2 {color: #2aa198; text-decoration-color: #2aa198; font-weight: bold}
+.r3 {color: #d33682; text-decoration-color: #d33682}
+.r4 {color: #000080; text-decoration-color: #000080; text-decoration: underline}
+.r5 {font-weight: bold}
+.r6 {background-color: #f5f5f0}
+.r7 {color: #93a1a1; text-decoration-color: #93a1a1; background-color: #f5f5f0; font-style: italic}
+.r8 {color: #657b83; text-decoration-color: #657b83; background-color: #f5f5f0}
+.r9 {color: #268bd2; text-decoration-color: #268bd2; background-color: #f5f5f0}
+.r10 {color: #cb4b16; text-decoration-color: #cb4b16}
+.r11 {color: #000080; text-decoration-color: #000080; font-weight: bold; text-decoration: underline}
+body {
+    color: #000000;
+    background-color: #f5f5f0;
+}
+</style>
+</head>
+<body>
+    <pre style="font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace"><code style="font-family:inherit"><span class="r1">Environments Hub and Verifiers</span>                                                                      
+
+<span class="r2">What It Is</span>                                                                                          
+
+A community platform for sharing RL training environments and evaluation tasks. Think PyPI but for  
+environments - each one is a versioned Python package with a <span class="r3">pyproject.toml</span>, distributed as a wheel.
+
+Browse environments at the <a class="r4" href="https://hub.primeintellect.ai/environments">Environments Hub</a>. Install with <span class="r3">prime env install owner/env-name@version</span>. 
+
+<span class="r2">Why It Exists</span>                                                                                       
+
+The current ecosystem has a few problems:                                                           
+
+<span class="r5">No shared platform for RL environments.</span> Interest in training LLMs with RL is growing fast, but      
+there&#x27;s no community place to explore and share train-ready environments. Everyone builds their own 
+in isolation.                                                                                       
+
+<span class="r5">Environments are locked to specific trainers.</span> Most environment implementations are tied to one RL   
+stack and hard to adapt to a different trainer. If you switch from prime-rl to your own trainer, you
+often can&#x27;t reuse the environments without rewriting.                                               
+
+<span class="r5">Evals and RL environments are the same thing but treated separately.</span> Both are just dataset + harness
++ scoring rules. But eval suites (lm_eval, lighteval, HELM) and RL environments live in completely  
+different ecosystems with no shared spec. You end up implementing the same task twice - once for    
+eval, once for training.                                                                            
+
+<span class="r5">Eval suites don&#x27;t handle agentic tasks well.</span> Popular eval suites work great for single-turn Q&amp;A, but
+tasks that are agentic or need complex infrastructure (TAU-bench, TerminalBench, SWE-bench) end up  
+as independent repos without shared entrypoints.                                                    
+
+<span class="r5">Monorepos don&#x27;t scale for environments.</span> Realistic agent environments have their own dependencies and
+versioning needs. Stuffing them all into one repo gets unmaintainable fast.                         
+
+<span class="r2">How It Works</span>                                                                                        
+
+Environments follow the verifiers spec. They declare dependencies in <span class="r3">pyproject.toml</span> and are         
+distributed as wheels. Development focuses on the task-specific parts - datasets, tools, reward     
+functions - and automatically gets the infrastructure for both evaluation and RL training.          
+
+<span class="r2">Creating an Environment</span>                                                                             
+
+<span class="r6">                                                                                                    </span>
+<span class="r6"> </span><span class="r7"># authenticate with the hub</span><span class="r6">                                                                        </span>
+<span class="r6"> </span><span class="r8">prime login</span><span class="r6">                                                                                        </span>
+<span class="r6">                                                                                                    </span>
+<span class="r6"> </span><span class="r7"># scaffold a new environment</span><span class="r6">                                                                       </span>
+<span class="r6"> </span><span class="r8">prime env init my-env --path ./environments/</span><span class="r6">                                                       </span>
+<span class="r6">                                                                                                    </span>
+<span class="r6"> </span><span class="r7"># install it as editable so changes take effect immediately</span><span class="r6">                                        </span>
+<span class="r6"> </span><span class="r8">uv add --editable ./environments/my_env</span><span class="r6">                                                            </span>
+<span class="r6">                                                                                                    </span>
+
+This gives you a folder with <span class="r3">pyproject.toml</span>, a module file, and a README. The editable install means
+you can hack on the code and test without reinstalling.                                             
+
+<span class="r2">Testing Locally</span>                                                                                     
+
+Both work with locally installed environments - no need to push to hub first:                       
+
+<span class="r6">                                                                                                    </span>
+<span class="r6"> </span><span class="r7"># vf-eval - verifiers&#x27; built-in eval runner</span><span class="r6">                                                        </span>
+<span class="r6"> </span><span class="r8">uv run vf-eval my-env</span><span class="r6">                                                                              </span>
+<span class="r6">                                                                                                    </span>
+<span class="r6"> </span><span class="r7"># prime eval - looks for locally installed packages by short name</span><span class="r6">                                  </span>
+<span class="r6"> </span><span class="r8">prime </span><span class="r9">eval</span><span class="r8"> run my-env -m model-name</span><span class="r6">                                                                </span>
+<span class="r6">                                                                                                    </span>
+
+If you use the full slug (<span class="r3">prime eval run owner/my-env</span>), it auto-installs from the hub. Short name   
+just looks at what&#x27;s in your local venv.                                                            
+
+<span class="r2">Upload Your Environment</span>                                                                             
+
+Once you&#x27;ve developed and tested your environment, push it to the Environments Hub:                 
+
+<span class="r6">                                                                                                    </span>
+<span class="r6"> </span><span class="r7"># inside the environments/my_env/ directory</span><span class="r6">                                                        </span>
+<span class="r6"> </span><span class="r8">prime env push</span><span class="r6">                                                                                     </span>
+<span class="r6">                                                                                                    </span>
+
+Others can then install it with <span class="r3">prime env install your-name/my-env@0.1.0</span>.                           
+
+<span class="r2">The Stack</span>                                                                                           
+
+<span class="r10"> • </span><a class="r11" href="https://github.com/PrimeIntellect-ai/prime-cli">Prime CLI</a> - install, upload, manage environments                                                 
+<span class="r10"> • </span><a class="r11" href="https://github.com/PrimeIntellect-ai/verifiers">Verifiers</a> - modular components for creating environments and training agents                     
+<span class="r10"> • </span><a class="r11" href="https://github.com/PrimeIntellect-ai/prime-rl">Prime RL</a> - large-scale RL training with FSDP                                                     
+</code></pre>
+</body>
+</html>
+</pre>
+</body>
+</html>

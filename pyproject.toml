@@ -9,6 +9,7 @@ authors = [
 requires-python = ">=3.13"
 dependencies = [
     "alphabet-sort",
+    "email-to-cc-bcc",
     "jinja2>=3.1.6",
     "matplotlib>=3.10.8",
     "mistral-common>=1.8.8",
@@ -39,7 +40,9 @@ build-backend = "uv_build"
 [tool.uv.workspace]
 members = [
     "environments/alphabet-sort",
+    "environments/email_to_cc_bcc",
 ]
 
 [tool.uv.sources]
 alphabet-sort = { workspace = true, editable = true }
+email-to-cc-bcc = { workspace = true, editable = true }

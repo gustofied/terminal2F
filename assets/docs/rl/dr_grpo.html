@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+    body {
+        background: #ffffff;
+        color: #1e1e1e;
+        font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', 'Menlo', monospace;
+        font-size: 14px;
+        line-height: 1.35;
+        padding: 0.5em 2em;
+        max-width: 960px;
+        margin: 0 auto;
+    }
+    pre {
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        margin: 0;
+    }
+    ::selection {
+        background: #d0e8ff;
+        color: #1e1e1e;
+    }
+    a { color: #268bd2; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    .back { color: #93a1a1; font-size: 12px; margin-bottom: 0; }
+</style>
+</head>
+<body>
+<p class="back"><a href="index.html">back</a></p>
+<pre><!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+.r1 {color: #268bd2; text-decoration-color: #268bd2; font-weight: bold}
+.r2 {color: #2aa198; text-decoration-color: #2aa198; font-weight: bold}
+.r3 {color: #d33682; text-decoration-color: #d33682}
+.r4 {font-weight: bold}
+.r5 {color: #cb4b16; text-decoration-color: #cb4b16}
+.r6 {background-color: #f5f5f0}
+.r7 {color: #657b83; text-decoration-color: #657b83; background-color: #f5f5f0}
+.r8 {color: #93a1a1; text-decoration-color: #93a1a1; background-color: #f5f5f0}
+body {
+    color: #000000;
+    background-color: #f5f5f0;
+}
+</style>
+</head>
+<body>
+    <pre style="font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace"><code style="font-family:inherit"><span class="r1">Dr.GRPO: What It Fixes</span>                                                                              
+
+Dr.GRPO (from DeepSeek-R1) makes two adjustments to standard GRPO. Both are about fairness - making 
+sure no single group or response dominates the gradient just because of scale.                      
+
+<span class="r2">1. Group Std Normalization</span>                                                                          
+
+Standard GRPO: <span class="r3">advantage = reward - group_mean</span>                                                      
+
+Dr.GRPO: <span class="r3">advantage = (reward - group_mean) / group_std</span>                                              
+
+<span class="r4">The problem:</span> Groups with high reward variance produce larger advantages and dominate the gradient.  
+
+Example - two groups, 4 rollouts each:                                                              
+
+<span class="r5"> • </span>Group A: rewards <span class="r3">[0, 0, 0, 1]</span> - mean 0.25, advantages <span class="r3">[-0.25, -0.25, -0.25, 0.75]</span>                
+<span class="r5"> • </span>Group B: rewards <span class="r3">[0.4, 0.5, 0.5, 0.6]</span> - mean 0.5, advantages <span class="r3">[-0.1, 0, 0, 0.1]</span>                   
+
+Group A&#x27;s advantages are 7x larger. Without normalization, the model mostly learns from Group A (the
+easy question where one rollout got lucky) and ignores Group B (where the model is actually making  
+steady progress with nuanced signal).                                                               
+
+Dividing by std scales both groups to similar magnitude - every prompt contributes equally to       
+learning.                                                                                           
+
+<span class="r4">Edge case:</span> If all rollouts in a group score the same, std is 0. These groups get skipped (advantage 
+= 0), which is correct - zero variance means no learning signal.                                    
+
+<span class="r4">Where this lives in t2f-trainer:</span> <span class="r3">orchestrator.py</span>, where we compute advantages from raw rewards.     
+
+<span class="r2">2. Response Length Normalization</span>                                                                    
+
+Standard GRPO sums the loss over all tokens. Every token gets the same advantage, so longer         
+responses have more impact on the gradient.                                                         
+
+<span class="r4">The problem:</span> Within a group of rollouts for one prompt:                                             
+
+<span class="r5"> • </span>Rollout 1: 400 tokens, reward 0                                                                  
+<span class="r5"> • </span>Rollout 2: 50 tokens, reward 1                                                                   
+<span class="r5"> • </span>Rollout 3: 200 tokens, reward 0                                                                  
+
+Without length normalization: 600 tokens of negative gradient vs 50 tokens of positive. The long    
+wrong answer drowns out the short correct one. The model learns &quot;don&#x27;t be verbose&quot; instead of &quot;don&#x27;t
+be wrong.&quot;                                                                                          
+
+With length normalization: each rollout&#x27;s loss is divided by its token count, so each response      
+contributes equally regardless of length. Two wrong signals vs one right signal, weighted fairly.   
+
+<span class="r4">Where this lives in t2f-trainer:</span> <span class="r3">trainer.py</span> line 271, where the loss is computed:                   
+
+<span class="r6">                                                                                                    </span>
+<span class="r6"> </span><span class="r7">loss </span><span class="r8">=</span><span class="r7"> (</span><span class="r8">-</span><span class="r7">importance_ratio </span><span class="r8">*</span><span class="r7"> advantages)[keep_mask]</span><span class="r8">.</span><span class="r7">sum()</span><span class="r6">                                           </span>
+<span class="r6">                                                                                                    </span>
+
+This <span class="r3">.sum()</span> over all tokens is where length bias enters. Length normalization would divide each     
+response&#x27;s contribution by its token count before summing.                                          
+</code></pre>
+</body>
+</html>
+</pre>
+</body>
+</html>

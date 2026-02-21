@@ -14,11 +14,13 @@ name = "Concepts"
 docs = [
     { file = "training_architecture", title = "Training Architecture: Who Does What" },
     { file = "grpo_example", title = "How GRPO Works" },
+    { file = "dr_grpo", title = "Dr.GRPO: What It Fixes" },
 ]
 
 [[groups]]
 name = "Verifiers"
 docs = [
+    { file = "environments_hub", title = "Environments Hub and Verifiers" },
     { file = "verifiers_tips", title = "Small Learnings" },
     { file = "verifiers_changelog", title = "Notable Changes" },
 ]
