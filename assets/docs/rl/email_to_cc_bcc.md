@@ -4,15 +4,16 @@ Multi-turn environment where the model reads actual emails and assigns recipient
 
 ### The Task
 
-Given an email and a roster of people (name, email address, role), decide who goes in To, CC, and BCC. Multi-turn: email thread evolves, recipients shift.
+Given an email and a list of 7 people (name, email address, role), decide who goes in To, CC, and BCC. Multi-turn: email thread evolves, recipients shift.
 
-Each question is structured as:
+The environment assembles the full prompt at runtime:
 
 ```
 Available recipients:
 - Sarah Chen <sarah.chen@acme.com> — Project Lead
 - Mike Torres <mike.t@clientcorp.com> — Client PM
 - Lisa Park <lisa.park@acme.com> — VP Engineering
+...
 
 Subject: Q3 deadline extension request
 
@@ -21,7 +22,7 @@ Hi team, I wanted to flag that we're going to need a 2-week extension...
 Assign recipients to To, CC, and BCC.
 ```
 
-Each answer uses email addresses (unique, unambiguous):
+Answer format — email addresses, JSON:
 
 ```json
 {"to": ["sarah.chen@acme.com"], "cc": ["mike.t@clientcorp.com"], "bcc": ["lisa.park@acme.com"]}
@@ -29,84 +30,108 @@ Each answer uses email addresses (unique, unambiguous):
 
 ### Dataset
 
-6 columns, flat. Each row is a full 3-turn scenario. Each row becomes a rollout:
+7 columns, flat. Each row is a full 3-turn scenario:
 
 ```
-question_1 | question_2 | question_3 | answer_1 | answer_2 | answer_3
+email_list | question_1 | question_2 | question_3 | answer_1 | answer_2 | answer_3
 ```
 
-- `question_n` — people roster + actual email content + "Assign recipients to To, CC, and BCC."
-- `answer_n` — `{"to": ["email@addr"], "cc": [...], "bcc": [...]}`
+- `email_list` — all 7 people, always present (`name <email> — role`)
+- `question_n` — email content (subject + body). The environment prepends `email_list` and appends the instruction at runtime
+- `answer_n` — `{"to": [...], "cc": [...], "bcc": [...]}`
 
-`question_1` is the initial email. `question_2` and `question_3` are replies in the thread as the situation evolves (people added, removed, escalation, etc.). Each `answer_n` is the full recipient list at that point.
+`question_1` is the initial email. `question_2` and `question_3` are replies as the situation evolves (people added, removed, escalation, etc.).
 
 In `load_environment`, flat columns get reshaped into the verifiers format:
 
 ```python
-"prompt": [{"role": "user", "content": question_1}],
+"prompt": [{"role": "user", "content": email_list + question_1 + instruction}],
 "info": {
     "follow_ups": [question_2, question_3],
     "ground_truths": [answer_1, answer_2, answer_3],
-    "num_turns": max_turns,  # sliced by knob
+    "num_turns": max_turns,
 }
 ```
 
-### Generation Approach: Ground Truth First
+### Generation Approach
 
-1. **Sample people** — 7 people per row with name, email address, and role. 2-5 start active, rest are reserve. Email domains signal internal vs external (acme.com vs clientcorp.com vs gmail.com)
-2. **Assign recipients per turn** — deterministically distribute email addresses into to/cc/bcc. Sensitivity drives bcc, hierarchy drives to vs cc
-3. **LLM writes actual emails** — given the roster and assignments, generate realistic email content (subject + body) that naturally references people by name. The model being trained reads this email and reasons about recipients
+Ground truth first — the LLM never decides who goes where.
 
-Ground truth is never LLM-generated — emails and assignments are deterministic. The LLM only writes the email content wrapper.
+1. **Sample people** — 7 per row with name, email, role. 2–6 start active, rest are reserve. One company domain per row, one external domain. Roles sampled without replacement
+2. **Assign recipients per turn** — deterministic. Sensitivity drives bcc, hierarchy drives to vs cc. Changes between turns (escalation, person added, made confidential, etc.) retry if they'd be a no-op
+3. **LLM writes email content** — given the roster and visible recipients (to/cc only, no bcc), generate realistic email thread. The LLM never sees bcc assignments
 
 ### Synthetic Data Generation
 
-10k rows. Single-phase [DataDesigner](https://nvidia-nemo.github.io/DataDesigner/latest/) pipeline (requires `>=0.5.1`).
+10k rows. Single-phase [DataDesigner](https://nvidia-nemo.github.io/DataDesigner/latest/) pipeline (`>=0.5.1`).
 
 ```bash
-cd nuggets && .venv/bin/python email_synthetic_data.py
+cd nuggets
+uv venv && uv pip install 'data-designer>=0.5.1' faker
+.venv/bin/python email_to_cc_bcc_synthetic_data_generation.py --generate 10000
 ```
 
-### DataDesigner Pipeline
+Preview:
 
-**Step 1 — Samplers (deterministic, no LLM):**
+```bash
+.venv/bin/python email_to_cc_bcc_synthetic_data_generation.py --preview 5
+```
 
-All sampler columns use `drop=True`. Only the 6 output columns survive.
+### Pipeline Details
 
-- **start_people** — uniform 2-5. How many are active in turn 1
-- **person_1..7** — PersonFromFaker sampler. Each gets a generated email address + role in the custom column
-- **department, scenario_type, scenario_subtype** — context for email content
-- **audience** — drives email domain selection (internal_only → company domains, with_client → external domains)
-- **sensitivity** — drives bcc usage (confidential → more bcc)
-- **hierarchy** — drives to vs cc (upward → more in to)
-- **change_turn_2, change_turn_3** — 12 change types each
+**Samplers (deterministic, no LLM):**
 
-**Step 2 — Custom column (deterministic, no LLM):**
+- `start_people` — uniform 2–6
+- `person_1..7` — PersonFromFaker
+- `department`, `scenario_type`, `scenario_subtype` — context for email content
+- `audience` — internal_only, with_client, with_vendor, etc. Drives domain selection
+- `sensitivity` — public, internal, confidential, restricted. Drives bcc usage
+- `hierarchy` — upward, downward, lateral, mixed. Drives to vs cc
+- `change_turn_2`, `change_turn_3` — 12 change types (person_added, escalation, made_confidential, delegation, etc.)
 
-Builds people roster (name + email + role) and ground truth assignments per turn. Side effects: `answer_2`, `answer_3`, `roster`, `roster_turn_2`, `roster_turn_3`.
+**Custom column (deterministic, no LLM):**
 
-- Email addresses generated from names + sampled domains (company, personal, external)
-- Turn 1: distribute active emails into to/cc/bcc
-- Turn 2/3: apply changes, update roster if people added/removed
+Builds `email_list` (all 7 people) and ground truth `answer_1/2/3`. Email addresses generated from faker names + sampled domains. Turn 1 distributes active emails into to/cc/bcc. Turns 2/3 apply changes with no-op retry.
 
-**Step 3 — LLM columns (actual email content):**
+**LLM columns (email content):**
 
-The LLM generates realistic emails. Each question is then assembled as: roster + email content + "Assign recipients to To, CC, and BCC."
+The LLM generates realistic emails given the roster and visible recipients (to/cc only). It never sees bcc. Strict rules: no placeholders, no mention of bcc, spell names exactly.
 
-- `question_1` — initial email with full roster
-- `question_2` — reply email with updated roster
-- `question_3` — second reply with updated roster
+- `question_1` — initial email
+- `question_2` — reply after change
+- `question_3` — second reply after another change
 
 ### Reward Functions
 
 Three per turn, scored independently:
 
-- `to_correct` — set match on to field (email addresses)
+- `to_correct` — set match on to field
 - `cc_correct` — set match on cc field
 - `bcc_correct` — set match on bcc field
 
 Weighted equally. Multi-turn: average across turns.
 
-### Knobs (via `--env-args`)
+### Ongoing Discussion
+
+**To vs CC learnability.** The current `distribute_emails()` shuffles active people and assigns To/CC somewhat arbitrarily. The model sees the email text + people list with roles, so it has *some* signal (hierarchy, who's addressed, who's asked to act), but the exact To/CC split has randomness the model can't fully recover. BCC is cleaner — driven directly by sensitivity.
+
+In practice this means: `bcc_correct` should learn well, `to_correct` and `cc_correct` individually will be noisier. The model will likely learn the *visible set* (To + CC combined) better than the exact split.
+
+**v2 fix:** replace the shuffle with deterministic role-based rules — e.g., person being asked to act → To, their manager → CC when hierarchy=upward, external stakeholders → CC when audience=with_client. This makes the split recoverable from the observation (email content + role labels) and gives GRPO a clean signal.
+
+**Other things to watch for:**
+- BCC recipients sometimes get greeted in the email text (~rare, but contradictory)
+- LLM occasionally duplicates Q1 text verbatim for Q2 (~5% of rows). Answers still differ, but the thread doesn't evolve
+- Sender sometimes appears in their own BCC
+
+None of these block a first training run. Plan is: train on v1, check reward curves. If `to_correct`/`cc_correct` plateau while `bcc_correct` climbs, that confirms the To/CC noise and we tighten for v2.
+
+**Reward restructuring for v1.** Since To vs CC is noisy but the visible set (To ∪ CC) is learnable, scoring them separately risks GRPO amplifying noise — the model chases an impossible target and you get policy thrash from within-group ranking on random distinctions. Practical fix for v1 without regenerating data: restructure the reward to score `visible_correct` (set match on To ∪ CC) + `bcc_correct` (set match on BCC) + `format_correct` (valid JSON). Drop the individual To/CC rewards. Re-add them in v2 once `distribute_emails()` is deterministic and the split is recoverable.
+
+**Deterministic role-based routing (v2).** Replace the shuffle with rules driven by scenario type, hierarchy, audience, and roles. E.g., the person being asked to act → To (picked by scenario-to-role priority), managers/stakeholders → CC (shaped by hierarchy), compliance observers from reserve → BCC (when sensitivity is high). Active participants never end up in BCC. This makes the exact To/CC/BCC split derivable from the observation without turning it into greeting-parsing.
+
+**Metadata columns.** The generation pipeline samples `scenario_type`, `audience`, `sensitivity`, `hierarchy` but currently drops them from the final dataset. If we expose them to the model, the task gets easier but more deterministic. If we hide them, the model infers sensitivity/hierarchy from the email prose — harder, more realistic, but noisier. Leaning towards hiding them for now. Revisit based on reward curves.
+
+### Knobs (`--env-args`)
 
 - `max_turns` — 1, 2, or 3. Slices dataset accordingly.

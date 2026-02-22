@@ -1,0 +1,643 @@
+{
+  "data_designer": {
+    "columns": [
+      {
+        "name": "start_people",
+        "drop": true,
+        "allow_resize": false,
+        "column_type": "sampler",
+        "sampler_type": "uniform",
+        "params": {
+          "low": 2.0,
+          "high": 6.0,
+          "decimal_places": 0,
+          "sampler_type": "uniform"
+        },
+        "conditional_params": {},
+        "convert_to": null
+      },
+      {
+        "name": "person_1",
+        "drop": true,
+        "allow_resize": false,
+        "column_type": "sampler",
+        "sampler_type": "person_from_faker",
+        "params": {
+          "locale": "en_US",
+          "sex": null,
+          "city": null,
+          "age_range": [
+            18,
+            114
+          ],
+          "sampler_type": "person_from_faker"
+        },
+        "conditional_params": {},
+        "convert_to": null
+      },
+      {
+        "name": "person_2",
+        "drop": true,
+        "allow_resize": false,
+        "column_type": "sampler",
+        "sampler_type": "person_from_faker",
+        "params": {
+          "locale": "en_US",
+          "sex": null,
+          "city": null,
+          "age_range": [
+            18,
+            114
+          ],
+          "sampler_type": "person_from_faker"
+        },
+        "conditional_params": {},
+        "convert_to": null
+      },
+      {
+        "name": "person_3",
+        "drop": true,
+        "allow_resize": false,
+        "column_type": "sampler",
+        "sampler_type": "person_from_faker",
+        "params": {
+          "locale": "en_US",
+          "sex": null,
+          "city": null,
+          "age_range": [
+            18,
+            114
+          ],
+          "sampler_type": "person_from_faker"
+        },
+        "conditional_params": {},
+        "convert_to": null
+      },
+      {
+        "name": "person_4",
+        "drop": true,
+        "allow_resize": false,
+        "column_type": "sampler",
+        "sampler_type": "person_from_faker",
+        "params": {
+          "locale": "en_US",
+          "sex": null,
+          "city": null,
+          "age_range": [
+            18,
+            114
+          ],
+          "sampler_type": "person_from_faker"
+        },
+        "conditional_params": {},
+        "convert_to": null
+      },
+      {
+        "name": "person_5",
+        "drop": true,
+        "allow_resize": false,
+        "column_type": "sampler",
+        "sampler_type": "person_from_faker",
+        "params": {
+          "locale": "en_US",
+          "sex": null,
+          "city": null,
+          "age_range": [
+            18,
+            114
+          ],
+          "sampler_type": "person_from_faker"
+        },
+        "conditional_params": {},
+        "convert_to": null
+      },
+      {
+        "name": "person_6",
+        "drop": true,
+        "allow_resize": false,
+        "column_type": "sampler",
+        "sampler_type": "person_from_faker",
+        "params": {
+          "locale": "en_US",
+          "sex": null,
+          "city": null,
+          "age_range": [
+            18,
+            114
+          ],
+          "sampler_type": "person_from_faker"
+        },
+        "conditional_params": {},
+        "convert_to": null
+      },
+      {
+        "name": "person_7",
+        "drop": true,
+        "allow_resize": false,
+        "column_type": "sampler",
+        "sampler_type": "person_from_faker",
+        "params": {
+          "locale": "en_US",
+          "sex": null,
+          "city": null,
+          "age_range": [
+            18,
+            114
+          ],
+          "sampler_type": "person_from_faker"
+        },
+        "conditional_params": {},
+        "convert_to": null
+      },
+      {
+        "name": "department",
+        "drop": true,
+        "allow_resize": false,
+        "column_type": "sampler",
+        "sampler_type": "category",
+        "params": {
+          "values": [
+            "Engineering",
+            "Marketing",
+            "Sales",
+            "Legal",
+            "Finance",
+            "HR",
+            "Product",
+            "Design",
+            "Operations",
+            "Customer Support",
+            "Research",
+            "Executive",
+            "IT",
+            "Procurement"
+          ],
+          "weights": null,
+          "sampler_type": "category"
+        },
+        "conditional_params": {},
+        "convert_to": null
+      },
+      {
+        "name": "scenario_type",
+        "drop": true,
+        "allow_resize": false,
+        "column_type": "sampler",
+        "sampler_type": "category",
+        "params": {
+          "values": [
+            "project_update",
+            "meeting_request",
+            "escalation",
+            "feedback",
+            "announcement",
+            "approval_request",
+            "incident_report",
+            "contract_review",
+            "hiring_decision",
+            "budget_request",
+            "deadline_change",
+            "complaint",
+            "onboarding",
+            "offboarding",
+            "vendor_negotiation",
+            "security_issue",
+            "performance_review",
+            "knowledge_sharing"
+          ],
+          "weights": null,
+          "sampler_type": "category"
+        },
+        "conditional_params": {},
+        "convert_to": null
+      },
+      {
+        "name": "audience",
+        "drop": true,
+        "allow_resize": false,
+        "column_type": "sampler",
+        "sampler_type": "category",
+        "params": {
+          "values": [
+            "internal_only",
+            "with_client",
+            "with_vendor",
+            "with_partner",
+            "with_contractor",
+            "cross_department"
+          ],
+          "weights": null,
+          "sampler_type": "category"
+        },
+        "conditional_params": {},
+        "convert_to": null
+      },
+      {
+        "name": "sensitivity",
+        "drop": true,
+        "allow_resize": false,
+        "column_type": "sampler",
+        "sampler_type": "category",
+        "params": {
+          "values": [
+            "public",
+            "internal",
+            "confidential",
+            "restricted"
+          ],
+          "weights": null,
+          "sampler_type": "category"
+        },
+        "conditional_params": {},
+        "convert_to": null
+      },
+      {
+        "name": "hierarchy",
+        "drop": true,
+        "allow_resize": false,
+        "column_type": "sampler",
+        "sampler_type": "category",
+        "params": {
+          "values": [
+            "upward",
+            "downward",
+            "lateral",
+            "mixed"
+          ],
+          "weights": null,
+          "sampler_type": "category"
+        },
+        "conditional_params": {},
+        "convert_to": null
+      },
+      {
+        "name": "scenario_subtype",
+        "drop": true,
+        "allow_resize": false,
+        "column_type": "sampler",
+        "sampler_type": "subcategory",
+        "params": {
+          "category": "scenario_type",
+          "values": {
+            "project_update": [
+              "milestone reached",
+              "delay notification",
+              "resource request",
+              "scope change"
+            ],
+            "meeting_request": [
+              "team standup",
+              "client review",
+              "board meeting",
+              "one_on_one"
+            ],
+            "escalation": [
+              "missed deadline",
+              "quality issue",
+              "customer complaint",
+              "blocked dependency"
+            ],
+            "feedback": [
+              "positive review",
+              "constructive criticism",
+              "peer recognition",
+              "360 feedback"
+            ],
+            "announcement": [
+              "policy change",
+              "new hire",
+              "org restructure",
+              "product launch"
+            ],
+            "approval_request": [
+              "budget sign-off",
+              "travel approval",
+              "access request",
+              "vendor selection"
+            ],
+            "incident_report": [
+              "outage",
+              "data breach",
+              "workplace safety",
+              "compliance violation"
+            ],
+            "contract_review": [
+              "renewal",
+              "amendment",
+              "termination",
+              "new agreement"
+            ],
+            "hiring_decision": [
+              "offer approval",
+              "rejection",
+              "interview feedback",
+              "salary negotiation"
+            ],
+            "budget_request": [
+              "new project",
+              "headcount increase",
+              "tool purchase",
+              "training budget"
+            ],
+            "deadline_change": [
+              "extension request",
+              "acceleration",
+              "dependency shift",
+              "reprioritization"
+            ],
+            "complaint": [
+              "service quality",
+              "internal process",
+              "harassment",
+              "workload"
+            ],
+            "onboarding": [
+              "first week setup",
+              "team introduction",
+              "access provisioning",
+              "mentor assignment"
+            ],
+            "offboarding": [
+              "resignation",
+              "termination",
+              "knowledge transfer",
+              "exit interview"
+            ],
+            "vendor_negotiation": [
+              "pricing discussion",
+              "SLA review",
+              "contract dispute",
+              "new vendor pitch"
+            ],
+            "security_issue": [
+              "phishing attempt",
+              "unauthorized access",
+              "vulnerability disclosure",
+              "audit finding"
+            ],
+            "performance_review": [
+              "annual review",
+              "PIP",
+              "promotion discussion",
+              "goal setting"
+            ],
+            "knowledge_sharing": [
+              "tech talk",
+              "documentation update",
+              "lessons learned",
+              "best practices"
+            ]
+          },
+          "sampler_type": "subcategory"
+        },
+        "conditional_params": {},
+        "convert_to": null
+      },
+      {
+        "name": "change_turn_2",
+        "drop": true,
+        "allow_resize": false,
+        "column_type": "sampler",
+        "sampler_type": "category",
+        "params": {
+          "values": [
+            "person_added",
+            "person_removed",
+            "role_shift",
+            "escalation",
+            "de_escalation",
+            "made_confidential",
+            "made_public",
+            "delegation",
+            "external_party_joins",
+            "external_party_leaves",
+            "urgency_increase",
+            "scope_change"
+          ],
+          "weights": null,
+          "sampler_type": "category"
+        },
+        "conditional_params": {},
+        "convert_to": null
+      },
+      {
+        "name": "change_turn_3",
+        "drop": true,
+        "allow_resize": false,
+        "column_type": "sampler",
+        "sampler_type": "category",
+        "params": {
+          "values": [
+            "person_added",
+            "person_removed",
+            "role_shift",
+            "escalation",
+            "de_escalation",
+            "made_confidential",
+            "made_public",
+            "delegation",
+            "external_party_joins",
+            "external_party_leaves",
+            "urgency_increase",
+            "scope_change"
+          ],
+          "weights": null,
+          "sampler_type": "category"
+        },
+        "conditional_params": {},
+        "convert_to": null
+      },
+      {
+        "name": "answer_1",
+        "drop": false,
+        "allow_resize": false,
+        "column_type": "custom",
+        "generator_function": "build_ground_truth",
+        "generation_strategy": "cell_by_cell",
+        "generator_params": null
+      },
+      {
+        "name": "question_1",
+        "drop": false,
+        "allow_resize": false,
+        "column_type": "llm-text",
+        "prompt": "Write a realistic work email for this context:\nDepartment: {{ department }}\nScenario: {{ scenario_type }} ({{ scenario_subtype }})\nAudience: {{ audience }}, Sensitivity: {{ sensitivity }}, Hierarchy: {{ hierarchy }}\n\nPeople involved:\n{{ email_list }}\n\nVisible recipients (use to guide which people to mention — do NOT include this in the email): {{ llm_hint_1 }}\n\nRULES (follow ALL of these exactly):\n- Write ONLY Subject line + body. No From/To/CC/BCC headers.\n- NEVER mention BCC, blind copy, or who is secretly copied. Do not hint at hidden recipients.\n- NEVER use brackets, braces, or any placeholder syntax — no [Name], [Date], [Project], {System}, [Your Name], [Sender], etc. Every detail must be concrete and specific. Invent realistic names, dates, project names, and system names as needed.\n- For sign-offs: use a real name from the people list as the sender, or just \"Best,\" with no name. NEVER write [Your Name] or [Sender Name].\n- Spell every person's name EXACTLY as shown in the people list. Do not alter, shorten, or misspell names.\n\nFormat:\n\nSubject: <one concrete subject line>\n\n<email body, 2-4 paragraphs, referencing relevant people by name>",
+        "model_alias": "openrouter-text",
+        "system_prompt": null,
+        "multi_modal_context": null,
+        "tool_alias": null,
+        "with_trace": "none",
+        "extract_reasoning_content": false
+      },
+      {
+        "name": "question_2",
+        "drop": false,
+        "allow_resize": false,
+        "column_type": "llm-text",
+        "prompt": "Given this email thread:\n\n{{ question_1 }}\n\nThe situation changed: {{ actual_change_2 }}\nPeople involved:\n{{ email_list }}\nVisible recipients now (guide only, do NOT include): {{ llm_hint_2 }}\n\nRULES (follow ALL of these exactly):\n- Write ONLY Subject line + body. No From/To/CC/BCC headers.\n- NEVER mention BCC, blind copy, or who is secretly copied. Do not hint at hidden recipients.\n- NEVER use brackets, braces, or any placeholder syntax — no [Name], [Date], [Project], {System}, [Your Name], [Sender], etc. Every detail must be concrete and specific. Invent realistic names, dates, project names, and system names as needed.\n- For sign-offs: use a real name from the people list as the sender, or just \"Best,\" with no name. NEVER write [Your Name] or [Sender Name].\n- Spell every person's name EXACTLY as shown in the people list. Do not alter, shorten, or misspell names.\n\nFormat:\n\nSubject: Re: <original subject>\n\n<reply body, 1-2 paragraphs, referencing relevant people by name>",
+        "model_alias": "openrouter-text",
+        "system_prompt": null,
+        "multi_modal_context": null,
+        "tool_alias": null,
+        "with_trace": "none",
+        "extract_reasoning_content": false
+      },
+      {
+        "name": "question_3",
+        "drop": false,
+        "allow_resize": false,
+        "column_type": "llm-text",
+        "prompt": "Given this email thread:\n\n{{ question_1 }}\n\n{{ question_2 }}\n\nThe situation changed again: {{ actual_change_3 }}\nPeople involved:\n{{ email_list }}\nVisible recipients now (guide only, do NOT include): {{ llm_hint_3 }}\n\nRULES (follow ALL of these exactly):\n- Write ONLY Subject line + body. No From/To/CC/BCC headers.\n- NEVER mention BCC, blind copy, or who is secretly copied. Do not hint at hidden recipients.\n- NEVER use brackets, braces, or any placeholder syntax — no [Name], [Date], [Project], {System}, [Your Name], [Sender], etc. Every detail must be concrete and specific. Invent realistic names, dates, project names, and system names as needed.\n- For sign-offs: use a real name from the people list as the sender, or just \"Best,\" with no name. NEVER write [Your Name] or [Sender Name].\n- Spell every person's name EXACTLY as shown in the people list. Do not alter, shorten, or misspell names.\n\nFormat:\n\nSubject: Re: <original subject>\n\n<reply body, 1-2 paragraphs, referencing relevant people by name>",
+        "model_alias": "openrouter-text",
+        "system_prompt": null,
+        "multi_modal_context": null,
+        "tool_alias": null,
+        "with_trace": "none",
+        "extract_reasoning_content": false
+      }
+    ],
+    "model_configs": [
+      {
+        "alias": "nvidia-text",
+        "model": "nvidia/nemotron-3-nano-30b-a3b",
+        "inference_parameters": {
+          "generation_type": "chat-completion",
+          "max_parallel_requests": 4,
+          "timeout": null,
+          "extra_body": null,
+          "temperature": 1.0,
+          "top_p": 1.0,
+          "max_tokens": null
+        },
+        "provider": "nvidia",
+        "skip_health_check": false
+      },
+      {
+        "alias": "nvidia-reasoning",
+        "model": "openai/gpt-oss-20b",
+        "inference_parameters": {
+          "generation_type": "chat-completion",
+          "max_parallel_requests": 4,
+          "timeout": null,
+          "extra_body": null,
+          "temperature": 0.35,
+          "top_p": 0.95,
+          "max_tokens": null
+        },
+        "provider": "nvidia",
+        "skip_health_check": false
+      },
+      {
+        "alias": "nvidia-vision",
+        "model": "nvidia/nemotron-nano-12b-v2-vl",
+        "inference_parameters": {
+          "generation_type": "chat-completion",
+          "max_parallel_requests": 4,
+          "timeout": null,
+          "extra_body": null,
+          "temperature": 0.85,
+          "top_p": 0.95,
+          "max_tokens": null
+        },
+        "provider": "nvidia",
+        "skip_health_check": false
+      },
+      {
+        "alias": "nvidia-embedding",
+        "model": "nvidia/llama-3.2-nv-embedqa-1b-v2",
+        "inference_parameters": {
+          "generation_type": "embedding",
+          "max_parallel_requests": 4,
+          "timeout": null,
+          "extra_body": {
+            "input_type": "query"
+          },
+          "encoding_format": "float",
+          "dimensions": null
+        },
+        "provider": "nvidia",
+        "skip_health_check": false
+      },
+      {
+        "alias": "openrouter-text",
+        "model": "google/gemini-2.5-flash",
+        "inference_parameters": {
+          "generation_type": "chat-completion",
+          "max_parallel_requests": 4,
+          "timeout": null,
+          "extra_body": null,
+          "temperature": 1.0,
+          "top_p": 1.0,
+          "max_tokens": null
+        },
+        "provider": "openrouter",
+        "skip_health_check": false
+      },
+      {
+        "alias": "openai-text",
+        "model": "gpt-4.1",
+        "inference_parameters": {
+          "generation_type": "chat-completion",
+          "max_parallel_requests": 4,
+          "timeout": null,
+          "extra_body": null,
+          "temperature": 0.85,
+          "top_p": 0.95,
+          "max_tokens": null
+        },
+        "provider": "openai",
+        "skip_health_check": false
+      },
+      {
+        "alias": "openai-reasoning",
+        "model": "gpt-5",
+        "inference_parameters": {
+          "generation_type": "chat-completion",
+          "max_parallel_requests": 4,
+          "timeout": null,
+          "extra_body": null,
+          "temperature": 0.35,
+          "top_p": 0.95,
+          "max_tokens": null
+        },
+        "provider": "openai",
+        "skip_health_check": false
+      },
+      {
+        "alias": "openai-vision",
+        "model": "gpt-5",
+        "inference_parameters": {
+          "generation_type": "chat-completion",
+          "max_parallel_requests": 4,
+          "timeout": null,
+          "extra_body": null,
+          "temperature": 0.85,
+          "top_p": 0.95,
+          "max_tokens": null
+        },
+        "provider": "openai",
+        "skip_health_check": false
+      },
+      {
+        "alias": "openai-embedding",
+        "model": "text-embedding-3-large",
+        "inference_parameters": {
+          "generation_type": "embedding",
+          "max_parallel_requests": 4,
+          "timeout": null,
+          "extra_body": null,
+          "encoding_format": "float",
+          "dimensions": null
+        },
+        "provider": "openai",
+        "skip_health_check": false
+      }
+    ],
+    "tool_configs": [],
+    "seed_config": null,
+    "constraints": null,
+    "profilers": null,
+    "processors": null
+  },
+  "library_version": "0.5.1"
+}

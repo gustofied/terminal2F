@@ -1,0 +1,31 @@
+{
+  "actual_num_records": 5000,
+  "buffer_size": 1000,
+  "dataset_name": "dataset",
+  "file_paths": {
+    "parquet-files": [
+      "parquet-files/batch_00000.parquet",
+      "parquet-files/batch_00001.parquet",
+      "parquet-files/batch_00002.parquet",
+      "parquet-files/batch_00003.parquet",
+      "parquet-files/batch_00004.parquet"
+    ]
+  },
+  "num_completed_batches": 5,
+  "schema": {
+    "actual_change_2": "string",
+    "actual_change_3": "string",
+    "answer_1": "string",
+    "answer_2": "string",
+    "answer_3": "string",
+    "email_list": "string",
+    "llm_hint_1": "string",
+    "llm_hint_2": "string",
+    "llm_hint_3": "string",
+    "question_1": "string",
+    "question_2": "string",
+    "question_3": "string"
+  },
+  "target_num_records": 10000,
+  "total_num_batches": 10
+}

@@ -17,6 +17,9 @@ docs = [
     { file = "dr_grpo", title = "Dr.GRPO: What It Fixes" },
     { file = "multi_turn_envs", title = "Multi-Turn Environments" },
     { file = "async_execution_flow", title = "Async Execution Flow" },
+    { file = "grpo_training_loop", title = "GRPO Training Loop: What Gets Fed to the Trainer" },
+    { file = "rl_to_grpo", title = "From RL to GRPO: How LLMs Learn from Rewards" },
+    { file = "how_advantages_update_weights", title = "How Advantages Update Weights" },
 ]
 
 [[groups]]
