@@ -36,6 +36,18 @@
 <meta charset="UTF-8">
 <style>
 .r1 {color: #268bd2; text-decoration-color: #268bd2; font-weight: bold}
+.r2 {color: #2aa198; text-decoration-color: #2aa198; font-weight: bold}
+.r3 {background-color: #f5f5f0}
+.r4 {color: #657b83; text-decoration-color: #657b83; background-color: #f5f5f0}
+.r5 {color: #268bd2; text-decoration-color: #268bd2; background-color: #f5f5f0}
+.r6 {color: #2aa198; text-decoration-color: #2aa198; background-color: #f5f5f0}
+.r7 {color: #cb4b16; text-decoration-color: #cb4b16}
+.r8 {color: #d33682; text-decoration-color: #d33682}
+.r9 {color: #93a1a1; text-decoration-color: #93a1a1; background-color: #f5f5f0; font-style: italic}
+.r10 {font-weight: bold}
+.r11 {color: #000080; text-decoration-color: #000080; text-decoration: underline}
+.r12 {color: #93a1a1; text-decoration-color: #93a1a1; background-color: #f5f5f0}
+.r13 {color: #d33682; text-decoration-color: #d33682; font-weight: bold}
 body {
     color: #000000;
     background-color: #f5f5f0;
@@ -44,6 +56,130 @@ body {
 </head>
 <body>
     <pre style="font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace"><code style="font-family:inherit"><span class="r1">Email-to-CC-BCC Environment</span>                                                                         
+
+Multi-turn environment where the model reads actual emails and assigns recipients to To, CC, and    
+BCC.                                                                                                
+
+<span class="r2">The Task</span>                                                                                            
+
+Given an email and a roster of people (name, email address, role), decide who goes in To, CC, and   
+BCC. Multi-turn: email thread evolves, recipients shift.                                            
+
+Each question is structured as:                                                                     
+
+<span class="r3">                                                                                                    </span>
+<span class="r3"> </span><span class="r4">Available recipients:</span><span class="r3">                                                                              </span>
+<span class="r3"> </span><span class="r4">- Sarah Chen &lt;sarah.chen@acme.com&gt; - Project Lead</span><span class="r3">                                                  </span>
+<span class="r3"> </span><span class="r4">- Mike Torres &lt;mike.t@clientcorp.com&gt; - Client PM</span><span class="r3">                                                  </span>
+<span class="r3"> </span><span class="r4">- Lisa Park &lt;lisa.park@acme.com&gt; - VP Engineering</span><span class="r3">                                                  </span>
+<span class="r3">                                                                                                    </span>
+<span class="r3"> </span><span class="r4">Subject: Q3 deadline extension request</span><span class="r3">                                                             </span>
+<span class="r3">                                                                                                    </span>
+<span class="r3"> </span><span class="r4">Hi team, I wanted to flag that we&#x27;re going to need a 2-week extension...</span><span class="r3">                           </span>
+<span class="r3">                                                                                                    </span>
+<span class="r3"> </span><span class="r4">Assign recipients to To, CC, and BCC.</span><span class="r3">                                                              </span>
+<span class="r3">                                                                                                    </span>
+
+Each answer uses email addresses (unique, unambiguous):                                             
+
+<span class="r3">                                                                                                    </span>
+<span class="r3"> </span><span class="r4">{</span><span class="r5">&quot;to&quot;</span><span class="r4">: [</span><span class="r6">&quot;sarah.chen@acme.com&quot;</span><span class="r4">], </span><span class="r5">&quot;cc&quot;</span><span class="r4">: [</span><span class="r6">&quot;mike.t@clientcorp.com&quot;</span><span class="r4">], </span><span class="r5">&quot;bcc&quot;</span><span class="r4">: [</span><span class="r6">&quot;lisa.park@acme.com&quot;</span><span class="r4">]}</span><span class="r3">    </span>
+<span class="r3">                                                                                                    </span>
+
+<span class="r2">Dataset</span>                                                                                             
+
+6 columns, flat. Each row is a full 3-turn scenario. Each row becomes a rollout:                    
+
+<span class="r3">                                                                                                    </span>
+<span class="r3"> </span><span class="r4">question_1 | question_2 | question_3 | answer_1 | answer_2 | answer_3</span><span class="r3">                              </span>
+<span class="r3">                                                                                                    </span>
+
+<span class="r7"> • </span><span class="r8">question_n</span> - people roster + actual email content + &quot;Assign recipients to To, CC, and BCC.&quot;      
+<span class="r7"> • </span><span class="r8">answer_n</span> - <span class="r8">{&quot;to&quot;: [&quot;email@addr&quot;], &quot;cc&quot;: [...], &quot;bcc&quot;: [...]}</span>                                     
+
+<span class="r8">question_1</span> is the initial email. <span class="r8">question_2</span> and <span class="r8">question_3</span> are replies in the thread as the         
+situation evolves (people added, removed, escalation, etc.). Each <span class="r8">answer_n</span> is the full recipient    
+list at that point.                                                                                 
+
+In <span class="r8">load_environment</span>, flat columns get reshaped into the verifiers format:                           
+
+<span class="r3">                                                                                                    </span>
+<span class="r3"> </span><span class="r6">&quot;prompt&quot;</span><span class="r4">: [{</span><span class="r6">&quot;role&quot;</span><span class="r4">: </span><span class="r6">&quot;user&quot;</span><span class="r4">, </span><span class="r6">&quot;content&quot;</span><span class="r4">: question_1}],</span><span class="r3">                                               </span>
+<span class="r3"> </span><span class="r6">&quot;info&quot;</span><span class="r4">: {</span><span class="r3">                                                                                          </span>
+<span class="r3"> </span><span class="r4">    </span><span class="r6">&quot;follow_ups&quot;</span><span class="r4">: [question_2, question_3],</span><span class="r3">                                                        </span>
+<span class="r3"> </span><span class="r4">    </span><span class="r6">&quot;ground_truths&quot;</span><span class="r4">: [answer_1, answer_2, answer_3],</span><span class="r3">                                               </span>
+<span class="r3"> </span><span class="r4">    </span><span class="r6">&quot;num_turns&quot;</span><span class="r4">: max_turns,  </span><span class="r9"># sliced by knob</span><span class="r3">                                                      </span>
+<span class="r3"> </span><span class="r4">}</span><span class="r3">                                                                                                  </span>
+<span class="r3">                                                                                                    </span>
+
+<span class="r2">Generation Approach: Ground Truth First</span>                                                             
+
+<span class="r7"> 1 </span><span class="r10">Sample people</span> - 7 people per row with name, email address, and role. 2-5 start active, rest are  
+<span class="r7">   </span>reserve. Email domains signal internal vs external (acme.com vs clientcorp.com vs gmail.com)     
+<span class="r7"> 2 </span><span class="r10">Assign recipients per turn</span> - deterministically distribute email addresses into to/cc/bcc.        
+<span class="r7">   </span>Sensitivity drives bcc, hierarchy drives to vs cc                                                
+<span class="r7"> 3 </span><span class="r10">LLM writes actual emails</span> - given the roster and assignments, generate realistic email content    
+<span class="r7">   </span>(subject + body) that naturally references people by name. The model being trained reads this    
+<span class="r7">   </span>email and reasons about recipients                                                               
+
+Ground truth is never LLM-generated - emails and assignments are deterministic. The LLM only writes 
+the email content wrapper.                                                                          
+
+<span class="r2">Synthetic Data Generation</span>                                                                           
+
+10k rows. Single-phase <a class="r11" href="https://nvidia-nemo.github.io/DataDesigner/latest/">DataDesigner</a> pipeline (requires <span class="r8">&gt;=0.5.1</span>).                                    
+
+<span class="r3">                                                                                                    </span>
+<span class="r3"> </span><span class="r5">cd</span><span class="r4"> nuggets </span><span class="r12">&amp;&amp;</span><span class="r4"> .venv/bin/python email_synthetic_data.py</span><span class="r3">                                             </span>
+<span class="r3">                                                                                                    </span>
+
+<span class="r2">DataDesigner Pipeline</span>                                                                               
+
+<span class="r10">Step 1 - Samplers (deterministic, no LLM):</span>                                                          
+
+All sampler columns use <span class="r8">drop=True</span>. Only the 6 output columns survive.                               
+
+<span class="r7"> • </span><span class="r10">start_people</span> - uniform 2-5. How many are active in turn 1                                        
+<span class="r7"> • </span><span class="r10">person_1..7</span> - PersonFromFaker sampler. Each gets a generated email address + role in the custom  
+<span class="r7">   </span>column                                                                                           
+<span class="r7"> • </span><span class="r10">department, scenario_type, scenario_subtype</span> - context for email content                          
+<span class="r7"> • </span><span class="r10">audience</span> - drives email domain selection (internal_only → company domains, with_client → external
+<span class="r7">   </span>domains)                                                                                         
+<span class="r7"> • </span><span class="r10">sensitivity</span> - drives bcc usage (confidential → more bcc)                                         
+<span class="r7"> • </span><span class="r10">hierarchy</span> - drives to vs cc (upward → more in to)                                                
+<span class="r7"> • </span><span class="r10">change_turn_2, change_turn_3</span> - 12 change types each                                              
+
+<span class="r10">Step 2 - Custom column (deterministic, no LLM):</span>                                                     
+
+Builds people roster (name + email + role) and ground truth assignments per turn. Side effects:     
+<span class="r8">answer_2</span>, <span class="r8">answer_3</span>, <span class="r8">roster</span>, <span class="r8">roster_turn_2</span>, <span class="r8">roster_turn_3</span>.                                           
+
+<span class="r7"> • </span>Email addresses generated from names + sampled domains (company, personal, external)             
+<span class="r7"> • </span>Turn 1: distribute active emails into to/cc/bcc                                                  
+<span class="r7"> • </span>Turn 2/3: apply changes, update roster if people added/removed                                   
+
+<span class="r10">Step 3 - LLM columns (actual email content):</span>                                                        
+
+The LLM generates realistic emails. Each question is then assembled as: roster + email content +    
+&quot;Assign recipients to To, CC, and BCC.&quot;                                                             
+
+<span class="r7"> • </span><span class="r8">question_1</span> - initial email with full roster                                                      
+<span class="r7"> • </span><span class="r8">question_2</span> - reply email with updated roster                                                     
+<span class="r7"> • </span><span class="r8">question_3</span> - second reply with updated roster                                                    
+
+<span class="r2">Reward Functions</span>                                                                                    
+
+Three per turn, scored independently:                                                               
+
+<span class="r7"> • </span><span class="r8">to_correct</span> - set match on to field (email addresses)                                             
+<span class="r7"> • </span><span class="r8">cc_correct</span> - set match on cc field                                                               
+<span class="r7"> • </span><span class="r8">bcc_correct</span> - set match on bcc field                                                             
+
+Weighted equally. Multi-turn: average across turns.                                                 
+
+<span class="r2">Knobs (via </span><span class="r13">--env-args</span><span class="r2">)</span>                                                                              
+
+<span class="r7"> • </span><span class="r8">max_turns</span> - 1, 2, or 3. Slices dataset accordingly.                                              
 </code></pre>
 </body>
 </html>

@@ -1,3 +1,11 @@
+# Dataset generation requires data-designer>=0.5.1 (separate venv — pyarrow conflict):
+#   cd nuggets && uv venv && uv pip install 'data-designer>=0.5.1' faker
+#   .venv/bin/python email_synthetic_data.py
+# This generates the 6-column dataset (question_1-3, answer_1-3) via:
+#   1. Samplers — people, context, change types (deterministic)
+#   2. Custom column — ground truth to/cc/bcc assignments (deterministic)
+#   3. LLM columns — scenario writing via OpenRouter (openrouter-text alias)
+
 import verifiers as vf
 from datasets import Dataset
 
