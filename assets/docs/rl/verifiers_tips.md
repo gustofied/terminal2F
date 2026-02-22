@@ -41,14 +41,13 @@ Under the hood it's all the same: the environment ID gets converted to a Python 
 
 A rubric is a collection of reward functions. Each reward function scores one aspect (e.g. `to_correct`, `cc_correct`, `bcc_correct`), and the rubric combines them into the final reward score.
 
-In verifiers, a rubric has multiple scoring functions decorated with weights, and it aggregates them:
+In verifiers, you pass multiple scoring functions with weights to the rubric:
 
 ```python
-@rubric.metric(weight=1.0)
-def to_correct(...): ...
-
-@rubric.metric(weight=1.0)
-def cc_correct(...): ...
+rubric = vf.Rubric(
+    funcs=[to_correct, cc_correct],
+    weights=[1.0, 1.0],
+)
 ```
 
 ### Reward function parameters
@@ -76,6 +75,24 @@ For multi-turn, index into `info` by turn number:
 turn = len(state["trajectory"])
 expected = state["info"]["expected"][turn]
 ```
+
+### Configuration knobs go on `load_environment`
+
+`--env-args` from the CLI get passed as kwargs to `load_environment()`. So any knob you want configurable from outside goes on that function signature with a default:
+
+```python
+def load_environment(max_turns: int = 1, difficulty: str = "easy", **kwargs):
+    dataset = build_dataset(difficulty)
+    return MyEnv(dataset=dataset, rubric=rubric, max_turns=max_turns)
+```
+
+Then from the CLI:
+
+```bash
+prime eval run my-env --env-args '{"max_turns": 3, "difficulty": "hard"}'
+```
+
+`load_environment` receives it, passes it down to the class or dataset builder. The class itself doesn't need to know about CLI args — it just takes constructor params like any normal class.
 
 ### `answer` is just a convention
 

@@ -2,8 +2,7 @@ import verifiers as vf
 from datasets import Dataset
 
 
-def load_environment(**kwargs) -> vf.Environment:
-    dataset = Dataset.from_list([
+dataset_example = Dataset.from_list([
         {
             "prompt": [{"role": "user", "content": "What is capital of Norway?"}],
             "info": {
@@ -12,11 +11,27 @@ def load_environment(**kwargs) -> vf.Environment:
         },
     ])
 
-    def correct_answer(completion, state, **kwargs) -> float:
+class EmailEnv(vf.MultiTurnEnv):
+    async def env_response(self, messages: vf.Messages, state: vf.State) -> vf.Messages:
+        return []
+
+def load_environment(max_turns: int = 1, **kwargs) -> vf.Environment:
+    
+    dataset = dataset_example
+
+    async def correct_answer(completion, state, **kwargs) -> float:
         response = completion[-1]["content"].lower()
         expected = state["info"]["expected_answer"].lower()
         return 1.0 if expected in response else 0.0
 
-    rubric = vf.Rubric(funcs=[correct_answer])
+    async def length_answer(completion, **kwargs) -> float:
+        response = completion[-1]["content"]
+        return 1.0 if len(response) < 200 else 0.5
 
-    return vf.SingleTurnEnv(dataset=dataset, rubric=rubric)
+    rubric = vf.Rubric(
+        funcs=[correct_answer, length_answer],
+        weights=[0.8, 0.2],
+    )
+    
+    return EmailEnv(dataset=dataset, rubric=rubric, max_turns=max_turns)
+

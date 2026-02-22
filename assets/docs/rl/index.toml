@@ -16,6 +16,7 @@ docs = [
     { file = "grpo_example", title = "How GRPO Works" },
     { file = "dr_grpo", title = "Dr.GRPO: What It Fixes" },
     { file = "multi_turn_envs", title = "Multi-Turn Environments" },
+    { file = "async_execution_flow", title = "Async Execution Flow" },
 ]
 
 [[groups]]

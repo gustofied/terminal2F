@@ -101,15 +101,13 @@ locally.
 A rubric is a collection of reward functions. Each reward function scores one aspect (e.g.          
 <span class="r3">to_correct</span>, <span class="r3">cc_correct</span>, <span class="r3">bcc_correct</span>), and the rubric combines them into the final reward score.     
 
-In verifiers, a rubric has multiple scoring functions decorated with weights, and it aggregates     
-them:                                                                                               
+In verifiers, you pass multiple scoring functions with weights to the rubric:                       
 
 <span class="r4">                                                                                                    </span>
-<span class="r4"> </span><span class="r8">@rubric</span><span class="r10">.</span><span class="r5">metric(weight</span><span class="r10">=</span><span class="r9">1.0</span><span class="r5">)</span><span class="r4">                                                                         </span>
-<span class="r4"> </span><span class="r11">def</span><span class="r5"> </span><span class="r8">to_correct</span><span class="r5">(</span><span class="r10">...</span><span class="r5">): </span><span class="r10">...</span><span class="r4">                                                                           </span>
-<span class="r4">                                                                                                    </span>
-<span class="r4"> </span><span class="r8">@rubric</span><span class="r10">.</span><span class="r5">metric(weight</span><span class="r10">=</span><span class="r9">1.0</span><span class="r5">)</span><span class="r4">                                                                         </span>
-<span class="r4"> </span><span class="r11">def</span><span class="r5"> </span><span class="r8">cc_correct</span><span class="r5">(</span><span class="r10">...</span><span class="r5">): </span><span class="r10">...</span><span class="r4">                                                                           </span>
+<span class="r4"> </span><span class="r5">rubric </span><span class="r10">=</span><span class="r5"> vf</span><span class="r10">.</span><span class="r5">Rubric(</span><span class="r4">                                                                                </span>
+<span class="r4"> </span><span class="r5">    funcs</span><span class="r10">=</span><span class="r5">[to_correct, cc_correct],</span><span class="r4">                                                                </span>
+<span class="r4"> </span><span class="r5">    weights</span><span class="r10">=</span><span class="r5">[</span><span class="r9">1.0</span><span class="r5">, </span><span class="r9">1.0</span><span class="r5">],</span><span class="r4">                                                                            </span>
+<span class="r4"> </span><span class="r5">)</span><span class="r4">                                                                                                  </span>
 <span class="r4">                                                                                                    </span>
 
 <span class="r2">Reward function parameters</span>                                                                          
