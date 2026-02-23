@@ -4,441 +4,570 @@
 <meta charset="utf-8">
 <title>System Overview: Verifiers, Trainer, vLLM</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@300;400;500&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=JetBrains+Mono:wght@300;400;500&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap');
+
   * { margin: 0; padding: 0; box-sizing: border-box; }
+
   body {
-    font-family: 'EB Garamond', 'Georgia', 'Times New Roman', serif;
-    font-size: 16px;
-    line-height: 1.58;
-    color: #1a1a1a;
-    background: #fff;
-    max-width: 840px;
+    font-family: 'Libre Baskerville', 'Georgia', serif;
+    font-size: 14.5px;
+    line-height: 1.72;
+    color: #2a2a2a;
+    background: #fdfcfa;
+    max-width: 780px;
     margin: 0 auto;
-    padding: 60px 40px 100px;
+    padding: 72px 48px 120px;
     -webkit-font-smoothing: antialiased;
   }
-  a.back {
-    font-family: 'JetBrains Mono', monospace; font-size: 10px;
-    color: #999; text-decoration: none; letter-spacing: 0.5px; text-transform: uppercase;
+
+  /* ── Header / Memo ── */
+  .memo-head {
+    border-top: 2.5px solid #1a1a1a;
+    border-bottom: 0.5px solid #1a1a1a;
+    padding: 20px 0 16px;
+    margin-bottom: 40px;
   }
-  a.back:hover { color: #b33a3a; }
-  h1 {
-    font-size: 28px; font-weight: 500; color: #111; margin: 36px 0 2px;
+  .memo-head h1 {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 32px;
+    font-weight: 600;
+    color: #111;
     letter-spacing: -0.5px;
+    line-height: 1.15;
+    margin: 0;
   }
-  .rule { width: 100%; height: 1px; background: #111; margin: 6px 0 4px; }
-  .subtitle {
-    font-style: italic; color: #666; font-size: 15px; margin-bottom: 36px;
-  }
-  h2 {
-    font-size: 11px; font-weight: 500; color: #999;
+  .memo-sub {
     font-family: 'JetBrains Mono', monospace;
-    letter-spacing: 2px; text-transform: uppercase;
-    margin: 48px 0 16px; padding-bottom: 0;
+    font-size: 10px;
+    color: #999;
+    letter-spacing: 0.8px;
+    margin-top: 8px;
   }
-  h2::before { content: ''; display: block; width: 24px; height: 1.5px; background: #b33a3a; margin-bottom: 8px; }
-  p { margin: 10px 0; color: #333; }
-  .fig-label {
-    font-family: 'JetBrains Mono', monospace; font-size: 9px;
-    color: #999; letter-spacing: 1px; text-transform: uppercase;
-    margin: 24px 0 8px;
+  a.back {
+    font-family: 'JetBrains Mono', monospace; font-size: 9.5px;
+    color: #bbb; text-decoration: none; letter-spacing: 0.5px;
   }
-  ul { margin: 10px 0 10px 20px; }
-  li { margin: 4px 0; color: #333; }
-  li::marker { color: #b33a3a; }
+  a.back:hover { color: #1a1a1a; }
+
+  /* ── Sections ── */
+  h2 {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 20px;
+    font-weight: 600;
+    color: #1a1a1a;
+    margin: 56px 0 6px;
+    letter-spacing: -0.2px;
+  }
+  h2 .num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 400;
+    color: #aaa;
+    letter-spacing: 1px;
+    display: block;
+    margin-bottom: 2px;
+  }
+  p { margin: 10px 0; }
+  .lede { font-size: 15px; color: #555; line-height: 1.68; }
+
+  /* ── Figures ── */
+  .fig {
+    margin: 28px 0 36px;
+    border: 0.5px solid #ddd;
+    background: #fff;
+    padding: 24px 20px 16px;
+  }
+  .fig svg { display: block; margin: 0 auto; max-width: 100%; }
+  .fig-cap {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9.5px;
+    color: #999;
+    letter-spacing: 0.3px;
+    margin-top: 14px;
+    padding-top: 10px;
+    border-top: 0.5px solid #eee;
+  }
+  .fig-cap em { font-family: 'Libre Baskerville', serif; font-size: 11.5px; color: #777; }
+
+  /* ── Lists ── */
+  ul { margin: 12px 0 12px 22px; }
+  li { margin: 5px 0; color: #333; }
+  li::marker { color: #bbb; }
+
+  /* ── Inline ── */
   code {
-    font-family: 'JetBrains Mono', monospace; font-size: 13px;
-    color: #b33a3a; background: #fafafa; padding: 1px 5px;
-    border: 1px solid #eee;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: #1a1a1a;
+    background: #f5f4f0;
+    padding: 1.5px 5px;
+    border-bottom: 1px solid #ddd;
   }
-  strong { font-weight: 600; color: #111; }
-  .diagram { margin: 16px 0 32px; display: flex; justify-content: center; }
-  .diagram svg { max-width: 100%; }
-  .sep { border: none; margin: 48px 0; }
-  .channels {
-    display: flex; gap: 1px; margin: 18px 0 0; background: #ddd;
-    border: 1px solid #ddd;
+  strong { font-weight: 700; color: #1a1a1a; }
+
+  /* ── Channel table ── */
+  .ch-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 20px 0 0;
+    font-size: 13.5px;
   }
-  .ch { flex: 1; background: #fff; padding: 14px 18px; }
-  .ch-label {
-    font-family: 'JetBrains Mono', monospace; font-size: 9px;
-    color: #999; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 3px;
+  .ch-table th {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    font-weight: 400;
+    color: #aaa;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    text-align: left;
+    padding: 6px 16px;
+    border-bottom: 1px solid #1a1a1a;
   }
-  .ch-desc { font-size: 14.5px; color: #333; }
-  .ch-proto {
-    font-family: 'JetBrains Mono', monospace; font-size: 10.5px;
-    color: #999; margin-top: 2px;
+  .ch-table td {
+    padding: 10px 16px;
+    border-bottom: 0.5px solid #eee;
+    vertical-align: top;
   }
-  .note {
-    font-size: 13.5px; color: #888; font-style: italic;
-    border-left: 2px solid #ddd; padding-left: 14px; margin: 16px 0;
+  .ch-table .proto {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: #aaa;
   }
-  .footer-rule { width: 100%; height: 1px; background: #ddd; margin: 56px 0 12px; }
-  .footer { font-size: 12px; color: #bbb; font-style: italic; }
+
+  /* ── Notes ── */
+  .aside {
+    font-size: 13px;
+    color: #888;
+    font-style: italic;
+    margin: 20px 0 20px 28px;
+    padding-left: 16px;
+    border-left: 1.5px solid #ddd;
+    line-height: 1.6;
+  }
+
+  /* ── Separators ── */
+  .sep {
+    border: none;
+    text-align: center;
+    margin: 56px 0;
+    line-height: 0;
+  }
+  .sep::after {
+    content: '\2022\2009\2009\2022\2009\2009\2022';
+    font-size: 10px;
+    color: #ccc;
+    letter-spacing: 4px;
+  }
+
+  /* ── Footer ── */
+  .colophon {
+    border-top: 0.5px solid #ddd;
+    margin-top: 64px;
+    padding-top: 16px;
+  }
+  .colophon p {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    color: #ccc;
+    letter-spacing: 0.5px;
+  }
 </style>
 </head>
 <body>
-<a class="back" href="index.html">&larr; Back</a>
 
-<h1>System Overview</h1>
-<div class="rule"></div>
-<p class="subtitle">Verifiers, Trainer, vLLM &mdash; how the three pieces connect, who talks to who, and why.</p>
+<a class="back" href="index.html">&larr; rl / docs</a>
+
+<div class="memo-head">
+  <h1>System Overview</h1>
+  <div class="memo-sub">VERIFIERS &middot; TRAINER &middot; vLLM &mdash; TOPOLOGY &amp; DATA FLOW</div>
+</div>
+
 
 <!-- ═══════════════════════════════════════════════════════════
      I. ARCHITECTURE
      ═══════════════════════════════════════════════════════════ -->
 
-<h2>I. Architecture</h2>
-<p>Three processes, two communication channels. The orchestrator lives inside the trainer process and bridges the environment to the training loop.</p>
+<h2><span class="num">I</span>Architecture</h2>
+<p class="lede">Three processes, two communication channels. The orchestrator lives inside the trainer process and bridges the environment to the training loop.</p>
 
-<p class="fig-label">Fig. 1 &mdash; Component topology</p>
-<div class="diagram">
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 400" width="760" height="400">
+<div class="fig">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 370" width="700" height="370">
   <defs>
-    <marker id="a1" markerWidth="6" markerHeight="5" refX="6" refY="2.5" orient="auto">
-      <path d="M0,0.5 L5.5,2.5 L0,4.5" fill="none" stroke="#333" stroke-width="0.8"/>
+    <marker id="t1" markerWidth="4" markerHeight="4" refX="4" refY="2" orient="auto">
+      <path d="M0,0 L4,2 L0,4 Z" fill="#1a1a1a"/>
     </marker>
-    <marker id="a1r" markerWidth="6" markerHeight="5" refX="6" refY="2.5" orient="auto">
-      <path d="M0,0.5 L5.5,2.5 L0,4.5" fill="none" stroke="#b33a3a" stroke-width="0.8"/>
+    <marker id="t2" markerWidth="4" markerHeight="4" refX="4" refY="2" orient="auto">
+      <path d="M0,0 L4,2 L0,4 Z" fill="#999"/>
     </marker>
-    <marker id="a1b" markerWidth="6" markerHeight="5" refX="6" refY="2.5" orient="auto">
-      <path d="M0,0.5 L5.5,2.5 L0,4.5" fill="none" stroke="#666" stroke-width="0.8"/>
+    <marker id="t3" markerWidth="4" markerHeight="4" refX="4" refY="2" orient="auto">
+      <path d="M0,0 L4,2 L0,4 Z" fill="#b33a3a"/>
     </marker>
   </defs>
 
   <!-- Trainer process boundary -->
-  <rect x="16" y="14" width="728" height="164" rx="0" fill="none" stroke="#ccc" stroke-width="0.75" stroke-dasharray="5,4"/>
-  <text x="28" y="30" font-family="'JetBrains Mono',monospace" font-size="8.5" fill="#aaa" letter-spacing="1.5">TRAINER PROCESS</text>
+  <rect x="8" y="8" width="684" height="148" fill="none" stroke="#ccc" stroke-width="0.5" stroke-dasharray="4,3"/>
+  <text x="18" y="22" font-family="'JetBrains Mono',monospace" font-size="7.5" fill="#bbb" letter-spacing="1.5">TRAINER PROCESS</text>
 
-  <!-- Trainer -->
-  <rect x="40" y="48" width="216" height="114" rx="0" fill="#fff" stroke="#333" stroke-width="0.75"/>
-  <text x="56" y="68" font-family="'EB Garamond',serif" font-size="15" fill="#111" font-weight="500">Trainer</text>
-  <line x1="56" y1="74" x2="148" y2="74" stroke="#ddd" stroke-width="0.5"/>
-  <text x="56" y="92" font-family="'JetBrains Mono',monospace" font-size="10" fill="#666">forward pass</text>
-  <text x="56" y="107" font-family="'JetBrains Mono',monospace" font-size="10" fill="#666">loss + backprop</text>
-  <text x="56" y="122" font-family="'JetBrains Mono',monospace" font-size="10" fill="#666">weight update</text>
-  <text x="56" y="137" font-family="'JetBrains Mono',monospace" font-size="10" fill="#666">weight sync &rarr; vLLM</text>
-  <text x="226" y="68" font-family="'JetBrains Mono',monospace" font-size="8" fill="#bbb" text-anchor="end">4&ndash;6</text>
+  <!-- Trainer box -->
+  <rect x="28" y="38" width="196" height="104" fill="#fff" stroke="#1a1a1a" stroke-width="0.6"/>
+  <text x="42" y="56" font-family="'Cormorant Garamond',serif" font-size="14.5" fill="#1a1a1a" font-weight="600">Trainer</text>
+  <line x1="42" y1="62" x2="126" y2="62" stroke="#ddd" stroke-width="0.4"/>
+  <text x="42" y="78" font-family="'JetBrains Mono',monospace" font-size="9" fill="#888">forward pass</text>
+  <text x="42" y="92" font-family="'JetBrains Mono',monospace" font-size="9" fill="#888">loss + backprop</text>
+  <text x="42" y="106" font-family="'JetBrains Mono',monospace" font-size="9" fill="#888">weight update</text>
+  <text x="42" y="120" font-family="'JetBrains Mono',monospace" font-size="9" fill="#888">weight sync</text>
+  <text x="190" y="56" font-family="'JetBrains Mono',monospace" font-size="7.5" fill="#ccc" text-anchor="end">4&ndash;6</text>
 
-  <!-- Orchestrator -->
-  <rect x="332" y="48" width="396" height="114" rx="0" fill="#fff" stroke="#333" stroke-width="0.75"/>
-  <text x="348" y="68" font-family="'EB Garamond',serif" font-size="15" fill="#111" font-weight="500">Orchestrator</text>
-  <line x1="348" y1="74" x2="474" y2="74" stroke="#ddd" stroke-width="0.5"/>
-  <text x="348" y="92" font-family="'JetBrains Mono',monospace" font-size="10" fill="#666">calls env.generate()</text>
-  <text x="348" y="107" font-family="'JetBrains Mono',monospace" font-size="10" fill="#666">computes advantages</text>
-  <text x="498" y="107" font-family="'JetBrains Mono',monospace" font-size="10" fill="#bbb">(reward &minus; group mean)</text>
-  <text x="348" y="122" font-family="'JetBrains Mono',monospace" font-size="10" fill="#666">packages microbatches</text>
-  <text x="348" y="137" font-family="'JetBrains Mono',monospace" font-size="10" fill="#bbb">input_ids &middot; loss_mask &middot; logprobs &middot; advantages</text>
-  <text x="698" y="68" font-family="'JetBrains Mono',monospace" font-size="8" fill="#bbb" text-anchor="end">1&ndash;3</text>
+  <!-- Orchestrator box -->
+  <rect x="296" y="38" width="380" height="104" fill="#fff" stroke="#1a1a1a" stroke-width="0.6"/>
+  <text x="310" y="56" font-family="'Cormorant Garamond',serif" font-size="14.5" fill="#1a1a1a" font-weight="600">Orchestrator</text>
+  <line x1="310" y1="62" x2="420" y2="62" stroke="#ddd" stroke-width="0.4"/>
+  <text x="310" y="78" font-family="'JetBrains Mono',monospace" font-size="9" fill="#888">calls env.generate()</text>
+  <text x="310" y="92" font-family="'JetBrains Mono',monospace" font-size="9" fill="#888">computes advantages</text>
+  <text x="442" y="92" font-family="'JetBrains Mono',monospace" font-size="9" fill="#ccc">(reward &minus; group_mean)</text>
+  <text x="310" y="106" font-family="'JetBrains Mono',monospace" font-size="9" fill="#888">packages microbatches</text>
+  <text x="310" y="120" font-family="'JetBrains Mono',monospace" font-size="9" fill="#ccc">input_ids &middot; loss_mask &middot; logprobs &middot; advantages</text>
+  <text x="644" y="56" font-family="'JetBrains Mono',monospace" font-size="7.5" fill="#ccc" text-anchor="end">1&ndash;3</text>
 
-  <!-- Orch -> Trainer arrow -->
-  <line x1="332" y1="108" x2="262" y2="108" stroke="#333" stroke-width="0.75" marker-end="url(#a1)"/>
-  <text x="283" y="102" font-family="'JetBrains Mono',monospace" font-size="8" fill="#999" text-anchor="middle">microbatch</text>
+  <!-- Orch -> Trainer -->
+  <line x1="296" y1="94" x2="230" y2="94" stroke="#1a1a1a" stroke-width="0.5" marker-end="url(#t1)"/>
+  <text x="254" y="88" font-family="'JetBrains Mono',monospace" font-size="7" fill="#aaa" text-anchor="middle">microbatch</text>
 
-  <!-- vLLM -->
-  <rect x="40" y="244" width="260" height="138" rx="0" fill="#fff" stroke="#333" stroke-width="0.75"/>
-  <text x="56" y="268" font-family="'EB Garamond',serif" font-size="15" fill="#111" font-weight="500">vLLM</text>
-  <line x1="56" y1="274" x2="156" y2="274" stroke="#ddd" stroke-width="0.5"/>
-  <text x="56" y="294" font-family="'JetBrains Mono',monospace" font-size="10" fill="#666">hosts model weights</text>
-  <text x="56" y="310" font-family="'JetBrains Mono',monospace" font-size="10" fill="#666">OpenAI-compatible API</text>
-  <text x="56" y="326" font-family="'JetBrains Mono',monospace" font-size="10" fill="#666">returns completions</text>
-  <text x="56" y="342" font-family="'JetBrains Mono',monospace" font-size="10" fill="#bbb">  + token IDs + logprobs</text>
-  <text x="56" y="358" font-family="'JetBrains Mono',monospace" font-size="10" fill="#666">accepts weight sync</text>
+  <!-- vLLM box -->
+  <rect x="28" y="222" width="240" height="130" fill="#fff" stroke="#1a1a1a" stroke-width="0.6"/>
+  <text x="42" y="244" font-family="'Cormorant Garamond',serif" font-size="14.5" fill="#1a1a1a" font-weight="600">vLLM</text>
+  <line x1="42" y1="250" x2="120" y2="250" stroke="#ddd" stroke-width="0.4"/>
+  <text x="42" y="268" font-family="'JetBrains Mono',monospace" font-size="9" fill="#888">hosts model weights</text>
+  <text x="42" y="282" font-family="'JetBrains Mono',monospace" font-size="9" fill="#888">OpenAI-compatible API</text>
+  <text x="42" y="296" font-family="'JetBrains Mono',monospace" font-size="9" fill="#888">returns completions</text>
+  <text x="42" y="310" font-family="'JetBrains Mono',monospace" font-size="9" fill="#ccc">  + token IDs + logprobs</text>
+  <text x="42" y="324" font-family="'JetBrains Mono',monospace" font-size="9" fill="#888">accepts weight sync</text>
 
-  <!-- Verifiers -->
-  <rect x="440" y="244" width="296" height="138" rx="0" fill="#fff" stroke="#333" stroke-width="0.75"/>
-  <text x="456" y="268" font-family="'EB Garamond',serif" font-size="15" fill="#111" font-weight="500">Verifiers</text>
-  <text x="524" y="268" font-family="'JetBrains Mono',monospace" font-size="10" fill="#bbb">(env)</text>
-  <line x1="456" y1="274" x2="620" y2="274" stroke="#ddd" stroke-width="0.5"/>
-  <text x="456" y="294" font-family="'JetBrains Mono',monospace" font-size="10" fill="#666">multi-turn conversation loop</text>
-  <text x="456" y="310" font-family="'JetBrains Mono',monospace" font-size="10" fill="#666">env_response() between turns</text>
-  <text x="456" y="326" font-family="'JetBrains Mono',monospace" font-size="10" fill="#666">reward functions score rollout</text>
-  <text x="456" y="342" font-family="'JetBrains Mono',monospace" font-size="10" fill="#666">returns scored trajectory</text>
+  <!-- Verifiers box -->
+  <rect x="400" y="222" width="276" height="130" fill="#fff" stroke="#1a1a1a" stroke-width="0.6"/>
+  <text x="414" y="244" font-family="'Cormorant Garamond',serif" font-size="14.5" fill="#1a1a1a" font-weight="600">Verifiers</text>
+  <text x="478" y="244" font-family="'JetBrains Mono',monospace" font-size="9" fill="#ccc">(env)</text>
+  <line x1="414" y1="250" x2="560" y2="250" stroke="#ddd" stroke-width="0.4"/>
+  <text x="414" y="268" font-family="'JetBrains Mono',monospace" font-size="9" fill="#888">multi-turn conversation loop</text>
+  <text x="414" y="282" font-family="'JetBrains Mono',monospace" font-size="9" fill="#888">env_response() between turns</text>
+  <text x="414" y="296" font-family="'JetBrains Mono',monospace" font-size="9" fill="#888">reward functions score rollout</text>
+  <text x="414" y="310" font-family="'JetBrains Mono',monospace" font-size="9" fill="#888">returns scored trajectory</text>
 
-  <!-- Trainer -> vLLM (weight sync) -->
-  <line x1="150" y1="178" x2="150" y2="238" stroke="#b33a3a" stroke-width="0.75" marker-end="url(#a1r)"/>
-  <text x="158" y="212" font-family="'JetBrains Mono',monospace" font-size="8.5" fill="#b33a3a">NCCL weight sync</text>
-  <text x="158" y="224" font-family="'JetBrains Mono',monospace" font-size="8" fill="#ccc">step 7</text>
+  <!-- Trainer -> vLLM : weight sync -->
+  <line x1="128" y1="156" x2="128" y2="216" stroke="#1a1a1a" stroke-width="0.5" marker-end="url(#t1)"/>
+  <!-- connection dot -->
+  <circle cx="128" cy="156" r="2" fill="#1a1a1a"/>
+  <text x="136" y="184" font-family="'JetBrains Mono',monospace" font-size="7.5" fill="#888">NCCL weight sync</text>
+  <text x="136" y="194" font-family="'JetBrains Mono',monospace" font-size="7" fill="#ccc">step 7</text>
 
-  <!-- Orchestrator -> Verifiers (env.generate) -->
-  <line x1="560" y1="162" x2="560" y2="238" stroke="#b33a3a" stroke-width="0.75" marker-end="url(#a1r)"/>
-  <text x="568" y="198" font-family="'JetBrains Mono',monospace" font-size="8.5" fill="#b33a3a">env.generate()</text>
-  <text x="568" y="210" font-family="'JetBrains Mono',monospace" font-size="8" fill="#ccc">step 1</text>
+  <!-- Orchestrator -> Verifiers : env.generate -->
+  <line x1="520" y1="142" x2="520" y2="216" stroke="#b33a3a" stroke-width="0.5" marker-end="url(#t3)"/>
+  <circle cx="520" cy="142" r="2" fill="#b33a3a"/>
+  <text x="528" y="174" font-family="'JetBrains Mono',monospace" font-size="7.5" fill="#b33a3a">env.generate()</text>
+  <text x="528" y="184" font-family="'JetBrains Mono',monospace" font-size="7" fill="#ccc">step 1</text>
 
-  <!-- Verifiers -> vLLM (completions request) -->
-  <line x1="440" y1="302" x2="306" y2="302" stroke="#666" stroke-width="0.75" marker-end="url(#a1b)"/>
-  <text x="370" y="296" font-family="'JetBrains Mono',monospace" font-size="8" fill="#999" text-anchor="middle">completions</text>
+  <!-- Verifiers -> vLLM : completions -->
+  <line x1="400" y1="276" x2="274" y2="276" stroke="#999" stroke-width="0.5" marker-end="url(#t2)"/>
+  <circle cx="400" cy="276" r="1.5" fill="#999"/>
+  <text x="336" y="270" font-family="'JetBrains Mono',monospace" font-size="7" fill="#aaa" text-anchor="middle">completions</text>
 
-  <!-- vLLM -> Verifiers (response) -->
-  <line x1="300" y1="330" x2="434" y2="330" stroke="#666" stroke-width="0.75" stroke-dasharray="4,3" marker-end="url(#a1b)"/>
-  <text x="370" y="346" font-family="'JetBrains Mono',monospace" font-size="8" fill="#999" text-anchor="middle">tokens + logprobs</text>
+  <!-- vLLM -> Verifiers : response -->
+  <line x1="268" y1="300" x2="394" y2="300" stroke="#999" stroke-width="0.5" stroke-dasharray="3,2" marker-end="url(#t2)"/>
+  <text x="336" y="314" font-family="'JetBrains Mono',monospace" font-size="7" fill="#aaa" text-anchor="middle">tokens + logprobs</text>
 </svg>
+<p class="fig-cap"><strong>Fig. 1</strong> &mdash; <em>Component topology. Dashed boundary indicates co-located processes. Filled arrows show primary data flow; the red path marks the rollout initiation.</em></p>
 </div>
 
-<div class="channels">
-  <div class="ch">
-    <div class="ch-label">Channel A &mdash; Inference</div>
-    <div class="ch-desc"><strong>Verifiers &rarr; vLLM</strong> &mdash; generate completions</div>
-    <div class="ch-proto">OpenAI-compatible HTTP</div>
-  </div>
-  <div class="ch">
-    <div class="ch-label">Channel B &mdash; Weight Sync</div>
-    <div class="ch-desc"><strong>Trainer &rarr; vLLM</strong> &mdash; push updated weights</div>
-    <div class="ch-proto">NCCL GPU-to-GPU broadcast</div>
-  </div>
-</div>
+<table class="ch-table">
+  <tr>
+    <th>Channel</th>
+    <th>Direction</th>
+    <th>Purpose</th>
+    <th>Protocol</th>
+  </tr>
+  <tr>
+    <td>A</td>
+    <td>Verifiers &rarr; vLLM</td>
+    <td>Generate completions during rollouts</td>
+    <td class="proto">OpenAI HTTP API</td>
+  </tr>
+  <tr>
+    <td>B</td>
+    <td>Trainer &rarr; vLLM</td>
+    <td>Push updated weights between steps</td>
+    <td class="proto">NCCL GPU-to-GPU</td>
+  </tr>
+</table>
 
 <hr class="sep">
+
 
 <!-- ═══════════════════════════════════════════════════════════
      II. MULTI-TURN ROLLOUT
      ═══════════════════════════════════════════════════════════ -->
 
-<h2>II. Multi-Turn Rollout</h2>
-<p>Inside <code>env.generate()</code>. Verifiers drives the conversation loop. vLLM generates when asked. The trainer never sees this &mdash; it only receives the packaged result.</p>
+<h2><span class="num">II</span>Multi-Turn Rollout</h2>
+<p class="lede">Inside <code>env.generate()</code>. Verifiers drives the conversation loop. vLLM generates when asked. The trainer never sees this &mdash; it only receives the packaged result.</p>
 
-<p class="fig-label">Fig. 2 &mdash; Three-turn sequence (email-to-cc-bcc)</p>
-<div class="diagram">
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 530" width="720" height="530">
+<div class="fig">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 510" width="680" height="510">
   <defs>
-    <marker id="s1" markerWidth="5" markerHeight="4" refX="5" refY="2" orient="auto">
-      <path d="M0,0.3 L4.5,2 L0,3.7" fill="none" stroke="#333" stroke-width="0.7"/>
+    <marker id="sq" markerWidth="4" markerHeight="4" refX="4" refY="2" orient="auto">
+      <path d="M0,0 L4,2 L0,4 Z" fill="#1a1a1a"/>
     </marker>
-    <marker id="s1d" markerWidth="5" markerHeight="4" refX="5" refY="2" orient="auto">
-      <path d="M0,0.3 L4.5,2 L0,3.7" fill="none" stroke="#999" stroke-width="0.7"/>
+    <marker id="sqg" markerWidth="4" markerHeight="4" refX="4" refY="2" orient="auto">
+      <path d="M0,0 L4,2 L0,4 Z" fill="#999"/>
     </marker>
-    <marker id="s1r" markerWidth="5" markerHeight="4" refX="5" refY="2" orient="auto">
-      <path d="M0,0.3 L4.5,2 L0,3.7" fill="none" stroke="#b33a3a" stroke-width="0.7"/>
+    <marker id="sqr" markerWidth="4" markerHeight="4" refX="4" refY="2" orient="auto">
+      <path d="M0,0 L4,2 L0,4 Z" fill="#b33a3a"/>
     </marker>
   </defs>
 
   <!-- Column headers -->
-  <text x="100" y="18" font-family="'EB Garamond',serif" font-size="13" fill="#111" font-weight="500" text-anchor="middle">Verifiers</text>
-  <text x="340" y="18" font-family="'EB Garamond',serif" font-size="13" fill="#111" font-weight="500" text-anchor="middle">vLLM</text>
-  <text x="590" y="18" font-family="'EB Garamond',serif" font-size="13" fill="#111" font-weight="500" text-anchor="middle">Env Logic</text>
+  <text x="94" y="16" font-family="'Cormorant Garamond',serif" font-size="13" fill="#1a1a1a" font-weight="600" text-anchor="middle">Verifiers</text>
+  <text x="324" y="16" font-family="'Cormorant Garamond',serif" font-size="13" fill="#1a1a1a" font-weight="600" text-anchor="middle">vLLM</text>
+  <text x="560" y="16" font-family="'Cormorant Garamond',serif" font-size="13" fill="#1a1a1a" font-weight="600" text-anchor="middle">Env Logic</text>
 
-  <line x1="48" y1="26" x2="152" y2="26" stroke="#ddd" stroke-width="0.5"/>
-  <line x1="296" y1="26" x2="384" y2="26" stroke="#ddd" stroke-width="0.5"/>
-  <line x1="544" y1="26" x2="636" y2="26" stroke="#ddd" stroke-width="0.5"/>
+  <!-- Header underlines -->
+  <line x1="46" y1="22" x2="142" y2="22" stroke="#1a1a1a" stroke-width="0.4"/>
+  <line x1="286" y1="22" x2="362" y2="22" stroke="#1a1a1a" stroke-width="0.4"/>
+  <line x1="514" y1="22" x2="606" y2="22" stroke="#1a1a1a" stroke-width="0.4"/>
 
   <!-- Lifelines -->
-  <line x1="100" y1="34" x2="100" y2="510" stroke="#e8e8e8" stroke-width="0.75"/>
-  <line x1="340" y1="34" x2="340" y2="510" stroke="#e8e8e8" stroke-width="0.75"/>
-  <line x1="590" y1="34" x2="590" y2="510" stroke="#e8e8e8" stroke-width="0.75"/>
+  <line x1="94" y1="30" x2="94" y2="492" stroke="#eee" stroke-width="0.5"/>
+  <line x1="324" y1="30" x2="324" y2="492" stroke="#eee" stroke-width="0.5"/>
+  <line x1="560" y1="30" x2="560" y2="492" stroke="#eee" stroke-width="0.5"/>
 
   <!-- ── TURN 1 ── -->
-  <text x="20" y="62" font-family="'JetBrains Mono',monospace" font-size="7.5" fill="#bbb" letter-spacing="0.5">T1</text>
-  <line x1="28" y1="50" x2="28" y2="172" stroke="#ddd" stroke-width="0.5"/>
+  <!-- Turn bracket -->
+  <line x1="14" y1="40" x2="14" y2="162" stroke="#ddd" stroke-width="0.4"/>
+  <line x1="14" y1="40" x2="20" y2="40" stroke="#ddd" stroke-width="0.4"/>
+  <line x1="14" y1="162" x2="20" y2="162" stroke="#ddd" stroke-width="0.4"/>
+  <text x="10" y="105" font-family="'JetBrains Mono',monospace" font-size="7" fill="#ccc" text-anchor="end" transform="rotate(-90 10 105)">TURN 1</text>
 
-  <rect x="50" y="46" width="100" height="20" rx="0" fill="#fafafa" stroke="#ccc" stroke-width="0.5"/>
-  <text x="100" y="60" font-family="'JetBrains Mono',monospace" font-size="9" fill="#666" text-anchor="middle">load prompt</text>
+  <rect x="48" y="38" width="92" height="18" fill="#fdfcfa" stroke="#ccc" stroke-width="0.4"/>
+  <text x="94" y="51" font-family="'JetBrains Mono',monospace" font-size="8.5" fill="#888" text-anchor="middle">load prompt</text>
 
-  <line x1="100" y1="76" x2="334" y2="76" stroke="#333" stroke-width="0.6" marker-end="url(#s1)"/>
-  <text x="217" y="72" font-family="'JetBrains Mono',monospace" font-size="8" fill="#999" text-anchor="middle">prompt &rarr; generate</text>
+  <line x1="94" y1="66" x2="318" y2="66" stroke="#1a1a1a" stroke-width="0.4" marker-end="url(#sq)"/>
+  <text x="206" y="62" font-family="'JetBrains Mono',monospace" font-size="7.5" fill="#aaa" text-anchor="middle">prompt &rarr; generate</text>
 
-  <rect x="296" y="86" width="88" height="18" rx="0" fill="#fafafa" stroke="#ccc" stroke-width="0.5"/>
-  <text x="340" y="99" font-family="'JetBrains Mono',monospace" font-size="9" fill="#666" text-anchor="middle">completion&#x2081;</text>
+  <rect x="282" y="74" width="84" height="16" fill="#fdfcfa" stroke="#ccc" stroke-width="0.4"/>
+  <text x="324" y="86" font-family="'JetBrains Mono',monospace" font-size="8.5" fill="#888" text-anchor="middle">completion&#x2081;</text>
 
-  <line x1="340" y1="112" x2="106" y2="112" stroke="#999" stroke-width="0.6" stroke-dasharray="3,2.5" marker-end="url(#s1d)"/>
-  <text x="217" y="108" font-family="'JetBrains Mono',monospace" font-size="7.5" fill="#bbb" text-anchor="middle">text + token IDs + logprobs</text>
+  <line x1="324" y1="98" x2="100" y2="98" stroke="#999" stroke-width="0.4" stroke-dasharray="3,2" marker-end="url(#sqg)"/>
+  <text x="206" y="94" font-family="'JetBrains Mono',monospace" font-size="7" fill="#ccc" text-anchor="middle">text + token IDs + logprobs</text>
 
-  <line x1="100" y1="132" x2="584" y2="132" stroke="#b33a3a" stroke-width="0.6" marker-end="url(#s1r)"/>
-  <text x="342" y="128" font-family="'JetBrains Mono',monospace" font-size="8" fill="#b33a3a" text-anchor="middle">env_response()</text>
+  <line x1="94" y1="116" x2="554" y2="116" stroke="#b33a3a" stroke-width="0.4" marker-end="url(#sqr)"/>
+  <text x="324" y="112" font-family="'JetBrains Mono',monospace" font-size="7.5" fill="#b33a3a" text-anchor="middle">env_response()</text>
 
-  <rect x="546" y="140" width="88" height="18" rx="0" fill="#fff" stroke="#b33a3a" stroke-width="0.5"/>
-  <text x="590" y="153" font-family="'JetBrains Mono',monospace" font-size="9" fill="#b33a3a" text-anchor="middle">question&#x2082;</text>
+  <rect x="516" y="124" width="88" height="16" fill="#fff" stroke="#b33a3a" stroke-width="0.4"/>
+  <text x="560" y="136" font-family="'JetBrains Mono',monospace" font-size="8.5" fill="#b33a3a" text-anchor="middle">question&#x2082;</text>
 
-  <line x1="590" y1="166" x2="106" y2="166" stroke="#b33a3a" stroke-width="0.6" stroke-dasharray="3,2.5" marker-end="url(#s1r)"/>
+  <line x1="560" y1="148" x2="100" y2="148" stroke="#b33a3a" stroke-width="0.4" stroke-dasharray="3,2" marker-end="url(#sqr)"/>
 
   <!-- ── TURN 2 ── -->
-  <text x="20" y="206" font-family="'JetBrains Mono',monospace" font-size="7.5" fill="#bbb" letter-spacing="0.5">T2</text>
-  <line x1="28" y1="192" x2="28" y2="326" stroke="#ddd" stroke-width="0.5"/>
+  <line x1="14" y1="178" x2="14" y2="308" stroke="#ddd" stroke-width="0.4"/>
+  <line x1="14" y1="178" x2="20" y2="178" stroke="#ddd" stroke-width="0.4"/>
+  <line x1="14" y1="308" x2="20" y2="308" stroke="#ddd" stroke-width="0.4"/>
+  <text x="10" y="247" font-family="'JetBrains Mono',monospace" font-size="7" fill="#ccc" text-anchor="end" transform="rotate(-90 10 247)">TURN 2</text>
 
-  <rect x="38" y="188" width="124" height="18" rx="0" fill="#fafafa" stroke="#ccc" stroke-width="0.5"/>
-  <text x="100" y="201" font-family="'JetBrains Mono',monospace" font-size="9" fill="#666" text-anchor="middle">append to conv</text>
+  <rect x="38" y="176" width="112" height="16" fill="#fdfcfa" stroke="#ccc" stroke-width="0.4"/>
+  <text x="94" y="188" font-family="'JetBrains Mono',monospace" font-size="8.5" fill="#888" text-anchor="middle">append to conv</text>
 
-  <line x1="100" y1="218" x2="334" y2="218" stroke="#333" stroke-width="0.6" marker-end="url(#s1)"/>
-  <text x="217" y="214" font-family="'JetBrains Mono',monospace" font-size="7.5" fill="#999" text-anchor="middle">prompt + answer&#x2081; + question&#x2082;</text>
+  <line x1="94" y1="204" x2="318" y2="204" stroke="#1a1a1a" stroke-width="0.4" marker-end="url(#sq)"/>
+  <text x="206" y="200" font-family="'JetBrains Mono',monospace" font-size="7" fill="#aaa" text-anchor="middle">prompt + answer&#x2081; + question&#x2082;</text>
 
-  <rect x="296" y="228" width="88" height="18" rx="0" fill="#fafafa" stroke="#ccc" stroke-width="0.5"/>
-  <text x="340" y="241" font-family="'JetBrains Mono',monospace" font-size="9" fill="#666" text-anchor="middle">completion&#x2082;</text>
+  <rect x="282" y="212" width="84" height="16" fill="#fdfcfa" stroke="#ccc" stroke-width="0.4"/>
+  <text x="324" y="224" font-family="'JetBrains Mono',monospace" font-size="8.5" fill="#888" text-anchor="middle">completion&#x2082;</text>
 
-  <line x1="340" y1="254" x2="106" y2="254" stroke="#999" stroke-width="0.6" stroke-dasharray="3,2.5" marker-end="url(#s1d)"/>
-  <text x="217" y="250" font-family="'JetBrains Mono',monospace" font-size="7.5" fill="#bbb" text-anchor="middle">text + token IDs + logprobs</text>
+  <line x1="324" y1="236" x2="100" y2="236" stroke="#999" stroke-width="0.4" stroke-dasharray="3,2" marker-end="url(#sqg)"/>
+  <text x="206" y="232" font-family="'JetBrains Mono',monospace" font-size="7" fill="#ccc" text-anchor="middle">text + token IDs + logprobs</text>
 
-  <line x1="100" y1="274" x2="584" y2="274" stroke="#b33a3a" stroke-width="0.6" marker-end="url(#s1r)"/>
-  <text x="342" y="270" font-family="'JetBrains Mono',monospace" font-size="8" fill="#b33a3a" text-anchor="middle">env_response()</text>
+  <line x1="94" y1="256" x2="554" y2="256" stroke="#b33a3a" stroke-width="0.4" marker-end="url(#sqr)"/>
+  <text x="324" y="252" font-family="'JetBrains Mono',monospace" font-size="7.5" fill="#b33a3a" text-anchor="middle">env_response()</text>
 
-  <rect x="546" y="282" width="88" height="18" rx="0" fill="#fff" stroke="#b33a3a" stroke-width="0.5"/>
-  <text x="590" y="295" font-family="'JetBrains Mono',monospace" font-size="9" fill="#b33a3a" text-anchor="middle">question&#x2083;</text>
+  <rect x="516" y="264" width="88" height="16" fill="#fff" stroke="#b33a3a" stroke-width="0.4"/>
+  <text x="560" y="276" font-family="'JetBrains Mono',monospace" font-size="8.5" fill="#b33a3a" text-anchor="middle">question&#x2083;</text>
 
-  <line x1="590" y1="308" x2="106" y2="308" stroke="#b33a3a" stroke-width="0.6" stroke-dasharray="3,2.5" marker-end="url(#s1r)"/>
+  <line x1="560" y1="288" x2="100" y2="288" stroke="#b33a3a" stroke-width="0.4" stroke-dasharray="3,2" marker-end="url(#sqr)"/>
 
   <!-- ── TURN 3 ── -->
-  <text x="20" y="350" font-family="'JetBrains Mono',monospace" font-size="7.5" fill="#bbb" letter-spacing="0.5">T3</text>
-  <line x1="28" y1="336" x2="28" y2="418" stroke="#ddd" stroke-width="0.5"/>
+  <line x1="14" y1="320" x2="14" y2="400" stroke="#ddd" stroke-width="0.4"/>
+  <line x1="14" y1="320" x2="20" y2="320" stroke="#ddd" stroke-width="0.4"/>
+  <line x1="14" y1="400" x2="20" y2="400" stroke="#ddd" stroke-width="0.4"/>
+  <text x="10" y="364" font-family="'JetBrains Mono',monospace" font-size="7" fill="#ccc" text-anchor="end" transform="rotate(-90 10 364)">TURN 3</text>
 
-  <line x1="100" y1="340" x2="334" y2="340" stroke="#333" stroke-width="0.6" marker-end="url(#s1)"/>
-  <text x="217" y="336" font-family="'JetBrains Mono',monospace" font-size="7.5" fill="#999" text-anchor="middle">full conversation &rarr; generate</text>
+  <line x1="94" y1="324" x2="318" y2="324" stroke="#1a1a1a" stroke-width="0.4" marker-end="url(#sq)"/>
+  <text x="206" y="320" font-family="'JetBrains Mono',monospace" font-size="7" fill="#aaa" text-anchor="middle">full conversation &rarr; generate</text>
 
-  <rect x="296" y="350" width="88" height="18" rx="0" fill="#fafafa" stroke="#ccc" stroke-width="0.5"/>
-  <text x="340" y="363" font-family="'JetBrains Mono',monospace" font-size="9" fill="#666" text-anchor="middle">completion&#x2083;</text>
+  <rect x="282" y="334" width="84" height="16" fill="#fdfcfa" stroke="#ccc" stroke-width="0.4"/>
+  <text x="324" y="346" font-family="'JetBrains Mono',monospace" font-size="8.5" fill="#888" text-anchor="middle">completion&#x2083;</text>
 
-  <line x1="340" y1="376" x2="106" y2="376" stroke="#999" stroke-width="0.6" stroke-dasharray="3,2.5" marker-end="url(#s1d)"/>
+  <line x1="324" y1="358" x2="100" y2="358" stroke="#999" stroke-width="0.4" stroke-dasharray="3,2" marker-end="url(#sqg)"/>
 
   <!-- ── SCORE ── -->
-  <line x1="28" y1="402" x2="28" y2="402" stroke="#ddd" stroke-width="0.5"/>
+  <rect x="42" y="388" width="104" height="16" fill="#fff" stroke="#b33a3a" stroke-width="0.4"/>
+  <text x="94" y="400" font-family="'JetBrains Mono',monospace" font-size="8.5" fill="#b33a3a" text-anchor="middle">max_turns &rarr; stop</text>
 
-  <rect x="42" y="406" width="116" height="18" rx="0" fill="#fff" stroke="#b33a3a" stroke-width="0.5"/>
-  <text x="100" y="419" font-family="'JetBrains Mono',monospace" font-size="9" fill="#b33a3a" text-anchor="middle">max_turns &rarr; score</text>
+  <rect x="42" y="416" width="104" height="16" fill="#fdfcfa" stroke="#ccc" stroke-width="0.4"/>
+  <text x="94" y="428" font-family="'JetBrains Mono',monospace" font-size="8" fill="#aaa" text-anchor="middle">rubric(all turns)</text>
 
-  <rect x="42" y="434" width="116" height="18" rx="0" fill="#fff" stroke="#ccc" stroke-width="0.5"/>
-  <text x="100" y="447" font-family="'JetBrains Mono',monospace" font-size="8.5" fill="#999" text-anchor="middle">rubric(all turns)</text>
-
-  <rect x="32" y="466" width="136" height="20" rx="0" fill="#fafafa" stroke="#333" stroke-width="0.6"/>
-  <text x="100" y="480" font-family="'JetBrains Mono',monospace" font-size="9" fill="#333" text-anchor="middle">return scored rollout</text>
+  <rect x="32" y="448" width="124" height="18" fill="#fdfcfa" stroke="#1a1a1a" stroke-width="0.5"/>
+  <text x="94" y="461" font-family="'JetBrains Mono',monospace" font-size="8.5" fill="#1a1a1a" text-anchor="middle">return scored rollout</text>
 
   <!-- Legend -->
-  <rect x="620" y="80" width="86" height="62" rx="0" fill="none" stroke="#e8e8e8" stroke-width="0.5"/>
-  <line x1="628" y1="96" x2="652" y2="96" stroke="#333" stroke-width="0.6"/>
-  <text x="658" y="99" font-family="'JetBrains Mono',monospace" font-size="7" fill="#bbb">request</text>
-  <line x1="628" y1="112" x2="652" y2="112" stroke="#999" stroke-width="0.6" stroke-dasharray="3,2.5"/>
-  <text x="658" y="115" font-family="'JetBrains Mono',monospace" font-size="7" fill="#bbb">response</text>
-  <line x1="628" y1="128" x2="652" y2="128" stroke="#b33a3a" stroke-width="0.6"/>
-  <text x="658" y="131" font-family="'JetBrains Mono',monospace" font-size="7" fill="#bbb">env</text>
+  <rect x="600" y="68" width="72" height="60" fill="none" stroke="#eee" stroke-width="0.4"/>
+  <line x1="608" y1="82" x2="626" y2="82" stroke="#1a1a1a" stroke-width="0.4" marker-end="url(#sq)"/>
+  <text x="632" y="85" font-family="'JetBrains Mono',monospace" font-size="6.5" fill="#ccc">request</text>
+  <line x1="608" y1="98" x2="626" y2="98" stroke="#999" stroke-width="0.4" stroke-dasharray="3,2"/>
+  <text x="632" y="101" font-family="'JetBrains Mono',monospace" font-size="6.5" fill="#ccc">response</text>
+  <line x1="608" y1="114" x2="626" y2="114" stroke="#b33a3a" stroke-width="0.4"/>
+  <text x="632" y="117" font-family="'JetBrains Mono',monospace" font-size="6.5" fill="#ccc">env</text>
 </svg>
+<p class="fig-cap"><strong>Fig. 2</strong> &mdash; <em>Three-turn rollout sequence (email-to-cc-bcc). Scoring happens once at the end; the rubric evaluates all turns together.</em></p>
 </div>
 
 <hr class="sep">
+
 
 <!-- ═══════════════════════════════════════════════════════════
      III. TRAINING STEP
      ═══════════════════════════════════════════════════════════ -->
 
-<h2>III. Training Step</h2>
-<p>One full cycle. Steps 1&ndash;3 belong to the orchestrator, 4&ndash;6 to the trainer, 7 is the handoff. Generation and weight sync never overlap.</p>
+<h2><span class="num">III</span>Training Step</h2>
+<p class="lede">One full cycle. Steps 1&ndash;3 belong to the orchestrator, 4&ndash;6 to the trainer, 7 is the handoff.</p>
 
-<p class="fig-label">Fig. 3 &mdash; Step sequence</p>
-<div class="diagram">
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 340" width="760" height="340">
+<div class="fig">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 320" width="700" height="320">
 
   <!-- Step 1 -->
-  <rect x="0" y="10" width="760" height="46" rx="0" fill="#fafafa" stroke="#e8e8e8" stroke-width="0.5"/>
-  <line x1="0" y1="10" x2="0" y2="56" stroke="#b33a3a" stroke-width="2"/>
-  <text x="18" y="30" font-family="'JetBrains Mono',monospace" font-size="10" fill="#b33a3a" font-weight="500">01</text>
-  <text x="50" y="30" font-family="'EB Garamond',serif" font-size="14.5" fill="#111">Orchestrator calls <tspan font-family="'JetBrains Mono',monospace" font-size="11" fill="#b33a3a">env.generate()</tspan></text>
-  <text x="50" y="48" font-family="'JetBrains Mono',monospace" font-size="10" fill="#999">verifiers drives multi-turn &rarr; vLLM generates &rarr; reward functions score</text>
+  <rect x="0" y="4" width="700" height="42" fill="#fdfcfa" stroke="#eee" stroke-width="0.4"/>
+  <line x1="0" y1="4" x2="0" y2="46" stroke="#b33a3a" stroke-width="1.5"/>
+  <text x="14" y="22" font-family="'JetBrains Mono',monospace" font-size="9" fill="#b33a3a" font-weight="500">01</text>
+  <text x="42" y="22" font-family="'Libre Baskerville',serif" font-size="12.5" fill="#1a1a1a">Orchestrator calls</text>
+  <text x="176" y="22" font-family="'JetBrains Mono',monospace" font-size="10" fill="#b33a3a">env.generate()</text>
+  <text x="42" y="38" font-family="'JetBrains Mono',monospace" font-size="8.5" fill="#aaa">verifiers drives multi-turn &rarr; vLLM generates &rarr; reward functions score</text>
 
   <!-- Step 2 -->
-  <rect x="0" y="66" width="760" height="32" rx="0" fill="#fff" stroke="#e8e8e8" stroke-width="0.5"/>
-  <line x1="0" y1="66" x2="0" y2="98" stroke="#b33a3a" stroke-width="2"/>
-  <text x="18" y="87" font-family="'JetBrains Mono',monospace" font-size="10" fill="#b33a3a" font-weight="500">02</text>
-  <text x="50" y="87" font-family="'EB Garamond',serif" font-size="14.5" fill="#111">Compute advantages: <tspan font-family="'JetBrains Mono',monospace" font-size="11" fill="#b33a3a">A = reward &minus; group_mean</tspan></text>
+  <rect x="0" y="52" width="700" height="28" fill="#fff" stroke="#eee" stroke-width="0.4"/>
+  <line x1="0" y1="52" x2="0" y2="80" stroke="#b33a3a" stroke-width="1.5"/>
+  <text x="14" y="71" font-family="'JetBrains Mono',monospace" font-size="9" fill="#b33a3a" font-weight="500">02</text>
+  <text x="42" y="71" font-family="'Libre Baskerville',serif" font-size="12.5" fill="#1a1a1a">Compute advantages:</text>
+  <text x="202" y="71" font-family="'JetBrains Mono',monospace" font-size="10" fill="#b33a3a">A = reward &minus; group_mean</text>
 
   <!-- Step 3 -->
-  <rect x="0" y="108" width="760" height="46" rx="0" fill="#fafafa" stroke="#e8e8e8" stroke-width="0.5"/>
-  <line x1="0" y1="108" x2="0" y2="154" stroke="#b33a3a" stroke-width="2"/>
-  <text x="18" y="128" font-family="'JetBrains Mono',monospace" font-size="10" fill="#b33a3a" font-weight="500">03</text>
-  <text x="50" y="128" font-family="'EB Garamond',serif" font-size="14.5" fill="#111">Package microbatches</text>
-  <text x="50" y="146" font-family="'JetBrains Mono',monospace" font-size="10" fill="#999">input_ids &middot; loss_mask &middot; sampling_logprobs &middot; advantages</text>
+  <rect x="0" y="86" width="700" height="42" fill="#fdfcfa" stroke="#eee" stroke-width="0.4"/>
+  <line x1="0" y1="86" x2="0" y2="128" stroke="#b33a3a" stroke-width="1.5"/>
+  <text x="14" y="104" font-family="'JetBrains Mono',monospace" font-size="9" fill="#b33a3a" font-weight="500">03</text>
+  <text x="42" y="104" font-family="'Libre Baskerville',serif" font-size="12.5" fill="#1a1a1a">Package microbatches</text>
+  <text x="42" y="120" font-family="'JetBrains Mono',monospace" font-size="8.5" fill="#aaa">input_ids &middot; loss_mask &middot; sampling_logprobs &middot; advantages</text>
 
-  <!-- Phase break -->
-  <line x1="0" y1="168" x2="760" y2="168" stroke="#ddd" stroke-width="0.5" stroke-dasharray="4,4"/>
-  <text x="760" y="180" font-family="'JetBrains Mono',monospace" font-size="7.5" fill="#ccc" text-anchor="end" letter-spacing="1">TRAINER</text>
+  <!-- Divider -->
+  <line x1="0" y1="142" x2="700" y2="142" stroke="#ddd" stroke-width="0.3" stroke-dasharray="3,3"/>
 
   <!-- Step 4 -->
-  <rect x="0" y="190" width="760" height="32" rx="0" fill="#fff" stroke="#e8e8e8" stroke-width="0.5"/>
-  <line x1="0" y1="190" x2="0" y2="222" stroke="#333" stroke-width="2"/>
-  <text x="18" y="211" font-family="'JetBrains Mono',monospace" font-size="10" fill="#333" font-weight="500">04</text>
-  <text x="50" y="211" font-family="'EB Garamond',serif" font-size="14.5" fill="#111">Forward pass &rarr; <tspan font-family="'JetBrains Mono',monospace" font-size="11" fill="#333">trainer_logprobs</tspan> on same token sequences</text>
+  <rect x="0" y="156" width="700" height="28" fill="#fff" stroke="#eee" stroke-width="0.4"/>
+  <line x1="0" y1="156" x2="0" y2="184" stroke="#1a1a1a" stroke-width="1.5"/>
+  <text x="14" y="175" font-family="'JetBrains Mono',monospace" font-size="9" fill="#1a1a1a" font-weight="500">04</text>
+  <text x="42" y="175" font-family="'Libre Baskerville',serif" font-size="12.5" fill="#1a1a1a">Forward pass &rarr;</text>
+  <text x="174" y="175" font-family="'JetBrains Mono',monospace" font-size="10" fill="#1a1a1a">trainer_logprobs</text>
+  <text x="312" y="175" font-family="'Libre Baskerville',serif" font-size="12.5" fill="#999">on same token sequences</text>
 
   <!-- Step 5 -->
-  <rect x="0" y="232" width="760" height="32" rx="0" fill="#fafafa" stroke="#e8e8e8" stroke-width="0.5"/>
-  <line x1="0" y1="232" x2="0" y2="264" stroke="#333" stroke-width="2"/>
-  <text x="18" y="253" font-family="'JetBrains Mono',monospace" font-size="10" fill="#333" font-weight="500">05</text>
-  <text x="50" y="253" font-family="'EB Garamond',serif" font-size="14.5" fill="#111">Loss = <tspan font-family="'JetBrains Mono',monospace" font-size="11" fill="#333">&minus;ratio &times; advantage</tspan> <tspan fill="#999">(masked to completion tokens)</tspan> &rarr; backprop</text>
+  <rect x="0" y="190" width="700" height="28" fill="#fdfcfa" stroke="#eee" stroke-width="0.4"/>
+  <line x1="0" y1="190" x2="0" y2="218" stroke="#1a1a1a" stroke-width="1.5"/>
+  <text x="14" y="209" font-family="'JetBrains Mono',monospace" font-size="9" fill="#1a1a1a" font-weight="500">05</text>
+  <text x="42" y="209" font-family="'Libre Baskerville',serif" font-size="12.5" fill="#1a1a1a">Loss =</text>
+  <text x="88" y="209" font-family="'JetBrains Mono',monospace" font-size="10" fill="#1a1a1a">&minus;ratio &times; advantage</text>
+  <text x="268" y="209" font-family="'Libre Baskerville',serif" font-size="12.5" fill="#999">(masked to completion tokens) &rarr; backprop</text>
 
   <!-- Step 6 -->
-  <rect x="0" y="274" width="380" height="32" rx="0" fill="#fff" stroke="#e8e8e8" stroke-width="0.5"/>
-  <line x1="0" y1="274" x2="0" y2="306" stroke="#333" stroke-width="2"/>
-  <text x="18" y="295" font-family="'JetBrains Mono',monospace" font-size="10" fill="#333" font-weight="500">06</text>
-  <text x="50" y="295" font-family="'EB Garamond',serif" font-size="14.5" fill="#111">Update trainer weights <tspan fill="#999">(optimizer step)</tspan></text>
+  <rect x="0" y="232" width="350" height="28" fill="#fff" stroke="#eee" stroke-width="0.4"/>
+  <line x1="0" y1="232" x2="0" y2="260" stroke="#1a1a1a" stroke-width="1.5"/>
+  <text x="14" y="251" font-family="'JetBrains Mono',monospace" font-size="9" fill="#1a1a1a" font-weight="500">06</text>
+  <text x="42" y="251" font-family="'Libre Baskerville',serif" font-size="12.5" fill="#1a1a1a">Update trainer weights</text>
+  <text x="222" y="251" font-family="'Libre Baskerville',serif" font-size="12.5" fill="#999">(optimizer step)</text>
 
   <!-- Step 7 -->
-  <rect x="390" y="274" width="370" height="32" rx="0" fill="#fff" stroke="#e8e8e8" stroke-width="0.5"/>
-  <line x1="390" y1="274" x2="390" y2="306" stroke="#b33a3a" stroke-width="2"/>
-  <text x="408" y="295" font-family="'JetBrains Mono',monospace" font-size="10" fill="#b33a3a" font-weight="500">07</text>
-  <text x="440" y="295" font-family="'EB Garamond',serif" font-size="14.5" fill="#111">Wait &rarr; <tspan font-family="'JetBrains Mono',monospace" font-size="11" fill="#b33a3a">NCCL sync</tspan> &rarr; next batch &rarr; repeat</text>
+  <rect x="358" y="232" width="342" height="28" fill="#fff" stroke="#eee" stroke-width="0.4"/>
+  <line x1="358" y1="232" x2="358" y2="260" stroke="#b33a3a" stroke-width="1.5"/>
+  <text x="372" y="251" font-family="'JetBrains Mono',monospace" font-size="9" fill="#b33a3a" font-weight="500">07</text>
+  <text x="400" y="251" font-family="'Libre Baskerville',serif" font-size="12.5" fill="#1a1a1a">Wait &rarr;</text>
+  <text x="448" y="251" font-family="'JetBrains Mono',monospace" font-size="10" fill="#b33a3a">NCCL sync</text>
+  <text x="530" y="251" font-family="'Libre Baskerville',serif" font-size="12.5" fill="#1a1a1a">&rarr; next batch</text>
 
-  <!-- Labels -->
-  <text x="0" y="336" font-family="'JetBrains Mono',monospace" font-size="7.5" fill="#ccc" letter-spacing="1">ORCHESTRATOR &middot; STEPS 1&ndash;3</text>
-  <text x="390" y="336" font-family="'JetBrains Mono',monospace" font-size="7.5" fill="#ccc" letter-spacing="1">TRAINER &middot; STEPS 4&ndash;6</text>
-  <text x="660" y="336" font-family="'JetBrains Mono',monospace" font-size="7.5" fill="#ccc" letter-spacing="1">SYNC &middot; STEP 7</text>
+  <!-- Bottom labels -->
+  <text x="0" y="286" font-family="'JetBrains Mono',monospace" font-size="7" fill="#ccc" letter-spacing="0.8">ORCHESTRATOR</text>
+  <text x="0" y="298" font-family="'JetBrains Mono',monospace" font-size="7" fill="#ddd">steps 1&ndash;3</text>
+
+  <text x="358" y="286" font-family="'JetBrains Mono',monospace" font-size="7" fill="#ccc" letter-spacing="0.8">TRAINER</text>
+  <text x="358" y="298" font-family="'JetBrains Mono',monospace" font-size="7" fill="#ddd">steps 4&ndash;6</text>
+
+  <text x="600" y="286" font-family="'JetBrains Mono',monospace" font-size="7" fill="#ccc" letter-spacing="0.8">SYNC</text>
+  <text x="600" y="298" font-family="'JetBrains Mono',monospace" font-size="7" fill="#ddd">step 7</text>
 </svg>
+<p class="fig-cap"><strong>Fig. 3</strong> &mdash; <em>Single training step. Red edge = orchestrator/sync phase. Black edge = trainer compute. Generation and sync never overlap.</em></p>
 </div>
 
 <hr class="sep">
+
 
 <!-- ═══════════════════════════════════════════════════════════
      IV. WEIGHT SYNC TIMING
      ═══════════════════════════════════════════════════════════ -->
 
-<h2>IV. Weight Sync Timing</h2>
-<p>Generation and weight sync are mutually exclusive. You cannot sync while vLLM is generating (corrupts in-flight inference) and you cannot generate during sync (mixed weights). The trainer enforces the sequence.</p>
+<h2><span class="num">IV</span>Weight Sync Timing</h2>
+<p class="lede">Generation and weight sync are mutually exclusive. You cannot sync while vLLM is generating &mdash; that would corrupt in-flight inference. You cannot generate during sync &mdash; you&rsquo;d get mixed weights. The trainer enforces: finish generating &rarr; sync &rarr; start generating.</p>
 
-<p class="fig-label">Fig. 4 &mdash; Timeline</p>
-<div class="diagram">
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 120" width="760" height="120">
+<div class="fig">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 100" width="700" height="100">
 
   <!-- timeline -->
-  <line x1="20" y1="44" x2="740" y2="44" stroke="#ddd" stroke-width="0.5"/>
+  <line x1="10" y1="38" x2="690" y2="38" stroke="#ddd" stroke-width="0.3"/>
 
   <!-- ticks -->
-  <line x1="20" y1="40" x2="20" y2="48" stroke="#ccc" stroke-width="0.5"/>
-  <line x1="250" y1="40" x2="250" y2="48" stroke="#ccc" stroke-width="0.5"/>
-  <line x1="410" y1="40" x2="410" y2="48" stroke="#ccc" stroke-width="0.5"/>
-  <line x1="458" y1="40" x2="458" y2="48" stroke="#ccc" stroke-width="0.5"/>
-  <line x1="740" y1="40" x2="740" y2="48" stroke="#ccc" stroke-width="0.5"/>
+  <line x1="10" y1="34" x2="10" y2="42" stroke="#ccc" stroke-width="0.3"/>
+  <line x1="230" y1="34" x2="230" y2="42" stroke="#ccc" stroke-width="0.3"/>
+  <line x1="382" y1="34" x2="382" y2="42" stroke="#ccc" stroke-width="0.3"/>
+  <line x1="424" y1="34" x2="424" y2="42" stroke="#ccc" stroke-width="0.3"/>
+  <line x1="690" y1="34" x2="690" y2="42" stroke="#ccc" stroke-width="0.3"/>
 
   <!-- generate v1 -->
-  <rect x="20" y="18" width="230" height="26" rx="0" fill="#fafafa" stroke="#333" stroke-width="0.6"/>
-  <text x="135" y="35" font-family="'JetBrains Mono',monospace" font-size="9.5" fill="#333" text-anchor="middle">generate (weights v&#x2081;)</text>
+  <rect x="10" y="14" width="220" height="24" fill="#fdfcfa" stroke="#1a1a1a" stroke-width="0.5"/>
+  <text x="120" y="30" font-family="'JetBrains Mono',monospace" font-size="9" fill="#1a1a1a" text-anchor="middle">generate (weights v&#x2081;)</text>
 
   <!-- train -->
-  <rect x="256" y="18" width="148" height="26" rx="0" fill="#fff" stroke="#ccc" stroke-width="0.6"/>
-  <text x="330" y="35" font-family="'JetBrains Mono',monospace" font-size="9.5" fill="#999" text-anchor="middle">train on rollouts</text>
+  <rect x="236" y="14" width="140" height="24" fill="#fff" stroke="#ccc" stroke-width="0.5"/>
+  <text x="306" y="30" font-family="'JetBrains Mono',monospace" font-size="9" fill="#aaa" text-anchor="middle">train on rollouts</text>
 
   <!-- sync -->
-  <rect x="410" y="18" width="42" height="26" rx="0" fill="#fff" stroke="#b33a3a" stroke-width="0.8"/>
-  <text x="431" y="35" font-family="'JetBrains Mono',monospace" font-size="10" fill="#b33a3a" text-anchor="middle">&#x21bb;</text>
+  <rect x="382" y="14" width="36" height="24" fill="#fff" stroke="#b33a3a" stroke-width="0.6"/>
+  <text x="400" y="31" font-family="'JetBrains Mono',monospace" font-size="10" fill="#b33a3a" text-anchor="middle">&#x21bb;</text>
 
   <!-- generate v2 -->
-  <rect x="458" y="18" width="282" height="26" rx="0" fill="#fafafa" stroke="#333" stroke-width="0.6"/>
-  <text x="599" y="35" font-family="'JetBrains Mono',monospace" font-size="9.5" fill="#333" text-anchor="middle">generate (weights v&#x2082;)</text>
+  <rect x="424" y="14" width="266" height="24" fill="#fdfcfa" stroke="#1a1a1a" stroke-width="0.5"/>
+  <text x="557" y="30" font-family="'JetBrains Mono',monospace" font-size="9" fill="#1a1a1a" text-anchor="middle">generate (weights v&#x2082;)</text>
 
   <!-- annotations -->
-  <line x1="250" y1="48" x2="250" y2="66" stroke="#ccc" stroke-width="0.4"/>
-  <text x="250" y="78" font-family="'JetBrains Mono',monospace" font-size="8" fill="#999" text-anchor="middle">wait for gen</text>
-  <text x="250" y="90" font-family="'JetBrains Mono',monospace" font-size="8" fill="#999" text-anchor="middle">to finish</text>
+  <line x1="230" y1="42" x2="230" y2="58" stroke="#ccc" stroke-width="0.3"/>
+  <text x="230" y="68" font-family="'JetBrains Mono',monospace" font-size="7" fill="#aaa" text-anchor="middle">wait for gen</text>
+  <text x="230" y="78" font-family="'JetBrains Mono',monospace" font-size="7" fill="#aaa" text-anchor="middle">to finish</text>
 
-  <line x1="431" y1="48" x2="431" y2="66" stroke="#b33a3a" stroke-width="0.4"/>
-  <text x="431" y="78" font-family="'JetBrains Mono',monospace" font-size="8" fill="#b33a3a" text-anchor="middle">sync v&#x2082;</text>
-  <text x="431" y="90" font-family="'JetBrains Mono',monospace" font-size="8" fill="#b33a3a" text-anchor="middle">to vLLM</text>
-
-  <!-- constraints -->
-  <text x="135" y="112" font-family="'JetBrains Mono',monospace" font-size="7.5" fill="#ccc" text-anchor="middle">can't sync during generation</text>
-  <text x="599" y="112" font-family="'JetBrains Mono',monospace" font-size="7.5" fill="#ccc" text-anchor="middle">can't generate during sync</text>
+  <line x1="400" y1="42" x2="400" y2="58" stroke="#b33a3a" stroke-width="0.3"/>
+  <text x="400" y="68" font-family="'JetBrains Mono',monospace" font-size="7" fill="#b33a3a" text-anchor="middle">sync v&#x2082;</text>
+  <text x="400" y="78" font-family="'JetBrains Mono',monospace" font-size="7" fill="#b33a3a" text-anchor="middle">to vLLM</text>
 </svg>
+<p class="fig-cap"><strong>Fig. 4</strong> &mdash; <em>Timeline. The sync window is narrow; most wall-clock time is spent in generation.</em></p>
 </div>
 
 <hr class="sep">
+
 
 <!-- ═══════════════════════════════════════════════════════════
      V. TRAINER-AGNOSTIC
      ═══════════════════════════════════════════════════════════ -->
 
-<h2>V. Trainer-Agnostic</h2>
-
+<h2><span class="num">V</span>Trainer-Agnostic</h2>
 <p>Verifiers has no trainer imports. It needs one thing: an OpenAI-compatible endpoint for generation. Any trainer can plug in &mdash; it just needs to build an orchestrator that:</p>
 
 <ul>
@@ -448,10 +577,11 @@
   <li>Coordinates weight sync timing around generation</li>
 </ul>
 
-<p class="note">Every trainer that supports verifiers (prime-rl, t2f-trainer, Tinker, SkyRL, rLLM) built this adapter independently. The env and reward functions are portable. The orchestrator glue is not.</p>
+<p class="aside">Every trainer that supports verifiers (prime-rl, t2f-trainer, Tinker, SkyRL, rLLM) built this adapter independently. The env and reward functions are portable. The orchestrator glue is not.</p>
 
-<div class="footer-rule"></div>
-<p class="footer">System Overview &mdash; GRPO Training with Verifiers</p>
+<div class="colophon">
+  <p>SYSTEM OVERVIEW &middot; GRPO TRAINING WITH VERIFIERS</p>
+</div>
 
 </body>
 </html>
