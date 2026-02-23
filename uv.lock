@@ -648,8 +648,8 @@ wheels = [
 
 [[package]]
 name = "email-to-cc-bcc"
-version = "0.1.0"
-source = { editable = "environments/email_to_cc_bcc" }
+version = "0.1.1"
+source = { editable = "environments/email-to-cc-bcc" }
 dependencies = [
     { name = "verifiers" },
 ]
@@ -3027,7 +3027,7 @@ wheels = [
 
 [[package]]
 name = "terminal2f"
-version = "0.1.1"
+version = "0.1.2"
 source = { editable = "." }
 dependencies = [
     { name = "alphabet-sort" },
@@ -3057,7 +3057,7 @@ dependencies = [
 requires-dist = [
     { name = "alphabet-sort", editable = "environments/alphabet-sort" },
     { name = "data-designer", specifier = ">=0.2.1" },
-    { name = "email-to-cc-bcc", editable = "environments/email_to_cc_bcc" },
+    { name = "email-to-cc-bcc", editable = "environments/email-to-cc-bcc" },
     { name = "jinja2", specifier = ">=3.1.6" },
     { name = "matplotlib", specifier = ">=3.10.8" },
     { name = "mistral-common", specifier = ">=1.8.8" },

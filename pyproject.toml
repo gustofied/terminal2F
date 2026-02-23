@@ -1,6 +1,6 @@
 [project]
 name = "terminal2f"
-version = "0.1.1"
+version = "0.1.2"
 description = "terminal2F, gustofied reborn"
 readme = "README.md"
 authors = [
@@ -41,7 +41,7 @@ build-backend = "uv_build"
 [tool.uv.workspace]
 members = [
     "environments/alphabet-sort",
-    "environments/email_to_cc_bcc",
+    "environments/email-to-cc-bcc",
 ]
 
 [tool.uv.sources]

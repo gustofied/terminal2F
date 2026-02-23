@@ -61,6 +61,16 @@ POLICIES = [
 
 
 app = typer.Typer()
+eval_app = typer.Typer(help="Eval tools.")
+app.add_typer(eval_app, name="eval")
+
+
+@eval_app.command("view")
+def eval_view(eval_dirs: list[Path]):
+    """Generate and open an HTML viewer for eval output dirs."""
+    from terminal2f.eval_viewer import view
+    view(eval_dirs)
+
 
 @app.command()
 def serve():
