@@ -138,6 +138,26 @@ For multi-turn, index into <span class="r3">info</span> by turn number:
 <span class="r4"> </span><span class="r5">expected </span><span class="r10">=</span><span class="r5"> state[</span><span class="r9">&quot;info&quot;</span><span class="r5">][</span><span class="r9">&quot;expected&quot;</span><span class="r5">][turn]</span><span class="r4">                                                         </span>
 <span class="r4">                                                                                                    </span>
 
+<span class="r2">Configuration knobs go on </span><span class="r13">load_environment</span>                                                          
+
+<span class="r3">--env-args</span> from the CLI get passed as kwargs to <span class="r3">load_environment()</span>. So any knob you want            
+configurable from outside goes on that function signature with a default:                           
+
+<span class="r4">                                                                                                    </span>
+<span class="r4"> </span><span class="r11">def</span><span class="r5"> </span><span class="r8">load_environment</span><span class="r5">(max_turns: </span><span class="r8">int</span><span class="r5"> </span><span class="r10">=</span><span class="r5"> </span><span class="r9">1</span><span class="r5">, difficulty: </span><span class="r8">str</span><span class="r5"> </span><span class="r10">=</span><span class="r5"> </span><span class="r9">&quot;easy&quot;</span><span class="r5">, </span><span class="r10">**</span><span class="r5">kwargs):</span><span class="r4">                      </span>
+<span class="r4"> </span><span class="r5">    dataset </span><span class="r10">=</span><span class="r5"> build_dataset(difficulty)</span><span class="r4">                                                            </span>
+<span class="r4"> </span><span class="r5">    </span><span class="r11">return</span><span class="r5"> MyEnv(dataset</span><span class="r10">=</span><span class="r5">dataset, rubric</span><span class="r10">=</span><span class="r5">rubric, max_turns</span><span class="r10">=</span><span class="r5">max_turns)</span><span class="r4">                              </span>
+<span class="r4">                                                                                                    </span>
+
+Then from the CLI:                                                                                  
+
+<span class="r4">                                                                                                    </span>
+<span class="r4"> </span><span class="r5">prime </span><span class="r8">eval</span><span class="r5"> run my-env --env-args </span><span class="r9">&#x27;{&quot;max_turns&quot;: 3, &quot;difficulty&quot;: &quot;hard&quot;}&#x27;</span><span class="r4">                          </span>
+<span class="r4">                                                                                                    </span>
+
+<span class="r3">load_environment</span> receives it, passes it down to the class or dataset builder. The class itself      
+doesn&#x27;t need to know about CLI args - it just takes constructor params like any normal class.       
+
 <span class="r13">answer</span><span class="r2"> is just a convention</span>                                                                         
 
 Nothing in verifiers requires an <span class="r3">answer</span> column. It&#x27;s just a dataset column name that gets passed to 

@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+    body {
+        background: #ffffff;
+        color: #1e1e1e;
+        font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', 'Menlo', monospace;
+        font-size: 14px;
+        line-height: 1.35;
+        padding: 0.5em 2em;
+        max-width: 960px;
+        margin: 0 auto;
+    }
+    pre {
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        margin: 0;
+    }
+    ::selection {
+        background: #d0e8ff;
+        color: #1e1e1e;
+    }
+    a { color: #268bd2; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    .back { color: #93a1a1; font-size: 12px; margin-bottom: 0; }
+</style>
+</head>
+<body>
+<p class="back"><a href="index.html">back</a></p>
+<pre><!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+.r1 {color: #268bd2; text-decoration-color: #268bd2; font-weight: bold}
+.r2 {color: #2aa198; text-decoration-color: #2aa198; font-weight: bold}
+.r3 {background-color: #f5f5f0}
+.r4 {color: #657b83; text-decoration-color: #657b83; background-color: #f5f5f0}
+.r5 {color: #268bd2; text-decoration-color: #268bd2; background-color: #f5f5f0}
+.r6 {color: #2aa198; text-decoration-color: #2aa198; background-color: #f5f5f0}
+.r7 {color: #d33682; text-decoration-color: #d33682}
+.r8 {font-weight: bold}
+.r9 {color: #cb4b16; text-decoration-color: #cb4b16}
+body {
+    color: #000000;
+    background-color: #f5f5f0;
+}
+</style>
+</head>
+<body>
+    <pre style="font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace"><code style="font-family:inherit"><span class="r1">Chat Templates: API → Template → Token IDs</span>                                                          
+
+Three representations of the same conversation, each one step closer to what the model actually     
+sees.                                                                                               
+
+<span class="r2">Step 1: Message List (What You Write)</span>                                                               
+
+The API format. Structured, readable, model-agnostic.                                               
+
+<span class="r3">                                                                                                    </span>
+<span class="r3"> </span><span class="r4">[</span><span class="r3">                                                                                                  </span>
+<span class="r3"> </span><span class="r4">  {</span><span class="r5">&quot;role&quot;</span><span class="r4">: </span><span class="r6">&quot;system&quot;</span><span class="r4">, </span><span class="r5">&quot;content&quot;</span><span class="r4">: </span><span class="r6">&quot;You assign email recipients.&quot;</span><span class="r4">},</span><span class="r3">                                   </span>
+<span class="r3"> </span><span class="r4">  {</span><span class="r5">&quot;role&quot;</span><span class="r4">: </span><span class="r6">&quot;user&quot;</span><span class="r4">, </span><span class="r5">&quot;content&quot;</span><span class="r4">: </span><span class="r6">&quot;Subject: Q3 deadline extension\n\nHi team...&quot;</span><span class="r4">},</span><span class="r3">                     </span>
+<span class="r3"> </span><span class="r4">  {</span><span class="r5">&quot;role&quot;</span><span class="r4">: </span><span class="r6">&quot;assistant&quot;</span><span class="r4">, </span><span class="r5">&quot;content&quot;</span><span class="r4">: </span><span class="r6">&quot;{\&quot;to\&quot;: [\&quot;sarah@acme.com\&quot;], \&quot;cc\&quot;: [...]}&quot;</span><span class="r4">},</span><span class="r3">               </span>
+<span class="r3"> </span><span class="r4">  {</span><span class="r5">&quot;role&quot;</span><span class="r4">: </span><span class="r6">&quot;user&quot;</span><span class="r4">, </span><span class="r5">&quot;content&quot;</span><span class="r4">: </span><span class="r6">&quot;Subject: Re: Q3 deadline - escalated\n\nFollowing up...&quot;</span><span class="r4">},</span><span class="r3">          </span>
+<span class="r3"> </span><span class="r4">  {</span><span class="r5">&quot;role&quot;</span><span class="r4">: </span><span class="r6">&quot;assistant&quot;</span><span class="r4">, </span><span class="r5">&quot;content&quot;</span><span class="r4">: </span><span class="r6">&quot;{\&quot;to\&quot;: [...], \&quot;cc\&quot;: [...], \&quot;bcc\&quot;: [...]}&quot;</span><span class="r4">}</span><span class="r3">               </span>
+<span class="r3"> </span><span class="r4">]</span><span class="r3">                                                                                                  </span>
+<span class="r3">                                                                                                    </span>
+
+This is what verifiers sends to vLLM. This is what you write in your env. You never think about     
+templates here.                                                                                     
+
+<span class="r2">Step 2: Template-Rendered String (What the Tokenizer Builds)</span>                                        
+
+The tokenizer applies a Jinja template (stored in <span class="r7">tokenizer_config.json</span> on HuggingFace) and produces
+a raw string. Every model family has a different template.                                          
+
+<span class="r8">Qwen (ChatML):</span>                                                                                      
+
+<span class="r3">                                                                                                    </span>
+<span class="r3"> </span><span class="r4">&lt;|im_start|&gt;system</span><span class="r3">                                                                                 </span>
+<span class="r3"> </span><span class="r4">You assign email recipients.&lt;|im_end|&gt;</span><span class="r3">                                                             </span>
+<span class="r3"> </span><span class="r4">&lt;|im_start|&gt;user</span><span class="r3">                                                                                   </span>
+<span class="r3"> </span><span class="r4">Subject: Q3 deadline extension</span><span class="r3">                                                                     </span>
+<span class="r3">                                                                                                    </span>
+<span class="r3"> </span><span class="r4">Hi team...&lt;|im_end|&gt;</span><span class="r3">                                                                               </span>
+<span class="r3"> </span><span class="r4">&lt;|im_start|&gt;assistant</span><span class="r3">                                                                              </span>
+<span class="r3"> </span><span class="r4">{&quot;to&quot;: [&quot;sarah@acme.com&quot;], &quot;cc&quot;: [...]}&lt;|im_end|&gt;</span><span class="r3">                                                  </span>
+<span class="r3"> </span><span class="r4">&lt;|im_start|&gt;user</span><span class="r3">                                                                                   </span>
+<span class="r3"> </span><span class="r4">Subject: Re: Q3 deadline - escalated</span><span class="r3">                                                               </span>
+<span class="r3">                                                                                                    </span>
+<span class="r3"> </span><span class="r4">Following up...&lt;|im_end|&gt;</span><span class="r3">                                                                          </span>
+<span class="r3"> </span><span class="r4">&lt;|im_start|&gt;assistant</span><span class="r3">                                                                              </span>
+<span class="r3"> </span><span class="r4">{&quot;to&quot;: [...], &quot;cc&quot;: [...], &quot;bcc&quot;: [...]}&lt;|im_end|&gt;</span><span class="r3">                                                 </span>
+<span class="r3">                                                                                                    </span>
+
+<span class="r8">Llama 3:</span>                                                                                            
+
+<span class="r3">                                                                                                    </span>
+<span class="r3"> </span><span class="r4">&lt;|begin_of_text|&gt;&lt;|start_header_id|&gt;system&lt;|end_header_id|&gt;</span><span class="r3">                                        </span>
+<span class="r3">                                                                                                    </span>
+<span class="r3"> </span><span class="r4">You assign email recipients.&lt;|eot_id|&gt;&lt;|start_header_id|&gt;user&lt;|end_header_id|&gt;</span><span class="r3">                     </span>
+<span class="r3">                                                                                                    </span>
+<span class="r3"> </span><span class="r4">Subject: Q3 deadline extension</span><span class="r3">                                                                     </span>
+<span class="r3">                                                                                                    </span>
+<span class="r3"> </span><span class="r4">Hi team...&lt;|eot_id|&gt;&lt;|start_header_id|&gt;assistant&lt;|end_header_id|&gt;</span><span class="r3">                                  </span>
+<span class="r3">                                                                                                    </span>
+<span class="r3"> </span><span class="r4">{&quot;to&quot;: [&quot;sarah@acme.com&quot;], &quot;cc&quot;: [...]}&lt;|eot_id|&gt;</span><span class="r3">                                                  </span>
+<span class="r3">                                                                                                    </span>
+
+<span class="r8">Mistral:</span>                                                                                            
+
+<span class="r3">                                                                                                    </span>
+<span class="r3"> </span><span class="r4">[INST] Subject: Q3 deadline extension</span><span class="r3">                                                              </span>
+<span class="r3">                                                                                                    </span>
+<span class="r3"> </span><span class="r4">Hi team... [/INST]{&quot;to&quot;: [&quot;sarah@acme.com&quot;], &quot;cc&quot;: [...]}[INST] Subject: Re: Q3 deadline...  </span><span class="r3">      </span>
+<span class="r3"> </span><span class="r4">[/INST]</span><span class="r3">                                                                                            </span>
+<span class="r3">                                                                                                    </span>
+
+Same message list, completely different strings. The model was trained on its specific format - feed
+it the wrong one and it still runs, it just performs worse because the token patterns are           
+unfamiliar.                                                                                         
+
+<span class="r2">Step 3: Token IDs (What the Model Sees)</span>                                                             
+
+The rendered string gets tokenized into integer IDs. This is the only thing that enters the model.  
+
+<span class="r3">                                                                                                    </span>
+<span class="r3"> </span><span class="r4">[151644, 8948, 198, 2610, 5765, ..., 151645, 198, 151644, 872, 198, ...]</span><span class="r3">                           </span>
+<span class="r3">                                                                                                    </span>
+
+Important: those delimiter strings like <span class="r7">&lt;|im_start|&gt;</span> are <span class="r8">single tokens</span> - <span class="r7">&lt;|im_start|&gt;</span> is token      
+<span class="r7">151644</span> in Qwen, not a sequence of characters. The tokenizer has them in its vocabulary as special   
+tokens.                                                                                             
+
+The model outputs logits over this same vocabulary at each position. Softmax gives probabilities,   
+log gives log-probs. Token IDs in, logits over token IDs out.                                       
+
+<span class="r2">Why This Matters for Training</span>                                                                       
+
+During <span class="r8">generation</span>, vLLM handles all three steps internally. You send message lists, it applies the  
+template, tokenizes, generates, returns text. You don&#x27;t touch templates.                            
+
+During <span class="r8">training</span>, the orchestrator has to reconstruct the exact same token sequence that vLLM        
+generated - the full multi-turn conversation as one flat array of token IDs. It does this to:       
+
+<span class="r9"> 1 </span>Build the <span class="r8">loss mask</span> - 0 for prompt/system/user/special tokens, 1 for assistant completion tokens 
+<span class="r9"> 2 </span>Align <span class="r8">sampling logprobs</span> (from vLLM at generation time) with the correct positions                
+<span class="r9"> 3 </span>Compute <span class="r8">trainer logprobs</span> on the same sequence for the policy ratio                               
+
+If the trainer&#x27;s tokenizer applies the template differently from vLLM&#x27;s - even one extra newline or 
+a missing BOS token - the token IDs shift and the logprobs are misaligned. The loss is computed on  
+wrong positions. No error, just bad gradients.                                                      
+
+<span class="r2">Why You Don&#x27;t Worry About This</span>                                                                      
+
+Both vLLM and the trainer load the same model from HuggingFace → same <span class="r7">tokenizer_config.json</span> → same  
+Jinja template → same tokenization. They agree automatically.                                       
+
+Your env code deals in message lists (step 1). The template (step 2) and tokenization (step 3) are  
+handled by the infrastructure. The complaints about chat templates are from people who were         
+stitching together mismatched pieces - different tokenizer versions, hardcoded format strings,      
+models served with the wrong template. With a consistent model checkpoint loaded everywhere, the    
+problem doesn&#x27;t arise.                                                                              
+
+<span class="r2">The Multi-Turn Detail</span>                                                                               
+
+For single-turn, the flat sequence is: prompt tokens → completion tokens. Simple mask.              
+
+For multi-turn (like email-to-cc-bcc), the flat sequence is:                                        
+
+<span class="r3">                                                                                                    </span>
+<span class="r3"> </span><span class="r4">[system] [user: email₁] [assistant: answer₁] [user: email₂] [assistant: answer₂] [user: email₃] </span><span class="r3">   </span>
+<span class="r3"> </span><span class="r4">[assistant: answer₃]</span><span class="r3">                                                                               </span>
+<span class="r3">                                                                                                    </span>
+
+All one array. The model processes it left-to-right in one forward pass during training. The loss   
+mask must be:                                                                                       
+
+<span class="r3">                                                                                                    </span>
+<span class="r3"> </span><span class="r4">  0       0               1                0               1                0               1</span><span class="r3">      </span>
+<span class="r3">                                                                                                    </span>
+
+The orchestrator figures out where each assistant turn starts and ends by applying the same template
+and finding the boundaries. This is where template correctness matters - if the boundaries are off  
+by even one token, you&#x27;re training on user tokens or skipping completion tokens.                    
+
+During generation it&#x27;s incremental - vLLM generates turn 1, the env injects the follow-up, vLLM     
+generates turn 2 with the full history, etc. But during training, the entire conversation is one    
+sequence processed in a single forward pass.                                                        
+</code></pre>
+</body>
+</html>
+</pre>
+</body>
+</html>

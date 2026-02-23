@@ -112,7 +112,7 @@ trainer computes its own advantages using whatever algorithm it wants.
 Note: verifiers still computes and attaches its own <span class="r4">advantage</span> field in <span class="r4">rubric.py</span>, but t2f-trainer   
 ignores it and uses the raw <span class="r4">reward</span> values instead.                                                  
 
-<span class="r2">Why Verifiers is Trainer-Agnostic (and Where It Leaks)</span>                                              
+<span class="r2">Why Verifiers is Trainer-Agnostic</span>                                                                   
 
 Verifiers just needs an OpenAI-compatible endpoint. It doesn&#x27;t care who&#x27;s hosting it or who&#x27;s       
 consuming the results. Any trainer can plug in - it just needs to:                                  
@@ -121,33 +121,6 @@ consuming the results. Any trainer can plug in - it just needs to:
 <span class="r3"> 2 </span>Point verifiers at it                                                                            
 <span class="r3"> 3 </span>Consume the rollouts and rewards                                                                 
 <span class="r3"> 4 </span>Compute advantages, update weights, sync back to vLLM                                            
-
-<span class="r7">The coupling that exists anyway.</span> Verifiers doesn&#x27;t import or depend on any trainer. But a trainer   
-can&#x27;t just blindly consume a reward scalar - it needs to understand the multi-turn trajectory       
-structure verifiers produces. Specifically:                                                         
-
-<span class="r3"> • </span>It needs to call <span class="r4">env.generate()</span> to trigger the rollout loop (the trainer controls timing because 
-<span class="r3">   </span>it owns the weights and must coordinate weight sync around generation)                           
-<span class="r3"> • </span>It needs to parse trajectory steps to build correct loss masks (model tokens = 1, prompt/env     
-<span class="r3">   </span>response tokens = 0)                                                                             
-<span class="r3"> • </span>It needs to handle weight sync timing - can&#x27;t update vLLM weights mid-generation                 
-
-The orchestrator is the adapter layer that bridges this gap. It speaks verifiers on one side        
-(trajectories, states, tokens) and speaks trainer on the other (microbatches, input_ids, loss_masks,
-advantages). Verifiers is trainer-agnostic in that it has no trainer dependency, but any trainer    
-that wants to use it needs to build an orchestrator that understands verifiers&#x27; output format.      
-
-<span class="r2">Two Relationships with vLLM</span>                                                                         
-
-The trainer and verifiers talk to vLLM for different reasons:                                       
-
-<span class="r3"> • </span><span class="r7">Verifiers → vLLM</span>: &quot;generate completions for these prompts&quot; (OpenAI-compatible API, during        
-<span class="r3">   </span>rollouts)                                                                                        
-<span class="r3"> • </span><span class="r7">Trainer → vLLM</span>: &quot;here are updated weights&quot; (NCCL GPU-to-GPU broadcast, between steps)            
-
-The trainer coordinates the two - it waits for verifiers to finish generating, syncs weights, then  
-tells the orchestrator to kick off the next batch. If verifiers queried vLLM freely, completions    
-could be generated with stale weights or during a weight update.                                    
 </code></pre>
 </body>
 </html>

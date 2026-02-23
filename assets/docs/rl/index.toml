@@ -21,6 +21,7 @@ docs = [
     { file = "grpo_training_loop", title = "GRPO Training Loop: What Gets Fed to the Trainer" },
     { file = "rl_to_grpo", title = "From RL to GRPO: How LLMs Learn from Rewards" },
     { file = "how_advantages_update_weights", title = "How Advantages Update Weights" },
+    { file = "chat_templates", title = "Chat Templates: API → Template → Token IDs" },
 ]
 
 [[groups]]
