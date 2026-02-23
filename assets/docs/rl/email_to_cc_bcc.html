@@ -172,13 +172,17 @@ sees bcc. Strict rules: no placeholders, no mention of bcc, spell names exactly.
 
 <span class="r2">Reward Functions</span>                                                                                    
 
-Three per turn, scored independently:                                                               
+Verifiers scores the full rollout once at the end - the rubric calls each reward function with the  
+complete state (all turns, all ground truths). Each function internally loops over turns and        
+averages. The rubric combines them via weighted sum into a single reward scalar for the trainer.    
 
-<span class="r7"> • </span><span class="r8">to_correct</span> - set match on to field                                                               
-<span class="r7"> • </span><span class="r8">cc_correct</span> - set match on cc field                                                               
-<span class="r7"> • </span><span class="r8">bcc_correct</span> - set match on bcc field                                                             
+Planned reward functions (v1):                                                                      
 
-Weighted equally. Multi-turn: average across turns.                                                 
+<span class="r7"> • </span><span class="r8">visible_correct</span> - set match on To ∪ CC (avoids noisy To/CC split)                                
+<span class="r7"> • </span><span class="r8">bcc_correct</span> - set match on BCC                                                                   
+<span class="r7"> • </span><span class="r8">format_correct</span> - valid JSON with correct keys                                                    
+
+Each function averages its score across turns internally. Weighted equally by the rubric.           
 
 <span class="r2">Ongoing Discussion</span>                                                                                  
 

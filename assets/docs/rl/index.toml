@@ -12,6 +12,7 @@ docs = [
 [[groups]]
 name = "Concepts"
 docs = [
+    { file = "system_overview", title = "System Overview: Verifiers, Trainer, vLLM" },
     { file = "training_architecture", title = "Training Architecture: Who Does What" },
     { file = "grpo_example", title = "How GRPO Works" },
     { file = "dr_grpo", title = "Dr.GRPO: What It Fixes" },

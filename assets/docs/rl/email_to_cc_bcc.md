@@ -103,13 +103,15 @@ The LLM generates realistic emails given the roster and visible recipients (to/c
 
 ### Reward Functions
 
-Three per turn, scored independently:
+Verifiers scores the full rollout once at the end — the rubric calls each reward function with the complete state (all turns, all ground truths). Each function internally loops over turns and averages. The rubric combines them via weighted sum into a single reward scalar for the trainer.
 
-- `to_correct` — set match on to field
-- `cc_correct` — set match on cc field
-- `bcc_correct` — set match on bcc field
+Planned reward functions (v1):
 
-Weighted equally. Multi-turn: average across turns.
+- `visible_correct` — set match on To ∪ CC (avoids noisy To/CC split)
+- `bcc_correct` — set match on BCC
+- `format_correct` — valid JSON with correct keys
+
+Each function averages its score across turns internally. Weighted equally by the rubric.
 
 ### Ongoing Discussion
 
