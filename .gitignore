@@ -65,6 +65,7 @@ Thumbs.db
 
 # Local data/scratch
 data/
+outputs/
 *.csv
 *.parquet
 rrd_out/
