@@ -53,8 +53,9 @@ def _render_message(role: str, content: str) -> str:
     return f'<div class="msg {cls}"><div class="msg-role">{label}</div><pre class="msg-content">{escaped}</pre></div>'
 
 
-def _render_ground_truth(gt_str: str) -> str:
-    escaped = html.escape(gt_str)
+def _render_ground_truth(gt) -> str:
+    text = json.dumps(gt, indent=2) if not isinstance(gt, str) else gt
+    escaped = html.escape(text)
     return f'<div class="ground-truth"><div class="msg-role">Ground Truth</div><pre class="msg-content">{escaped}</pre></div>'
 
 
@@ -310,8 +311,22 @@ toggleAll(false);
 </html>"""
 
 
-def view(eval_dirs: list[Path]) -> None:
-    """Load eval dirs, generate HTML, and open in browser."""
+def find_eval_runs(root: Path) -> list[Path]:
+    """Find all eval run dirs (containing metadata.json) under root."""
+    return sorted(d.parent for d in root.rglob("metadata.json") if (d.parent / "results.jsonl").exists())
+
+
+def view(eval_dirs: list[Path] | None = None) -> None:
+    """Load eval dirs, generate HTML, and open in browser.
+
+    If no dirs given, scans outputs/evals/ for all runs.
+    """
+    if not eval_dirs:
+        eval_dirs = find_eval_runs(Path("outputs/evals"))
+        if not eval_dirs:
+            raise SystemExit("No eval runs found in outputs/evals/")
+        print(f"Found {len(eval_dirs)} eval runs")
+
     eval_data_list = []
     for d in eval_dirs:
         if not (d / "metadata.json").exists():
@@ -324,6 +339,7 @@ def view(eval_dirs: list[Path]) -> None:
 
     if not eval_data_list:
         raise SystemExit("No valid eval dirs found.")
+
 
     html_content = generate_html(eval_data_list)
     out = Path(tempfile.gettempdir()) / "eval_view.html"

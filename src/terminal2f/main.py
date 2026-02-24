@@ -66,10 +66,10 @@ app.add_typer(eval_app, name="eval")
 
 
 @eval_app.command("view")
-def eval_view(eval_dirs: list[Path]):
-    """Generate and open an HTML viewer for eval output dirs."""
+def eval_view(eval_dirs: list[Path] = typer.Argument(None)):
+    """View eval results. Scans outputs/evals/ by default, or pass specific run dirs."""
     from terminal2f.eval_viewer import view
-    view(eval_dirs)
+    view(eval_dirs or None)  # ty:ignore[invalid-argument-type]
 
 
 @app.command()
