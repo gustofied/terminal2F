@@ -1,4 +1,5 @@
 from fastmcp import FastMCP
+import sys
 
 mcp = FastMCP("Demo")
 
@@ -8,4 +9,6 @@ def add(a: int, b:int) -> int:
     return a + b
 
 if __name__ == "__main__":
+    sys.stderr.write("sda")
     mcp.run()
+
