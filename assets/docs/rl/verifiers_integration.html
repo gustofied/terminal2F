@@ -1,215 +1,268 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="utf-8">
+<title>Integrating External Systems with Verifiers</title>
 <style>
-    body {
-        background: #ffffff;
-        color: #1e1e1e;
-        font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', 'Menlo', monospace;
-        font-size: 14px;
-        line-height: 1.35;
-        padding: 0.5em 2em;
-        max-width: 960px;
-        margin: 0 auto;
-    }
-    pre {
-        white-space: pre-wrap;
-        word-wrap: break-word;
-        margin: 0;
-    }
-    ::selection {
-        background: #d0e8ff;
-        color: #1e1e1e;
-    }
-    a { color: #268bd2; text-decoration: none; }
-    a:hover { text-decoration: underline; }
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&display=swap');
 
-    .back { color: #93a1a1; font-size: 12px; margin-bottom: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, serif;
+    font-size: 14.5px;
+    line-height: 1.72;
+    color: #2a2a2a;
+    background: #fdfcfa;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 72px 1rem 120px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a.back {
+    font-family: 'JetBrains Mono', monospace; font-size: 9.5px;
+    color: #bbb; text-decoration: none; letter-spacing: 0.5px;
+  }
+  a.back:hover { color: #1a1a1a; }
+
+  .memo-head {
+    border-top: 2.5px solid #1a1a1a;
+    border-bottom: 0.5px solid #1a1a1a;
+    padding: 20px 0 16px;
+    margin-bottom: 40px;
+  }
+  .memo-head h1 {
+    font-size: 1.6rem;
+    font-weight: normal;
+    color: #333;
+    line-height: 1.25;
+    margin: 0;
+  }
+
+  h2 {
+    font-size: 1.3rem;
+    font-weight: normal;
+    color: #333;
+    margin: 56px 0 6px;
+  }
+  h3 {
+    font-size: 1.1rem;
+    font-weight: normal;
+    color: #333;
+    margin: 36px 0 4px;
+  }
+  p { margin: 10px 0; }
+
+  ul, ol { margin: 12px 0 12px 22px; }
+  li { margin: 5px 0; color: #333; }
+  li::marker { color: #bbb; }
+
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: #1a1a1a;
+    background: #f5f4f0;
+    padding: 1.5px 5px;
+    border-bottom: 1px solid #ddd;
+  }
+  pre {
+    margin: 20px 0;
+    padding: 16px 20px;
+    background: #f5f4f0;
+    border: 0.5px solid #e8e4de;
+    overflow-x: auto;
+    line-height: 1.5;
+  }
+  pre code {
+    background: none;
+    padding: 0;
+    border: none;
+    font-size: 12px;
+  }
+  strong { font-weight: 700; color: #1a1a1a; }
+  em { color: #555; }
+  a { color: #268bd2; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  blockquote {
+    font-size: 13px;
+    color: #888;
+    font-style: italic;
+    margin: 20px 0 20px 28px;
+    padding-left: 16px;
+    border-left: 1.5px solid #ddd;
+    line-height: 1.6;
+  }
+
+  hr {
+    border: none;
+    text-align: center;
+    margin: 56px 0;
+    line-height: 0;
+  }
+  hr::after {
+    content: '\2022\2009\2009\2022\2009\2009\2022';
+    font-size: 10px;
+    color: #ccc;
+    letter-spacing: 4px;
+  }
+
+  .colophon {
+    border-top: 0.5px solid #ddd;
+    margin-top: 64px;
+    padding-top: 16px;
+  }
+  .colophon p {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    color: #ccc;
+    letter-spacing: 0.5px;
+  }
+
 </style>
 </head>
 <body>
-<p class="back"><a href="index.html">back</a></p>
-<pre><!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<style>
-.r1 {color: #268bd2; text-decoration-color: #268bd2; font-weight: bold}
-.r2 {color: #d33682; text-decoration-color: #d33682}
-.r3 {color: #2aa198; text-decoration-color: #2aa198; font-weight: bold}
-.r4 {color: #d33682; text-decoration-color: #d33682; font-weight: bold}
-.r5 {background-color: #f5f5f0}
-.r6 {color: #859900; text-decoration-color: #859900; background-color: #f5f5f0}
-.r7 {color: #657b83; text-decoration-color: #657b83; background-color: #f5f5f0}
-.r8 {color: #268bd2; text-decoration-color: #268bd2; background-color: #f5f5f0}
-.r9 {color: #93a1a1; text-decoration-color: #93a1a1; background-color: #f5f5f0}
-.r10 {color: #2aa198; text-decoration-color: #2aa198; background-color: #f5f5f0}
-.r11 {color: #93a1a1; text-decoration-color: #93a1a1; background-color: #f5f5f0; font-style: italic}
-.r12 {color: #cb4b16; text-decoration-color: #cb4b16}
-.r13 {font-weight: bold}
-.r14 {color: #cb4b16; text-decoration-color: #cb4b16; background-color: #f5f5f0}
-body {
-    color: #000000;
-    background-color: #f5f5f0;
-}
-</style>
-</head>
-<body>
-    <pre style="font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace"><code style="font-family:inherit"><span class="r1">Integrating External Systems with Verifiers</span>                                                         
 
-Verifiers doesn&#x27;t care what your environment does internally. It provides a lifecycle via           
-<span class="r2">MultiTurnEnv</span> - you hook into it, do whatever you want behind the hooks, and return messages.        
+<a class="back" href="index.html">&larr; docs</a>
 
-<span class="r3">The Hooks</span>                                                                                           
+<div class="memo-head">
+  <h1>Integrating External Systems with Verifiers</h1>
+</div>
 
-<span class="r4">setup_state(state) -&gt; State</span>                                                                         
+<p>Verifiers doesn't care what your environment does internally. It provides a lifecycle via <code>MultiTurnEnv</code> - you hook into it, do whatever you want behind the hooks, and return messages.</p>
 
-Called once at the start of each rollout. Use it to spin up your external system and store handles  
-in <span class="r2">state</span>.                                                                                           
+<h3>The Hooks</h3>
 
-<span class="r5">                                                                                                    </span>
-<span class="r5"> </span><span class="r6">async</span><span class="r7"> </span><span class="r6">def</span><span class="r7"> </span><span class="r8">setup_state</span><span class="r7">(</span><span class="r8">self</span><span class="r7">, state: vf</span><span class="r9">.</span><span class="r7">State) </span><span class="r9">-&gt;</span><span class="r7"> vf</span><span class="r9">.</span><span class="r7">State:</span><span class="r5">                                          </span>
-<span class="r5"> </span><span class="r7">    db </span><span class="r9">=</span><span class="r7"> create_world(seed</span><span class="r9">=</span><span class="r7">state[</span><span class="r10">&quot;info&quot;</span><span class="r7">][</span><span class="r10">&quot;seed&quot;</span><span class="r7">])</span><span class="r5">                                                  </span>
-<span class="r5"> </span><span class="r7">    server </span><span class="r9">=</span><span class="r7"> start_mcp_server(db)</span><span class="r5">                                                                  </span>
-<span class="r5"> </span><span class="r7">    state[</span><span class="r10">&quot;db&quot;</span><span class="r7">] </span><span class="r9">=</span><span class="r7"> db</span><span class="r5">                                                                               </span>
-<span class="r5"> </span><span class="r7">    state[</span><span class="r10">&quot;server&quot;</span><span class="r7">] </span><span class="r9">=</span><span class="r7"> server</span><span class="r5">                                                                       </span>
-<span class="r5"> </span><span class="r7">    </span><span class="r6">return</span><span class="r7"> state</span><span class="r5">                                                                                   </span>
-<span class="r5">                                                                                                    </span>
+<p><strong><code>setup_state(state) -&gt; State</code></strong></p>
 
-<span class="r4">env_response(messages, state) -&gt; Messages</span>                                                           
+<p>Called once at the start of each rollout. Use it to spin up your external system and store handles in <code>state</code>.</p>
 
-Called after every model turn. You receive the conversation so far, do your thing (execute tool     
-calls, query a database, call an API), and return the next messages.                                
+<pre><code>async def setup_state(self, state: vf.State) -&gt; vf.State:
+    db = create_world(seed=state[&quot;info&quot;][&quot;seed&quot;])
+    server = start_mcp_server(db)
+    state[&quot;db&quot;] = db
+    state[&quot;server&quot;] = server
+    return state</code></pre>
 
-This is the main integration point. Verifiers doesn&#x27;t know or care what happens inside - it just    
-expects messages back.                                                                              
+<p><strong><code>env_response(messages, state) -&gt; Messages</code></strong></p>
 
-<span class="r5">                                                                                                    </span>
-<span class="r5"> </span><span class="r6">async</span><span class="r7"> </span><span class="r6">def</span><span class="r7"> </span><span class="r8">env_response</span><span class="r7">(</span><span class="r8">self</span><span class="r7">, messages, state, </span><span class="r9">**</span><span class="r7">kwargs):</span><span class="r5">                                           </span>
-<span class="r5"> </span><span class="r7">    last_msg </span><span class="r9">=</span><span class="r7"> messages[</span><span class="r9">-</span><span class="r10">1</span><span class="r7">]</span><span class="r5">                                                                        </span>
-<span class="r5"> </span><span class="r7">    tool_calls </span><span class="r9">=</span><span class="r7"> parse_tool_calls(last_msg)</span><span class="r5">                                                        </span>
-<span class="r5"> </span><span class="r7">    results </span><span class="r9">=</span><span class="r7"> []</span><span class="r5">                                                                                   </span>
-<span class="r5"> </span><span class="r7">    </span><span class="r6">for</span><span class="r7"> call </span><span class="r6">in</span><span class="r7"> tool_calls:</span><span class="r5">                                                                        </span>
-<span class="r5"> </span><span class="r7">        result </span><span class="r9">=</span><span class="r7"> </span><span class="r6">await</span><span class="r7"> state[</span><span class="r10">&quot;server&quot;</span><span class="r7">]</span><span class="r9">.</span><span class="r7">call_tool(call</span><span class="r9">.</span><span class="r7">name, call</span><span class="r9">.</span><span class="r7">args)</span><span class="r5">                             </span>
-<span class="r5"> </span><span class="r7">        results</span><span class="r9">.</span><span class="r7">append({</span><span class="r10">&quot;role&quot;</span><span class="r7">: </span><span class="r10">&quot;tool&quot;</span><span class="r7">, </span><span class="r10">&quot;content&quot;</span><span class="r7">: result, </span><span class="r10">&quot;tool_call_id&quot;</span><span class="r7">: call</span><span class="r9">.</span><span class="r7">id})</span><span class="r5">               </span>
-<span class="r5"> </span><span class="r7">    </span><span class="r6">return</span><span class="r7"> results</span><span class="r5">                                                                                 </span>
-<span class="r5">                                                                                                    </span>
+<p>Called after every model turn. You receive the conversation so far, do your thing (execute tool calls, query a database, call an API), and return the next messages.</p>
 
-<span class="r4">@vf.stop</span>                                                                                            
+<p>This is the main integration point. Verifiers doesn't know or care what happens inside - it just expects messages back.</p>
 
-Custom stop conditions. Checked after every turn. Return <span class="r2">True</span> to end the rollout.                   
+<pre><code>async def env_response(self, messages, state, **kwargs):
+    last_msg = messages[-1]
+    tool_calls = parse_tool_calls(last_msg)
+    results = []
+    for call in tool_calls:
+        result = await state[&quot;server&quot;].call_tool(call.name, call.args)
+        results.append({&quot;role&quot;: &quot;tool&quot;, &quot;content&quot;: result, &quot;tool_call_id&quot;: call.id})
+    return results</code></pre>
 
-<span class="r5">                                                                                                    </span>
-<span class="r5"> </span><span class="r8">@vf</span><span class="r9">.</span><span class="r7">stop</span><span class="r5">                                                                                           </span>
-<span class="r5"> </span><span class="r6">async</span><span class="r7"> </span><span class="r6">def</span><span class="r7"> </span><span class="r8">workflow_complete</span><span class="r7">(</span><span class="r8">self</span><span class="r7">, state: vf</span><span class="r9">.</span><span class="r7">State) </span><span class="r9">-&gt;</span><span class="r7"> </span><span class="r8">bool</span><span class="r7">:</span><span class="r5">                                        </span>
-<span class="r5"> </span><span class="r7">    </span><span class="r6">return</span><span class="r7"> state</span><span class="r9">.</span><span class="r7">get(</span><span class="r10">&quot;done&quot;</span><span class="r7">, </span><span class="r10">False</span><span class="r7">)</span><span class="r5">                                                                </span>
-<span class="r5">                                                                                                    </span>
+<p><strong><code>@vf.stop</code></strong></p>
 
-The built-in <span class="r2">max_turns_reached</span> stop is always available. Add your own for domain-specific           
-conditions.                                                                                         
+<p>Custom stop conditions. Checked after every turn. Return <code>True</code> to end the rollout.</p>
 
-<span class="r4">@vf.cleanup</span>                                                                                         
+<pre><code>@vf.stop
+async def workflow_complete(self, state: vf.State) -&gt; bool:
+    return state.get(&quot;done&quot;, False)</code></pre>
 
-Called after each rollout completes. Tear down per-rollout resources.                               
+<p>The built-in <code>max_turns_reached</code> stop is always available. Add your own for domain-specific conditions.</p>
 
-<span class="r5">                                                                                                    </span>
-<span class="r5"> </span><span class="r8">@vf</span><span class="r9">.</span><span class="r7">cleanup</span><span class="r5">                                                                                        </span>
-<span class="r5"> </span><span class="r6">async</span><span class="r7"> </span><span class="r6">def</span><span class="r7"> </span><span class="r8">cleanup</span><span class="r7">(</span><span class="r8">self</span><span class="r7">, state: vf</span><span class="r9">.</span><span class="r7">State) </span><span class="r9">-&gt;</span><span class="r7"> </span><span class="r10">None</span><span class="r7">:</span><span class="r5">                                                  </span>
-<span class="r5"> </span><span class="r7">    server </span><span class="r9">=</span><span class="r7"> state</span><span class="r9">.</span><span class="r7">pop(</span><span class="r10">&quot;server&quot;</span><span class="r7">, </span><span class="r10">None</span><span class="r7">)</span><span class="r5">                                                             </span>
-<span class="r5"> </span><span class="r7">    </span><span class="r6">if</span><span class="r7"> server:</span><span class="r5">                                                                                     </span>
-<span class="r5"> </span><span class="r7">        </span><span class="r6">await</span><span class="r7"> server</span><span class="r9">.</span><span class="r7">stop()</span><span class="r5">                                                                        </span>
-<span class="r5">                                                                                                    </span>
+<p><strong><code>@vf.cleanup</code></strong></p>
 
-<span class="r4">@vf.teardown</span>                                                                                        
+<p>Called after each rollout completes. Tear down per-rollout resources.</p>
 
-Called once when the entire environment shuts down. Clean up global resources.                      
+<pre><code>@vf.cleanup
+async def cleanup(self, state: vf.State) -&gt; None:
+    server = state.pop(&quot;server&quot;, None)
+    if server:
+        await server.stop()</code></pre>
 
-<span class="r5">                                                                                                    </span>
-<span class="r5"> </span><span class="r8">@vf</span><span class="r9">.</span><span class="r7">teardown</span><span class="r5">                                                                                       </span>
-<span class="r5"> </span><span class="r6">async</span><span class="r7"> </span><span class="r6">def</span><span class="r7"> </span><span class="r8">teardown</span><span class="r7">(</span><span class="r8">self</span><span class="r7">) </span><span class="r9">-&gt;</span><span class="r7"> </span><span class="r10">None</span><span class="r7">:</span><span class="r5">                                                                  </span>
-<span class="r5"> </span><span class="r7">    </span><span class="r11"># clean up anything shared across rollouts</span><span class="r5">                                                     </span>
-<span class="r5"> </span><span class="r7">    </span><span class="r6">pass</span><span class="r5">                                                                                           </span>
-<span class="r5">                                                                                                    </span>
+<p><strong><code>@vf.teardown</code></strong></p>
 
-<span class="r3">The State Dict</span>                                                                                      
+<p>Called once when the entire environment shuts down. Clean up global resources.</p>
 
-<span class="r2">state</span> is the glue. It persists across turns within a rollout and is accessible everywhere - in      
-<span class="r2">env_response</span>, stop conditions, cleanup, and rubric scoring functions.                               
+<pre><code>@vf.teardown
+async def teardown(self) -&gt; None:
+    # clean up anything shared across rollouts
+    pass</code></pre>
 
-Key fields managed by verifiers:                                                                    
+<h3>The State Dict</h3>
 
-<span class="r12"> • </span><span class="r2">state[&quot;prompt&quot;]</span> - initial prompt messages                                                        
-<span class="r12"> • </span><span class="r2">state[&quot;completion&quot;]</span> - final computed completion                                                  
-<span class="r12"> • </span><span class="r2">state[&quot;trajectory&quot;]</span> - list of <span class="r2">{prompt, completion, reward, ...}</span> per turn                         
-<span class="r12"> • </span><span class="r2">state[&quot;info&quot;]</span> - per-example data from your dataset (ground truths, seeds, config)                
-<span class="r12"> • </span><span class="r2">state[&quot;error&quot;]</span> - any error that occurred                                                         
+<p><code>state</code> is the glue. It persists across turns within a rollout and is accessible everywhere - in <code>env_response</code>, stop conditions, cleanup, and rubric scoring functions.</p>
 
-You add whatever you need:                                                                          
+<p>Key fields managed by verifiers:</p>
 
-<span class="r12"> • </span><span class="r2">state[&quot;db&quot;]</span> - database connection                                                                
-<span class="r12"> • </span><span class="r2">state[&quot;server&quot;]</span> - MCP server handle                                                              
-<span class="r12"> • </span><span class="r2">state[&quot;done&quot;]</span> - custom done flag                                                                 
+<ul>
+<li><code>state[&quot;prompt&quot;]</code> - initial prompt messages</li>
+<li><code>state[&quot;completion&quot;]</code> - final computed completion</li>
+<li><code>state[&quot;trajectory&quot;]</code> - list of <code>{prompt, completion, reward, ...}</code> per turn</li>
+<li><code>state[&quot;info&quot;]</code> - per-example data from your dataset (ground truths, seeds, config)</li>
+<li><code>state[&quot;error&quot;]</code> - any error that occurred</li>
+</ul>
 
-<span class="r3">Rubric / Scoring</span>                                                                                    
+<p>You add whatever you need:</p>
 
-Rubric functions receive <span class="r2">completion</span> and <span class="r2">state</span>. Use <span class="r2">state</span> to access ground truths, database state, or
-anything else you stored during the rollout.                                                        
+<ul>
+<li><code>state[&quot;db&quot;]</code> - database connection</li>
+<li><code>state[&quot;server&quot;]</code> - MCP server handle</li>
+<li><code>state[&quot;done&quot;]</code> - custom done flag</li>
+</ul>
 
-<span class="r5">                                                                                                    </span>
-<span class="r5"> </span><span class="r6">async</span><span class="r7"> </span><span class="r6">def</span><span class="r7"> </span><span class="r8">score</span><span class="r7">(completion, state, </span><span class="r9">**</span><span class="r7">kwargs):</span><span class="r5">                                                      </span>
-<span class="r5"> </span><span class="r7">    expected </span><span class="r9">=</span><span class="r7"> state[</span><span class="r10">&quot;info&quot;</span><span class="r7">][</span><span class="r10">&quot;ground_truths&quot;</span><span class="r7">]</span><span class="r5">                                                      </span>
-<span class="r5"> </span><span class="r7">    actual </span><span class="r9">=</span><span class="r7"> query_final_state(state[</span><span class="r10">&quot;db&quot;</span><span class="r7">])</span><span class="r5">                                                        </span>
-<span class="r5"> </span><span class="r7">    </span><span class="r6">return</span><span class="r7"> compute_score(actual, expected)</span><span class="r5">                                                         </span>
-<span class="r5">                                                                                                    </span>
-<span class="r5"> </span><span class="r7">rubric </span><span class="r9">=</span><span class="r7"> vf</span><span class="r9">.</span><span class="r7">Rubric(funcs</span><span class="r9">=</span><span class="r7">[score], weights</span><span class="r9">=</span><span class="r7">[</span><span class="r10">1.0</span><span class="r7">])</span><span class="r5">                                                   </span>
-<span class="r5">                                                                                                    </span>
+<h3>Rubric / Scoring</h3>
 
-<span class="r3">How Real Integrations Use This</span>                                                                      
+<p>Rubric functions receive <code>completion</code> and <code>state</code>. Use <code>state</code> to access ground truths, database state, or anything else you stored during the rollout.</p>
 
-<span class="r13">OpenEnv</span> - spins up a sandboxed server in <span class="r2">setup_state</span>, routes tool calls through MCP in <span class="r2">env_response</span>,
-tracks intermediate rewards in <span class="r2">state[&quot;trajectory&quot;]</span>, cleans up sandbox in <span class="r2">@vf.cleanup</span>.               
+<pre><code>async def score(completion, state, **kwargs):
+    expected = state[&quot;info&quot;][&quot;ground_truths&quot;]
+    actual = query_final_state(state[&quot;db&quot;])
+    return compute_score(actual, expected)
 
-<span class="r13">Harbor</span> - loads task files in <span class="r2">__init__</span>, uploads instructions in <span class="r2">post_sandbox_setup</span>, runs verification
-tests in <span class="r2">post_rollout</span> to compute reward. Doesn&#x27;t even override <span class="r2">env_response</span>.                        
+rubric = vf.Rubric(funcs=[score], weights=[1.0])</code></pre>
 
-<span class="r13">Email-to-CC-BCC</span> - stores follow-up prompts and ground truths in <span class="r2">state[&quot;info&quot;]</span>, returns the next     
-email in <span class="r2">env_response</span>, scores final state with set overlap in the rubric.                           
+<h3>How Real Integrations Use This</h3>
 
-All completely different external systems. Same four hooks.                                         
+<p><strong>OpenEnv</strong> - spins up a sandboxed server in <code>setup_state</code>, routes tool calls through MCP in <code>env_response</code>, tracks intermediate rewards in <code>state[&quot;trajectory&quot;]</code>, cleans up sandbox in <code>@vf.cleanup</code>.</p>
 
-<span class="r3">Minimal Template</span>                                                                                    
+<p><strong>Harbor</strong> - loads task files in <code>__init__</code>, uploads instructions in <code>post_sandbox_setup</code>, runs verification tests in <code>post_rollout</code> to compute reward. Doesn't even override <code>env_response</code>.</p>
 
-<span class="r5">                                                                                                    </span>
-<span class="r5"> </span><span class="r14">import</span><span class="r7"> </span><span class="r8">verifiers</span><span class="r7"> </span><span class="r6">as</span><span class="r7"> </span><span class="r8">vf</span><span class="r5">                                                                             </span>
-<span class="r5"> </span><span class="r14">from</span><span class="r7"> </span><span class="r8">datasets</span><span class="r7"> </span><span class="r14">import</span><span class="r7"> Dataset</span><span class="r5">                                                                       </span>
-<span class="r5">                                                                                                    </span>
-<span class="r5"> </span><span class="r6">class</span><span class="r7"> </span><span class="r8">MyEnv</span><span class="r7">(vf</span><span class="r9">.</span><span class="r7">MultiTurnEnv):</span><span class="r5">                                                                      </span>
-<span class="r5"> </span><span class="r7">    </span><span class="r8">@vf</span><span class="r9">.</span><span class="r7">stop</span><span class="r5">                                                                                       </span>
-<span class="r5"> </span><span class="r7">    </span><span class="r6">async</span><span class="r7"> </span><span class="r6">def</span><span class="r7"> </span><span class="r8">done</span><span class="r7">(</span><span class="r8">self</span><span class="r7">, state: vf</span><span class="r9">.</span><span class="r7">State) </span><span class="r9">-&gt;</span><span class="r7"> </span><span class="r8">bool</span><span class="r7">:</span><span class="r5">                                                 </span>
-<span class="r5"> </span><span class="r7">        </span><span class="r6">return</span><span class="r7"> state</span><span class="r9">.</span><span class="r7">get(</span><span class="r10">&quot;done&quot;</span><span class="r7">, </span><span class="r10">False</span><span class="r7">)</span><span class="r5">                                                            </span>
-<span class="r5">                                                                                                    </span>
-<span class="r5"> </span><span class="r7">    </span><span class="r6">async</span><span class="r7"> </span><span class="r6">def</span><span class="r7"> </span><span class="r8">setup_state</span><span class="r7">(</span><span class="r8">self</span><span class="r7">, state: vf</span><span class="r9">.</span><span class="r7">State) </span><span class="r9">-&gt;</span><span class="r7"> vf</span><span class="r9">.</span><span class="r7">State:</span><span class="r5">                                      </span>
-<span class="r5"> </span><span class="r7">        </span><span class="r11"># start your external system, store in state</span><span class="r5">                                               </span>
-<span class="r5"> </span><span class="r7">        </span><span class="r6">return</span><span class="r7"> state</span><span class="r5">                                                                               </span>
-<span class="r5">                                                                                                    </span>
-<span class="r5"> </span><span class="r7">    </span><span class="r6">async</span><span class="r7"> </span><span class="r6">def</span><span class="r7"> </span><span class="r8">env_response</span><span class="r7">(</span><span class="r8">self</span><span class="r7">, messages, state, </span><span class="r9">**</span><span class="r7">kwargs):</span><span class="r5">                                       </span>
-<span class="r5"> </span><span class="r7">        </span><span class="r11"># handle model output, return next messages</span><span class="r5">                                                </span>
-<span class="r5"> </span><span class="r7">        </span><span class="r6">return</span><span class="r7"> [{</span><span class="r10">&quot;role&quot;</span><span class="r7">: </span><span class="r10">&quot;user&quot;</span><span class="r7">, </span><span class="r10">&quot;content&quot;</span><span class="r7">: </span><span class="r10">&quot;next prompt&quot;</span><span class="r7">}]</span><span class="r5">                                        </span>
-<span class="r5">                                                                                                    </span>
-<span class="r5"> </span><span class="r7">    </span><span class="r8">@vf</span><span class="r9">.</span><span class="r7">cleanup</span><span class="r5">                                                                                    </span>
-<span class="r5"> </span><span class="r7">    </span><span class="r6">async</span><span class="r7"> </span><span class="r6">def</span><span class="r7"> </span><span class="r8">cleanup</span><span class="r7">(</span><span class="r8">self</span><span class="r7">, state: vf</span><span class="r9">.</span><span class="r7">State) </span><span class="r9">-&gt;</span><span class="r7"> </span><span class="r10">None</span><span class="r7">:</span><span class="r5">                                              </span>
-<span class="r5"> </span><span class="r7">        </span><span class="r11"># tear down per-rollout resources</span><span class="r5">                                                          </span>
-<span class="r5"> </span><span class="r7">        </span><span class="r6">pass</span><span class="r5">                                                                                       </span>
-<span class="r5">                                                                                                    </span>
-<span class="r5"> </span><span class="r6">def</span><span class="r7"> </span><span class="r8">load_environment</span><span class="r7">(</span><span class="r9">**</span><span class="r7">kwargs) </span><span class="r9">-&gt;</span><span class="r7"> vf</span><span class="r9">.</span><span class="r7">Environment:</span><span class="r5">                                                  </span>
-<span class="r5"> </span><span class="r7">    dataset </span><span class="r9">=</span><span class="r7"> Dataset</span><span class="r9">.</span><span class="r7">from_list([</span><span class="r9">...</span><span class="r7">])</span><span class="r5">                                                             </span>
-<span class="r5"> </span><span class="r7">    rubric </span><span class="r9">=</span><span class="r7"> vf</span><span class="r9">.</span><span class="r7">Rubric(funcs</span><span class="r9">=</span><span class="r7">[</span><span class="r9">...</span><span class="r7">], weights</span><span class="r9">=</span><span class="r7">[</span><span class="r9">...</span><span class="r7">])</span><span class="r5">                                                 </span>
-<span class="r5"> </span><span class="r7">    </span><span class="r6">return</span><span class="r7"> MyEnv(dataset</span><span class="r9">=</span><span class="r7">dataset, rubric</span><span class="r9">=</span><span class="r7">rubric, max_turns</span><span class="r9">=</span><span class="r10">10</span><span class="r7">)</span><span class="r5">                                     </span>
-<span class="r5">                                                                                                    </span>
-</code></pre>
-</body>
-</html>
-</pre>
+<p><strong>Email-to-CC-BCC</strong> - stores follow-up prompts and ground truths in <code>state[&quot;info&quot;]</code>, returns the next email in <code>env_response</code>, scores final state with set overlap in the rubric.</p>
+
+<p>All completely different external systems. Same four hooks.</p>
+
+<h3>Minimal Template</h3>
+
+<pre><code>import verifiers as vf
+from datasets import Dataset
+
+class MyEnv(vf.MultiTurnEnv):
+    @vf.stop
+    async def done(self, state: vf.State) -&gt; bool:
+        return state.get(&quot;done&quot;, False)
+
+    async def setup_state(self, state: vf.State) -&gt; vf.State:
+        # start your external system, store in state
+        return state
+
+    async def env_response(self, messages, state, **kwargs):
+        # handle model output, return next messages
+        return [{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;next prompt&quot;}]
+
+    @vf.cleanup
+    async def cleanup(self, state: vf.State) -&gt; None:
+        # tear down per-rollout resources
+        pass
+
+def load_environment(**kwargs) -&gt; vf.Environment:
+    dataset = Dataset.from_list([...])
+    rubric = vf.Rubric(funcs=[...], weights=[...])
+    return MyEnv(dataset=dataset, rubric=rubric, max_turns=10)</code></pre>
+
+<div class="colophon">
+  <p>INTEGRATING EXTERNAL SYSTEMS WITH VERIFIERS</p>
+</div>
+
 </body>
 </html>

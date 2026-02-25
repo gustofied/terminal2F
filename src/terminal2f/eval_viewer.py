@@ -31,32 +31,47 @@ def _fmt(val) -> str:
     return html.escape(str(val))
 
 
-def _color_for_score(score: float) -> str:
+def _score_cls(score: float) -> str:
     if score >= 0.8:
-        return "#22c55e"
+        return "score-high"
     if score >= 0.5:
-        return "#eab308"
-    return "#ef4444"
+        return "score-mid"
+    return "score-low"
+
+
+def _pretty_gt(gt) -> str:
+    """Pretty-print a ground truth value."""
+    if isinstance(gt, str):
+        try:
+            parsed = json.loads(gt)
+            return json.dumps(parsed, indent=2)
+        except (json.JSONDecodeError, TypeError):
+            return gt
+    return json.dumps(gt, indent=2)
 
 
 def _render_message(role: str, content: str) -> str:
     escaped = html.escape(content)
     if role == "system":
         cls = "msg-system"
-        label = "System"
+        label = "SYS"
     elif role == "user":
         cls = "msg-user"
-        label = "User"
+        label = "USER"
     else:
         cls = "msg-assistant"
-        label = "Assistant"
-    return f'<div class="msg {cls}"><div class="msg-role">{label}</div><pre class="msg-content">{escaped}</pre></div>'
+        label = "ASST"
+    return f'<div class="msg {cls}"><span class="msg-role">{label}</span><pre class="msg-content">{escaped}</pre></div>'
 
 
-def _render_ground_truth(gt) -> str:
-    text = json.dumps(gt, indent=2) if not isinstance(gt, str) else gt
-    escaped = html.escape(text)
-    return f'<div class="ground-truth"><div class="msg-role">Ground Truth</div><pre class="msg-content">{escaped}</pre></div>'
+def _render_turn_pair(assistant_content: str, gt) -> str:
+    """Render assistant response side-by-side with ground truth."""
+    escaped_asst = html.escape(assistant_content)
+    escaped_gt = html.escape(_pretty_gt(gt))
+    return f"""<div class="turn-pair">
+  <div class="turn-col"><span class="msg-role">ASST</span><pre class="msg-content">{escaped_asst}</pre></div>
+  <div class="turn-col turn-gt"><span class="msg-role">GT</span><pre class="msg-content">{escaped_gt}</pre></div>
+</div>"""
 
 
 def _build_conversation_html(result: dict) -> str:
@@ -71,10 +86,11 @@ def _build_conversation_html(result: dict) -> str:
     for msg in all_msgs:
         role = msg.get("role", "unknown")
         content = msg.get("content", "")
-        parts.append(_render_message(role, content))
         if role == "assistant" and gt_idx < len(ground_truths):
-            parts.append(_render_ground_truth(ground_truths[gt_idx]))
+            parts.append(_render_turn_pair(content, ground_truths[gt_idx]))
             gt_idx += 1
+        else:
+            parts.append(_render_message(role, content))
 
     return "\n".join(parts)
 
@@ -83,61 +99,77 @@ def _render_metrics_badges(metrics: dict) -> str:
     badges = []
     for key, val in metrics.items():
         if isinstance(val, (int, float)):
-            color = _color_for_score(val) if 0 <= val <= 1 else "#6b7280"
+            cls = _score_cls(val) if 0 <= val <= 1 else ""
             badges.append(
-                f'<span class="badge" style="background:{color}">'
+                f'<span class="badge {cls}">'
                 f"{html.escape(key)}: {_fmt(val)}</span>"
             )
     return " ".join(badges)
 
 
-def _render_rollout_card(result: dict, idx: int) -> str:
-    example_id = result.get("example_id", "?")
+def _render_rollout_card(result: dict, rollout_idx: int) -> str:
     reward = result.get("reward", 0)
     metrics = result.get("metrics", {})
     error = result.get("error")
-    reward_color = _color_for_score(reward)
+    stop = result.get("stop_condition", "")
 
     header_parts = [
-        f'<span class="badge" style="background:{reward_color}">reward: {_fmt(reward)}</span>',
+        f'<span class="badge {_score_cls(reward)}">reward: {_fmt(reward)}</span>',
         _render_metrics_badges(metrics),
     ]
     if error:
         header_parts.append(
-            f'<span class="badge" style="background:#ef4444">ERROR: {html.escape(str(error)[:100])}</span>'
+            f'<span class="badge score-low">ERROR: {html.escape(str(error)[:80])}</span>'
         )
 
     conversation = _build_conversation_html(result)
+    stop_label = f' <span class="stop-label">{html.escape(stop)}</span>' if stop else ""
 
-    return f"""
-    <div class="rollout-card" data-reward="{reward}" data-example="{example_id}">
-      <div class="rollout-header" onclick="this.parentElement.classList.toggle('collapsed')">
-        <span class="rollout-title">Example {example_id} &mdash; Rollout #{idx}</span>
-        <div class="rollout-badges">{" ".join(header_parts)}</div>
-        <span class="collapse-icon">&#9660;</span>
-      </div>
-      <div class="rollout-body">
-        {conversation}
-      </div>
-    </div>"""
+    return f"""<div class="rollout-card collapsed" data-reward="{reward}">
+  <div class="rollout-header" onclick="this.parentElement.classList.toggle('collapsed')">
+    <span class="rollout-idx">#{rollout_idx}</span>
+    <div class="rollout-badges">{" ".join(header_parts)}{stop_label}</div>
+    <span class="collapse-icon"></span>
+  </div>
+  <div class="rollout-body">{conversation}</div>
+</div>"""
+
+
+def _render_example_group(example_id, rollouts: list[tuple[int, dict]]) -> str:
+    """Render a collapsible group for all rollouts of one example."""
+    rewards = [r.get("reward", 0) for _, r in rollouts]
+    avg_reward = sum(rewards) / len(rewards) if rewards else 0
+    n = len(rollouts)
+
+    cards = "\n".join(_render_rollout_card(r, idx) for idx, r in rollouts)
+
+    return f"""<div class="example-group" data-example="{example_id}" data-reward="{avg_reward}">
+  <div class="example-header" onclick="this.parentElement.classList.toggle('collapsed')">
+    <span class="example-title">Example {example_id}</span>
+    <span class="badge {_score_cls(avg_reward)}">avg: {_fmt(avg_reward)}</span>
+    <span class="example-count">{n} rollout{"s" if n != 1 else ""}</span>
+    <span class="collapse-icon"></span>
+  </div>
+  <div class="example-body">{cards}</div>
+</div>"""
 
 
 def _render_summary_row(eval_data: dict) -> str:
     m = eval_data["metadata"]
     metrics_cells = ""
     for key, val in m.get("avg_metrics", {}).items():
-        color = _color_for_score(val) if isinstance(val, (int, float)) and 0 <= val <= 1 else ""
-        style = f' style="color:{color};font-weight:600"' if color else ""
-        metrics_cells += f"<td{style}>{_fmt(val)}</td>"
+        cls = _score_cls(val) if isinstance(val, (int, float)) and 0 <= val <= 1 else ""
+        metrics_cells += f'<td class="{cls}">{_fmt(val)}</td>'
+    avg_reward = m.get("avg_reward", 0)
     return f"""<tr>
-      <td class="mono">{html.escape(str(Path(eval_data['path']).name))}</td>
-      <td>{html.escape(m.get('model', '?'))}</td>
-      <td style="color:{_color_for_score(m.get('avg_reward', 0))};font-weight:700">{_fmt(m.get('avg_reward'))}</td>
-      {metrics_cells}
-      <td>{m.get('num_examples', '?')}</td>
-      <td>{_fmt(m.get('avg_error', 0))}</td>
-      <td>{_fmt(m.get('time_ms', 0) / 1000)}s</td>
-    </tr>"""
+  <td class="mono">{html.escape(str(Path(eval_data['path']).name))}</td>
+  <td>{html.escape(m.get('model', '?'))}</td>
+  <td class="{_score_cls(avg_reward)}">{_fmt(avg_reward)}</td>
+  {metrics_cells}
+  <td>{m.get('num_examples', '?')}</td>
+  <td>{_fmt(m.get('avg_error', 0))}</td>
+  <td>{_fmt(m.get('time_ms', 0) / 1000)}s</td>
+</tr>"""
 
 
 def _render_summary_headers(eval_data_list: list[dict]) -> str:
@@ -153,120 +185,243 @@ def generate_html(eval_data_list: list[dict]) -> str:
     metric_headers = _render_summary_headers(eval_data_list)
     summary_rows = "\n".join(_render_summary_row(ed) for ed in eval_data_list)
 
-    rollout_cards = []
+    sections = []
     for ed in eval_data_list:
         dir_name = Path(ed["path"]).name
         model = ed["metadata"].get("model", "?")
-        rollout_cards.append(
-            f'<h2 class="eval-section-title">{html.escape(model)} '
-            f'<span class="eval-hash">({html.escape(dir_name)})</span></h2>'
+        sections.append(
+            f'<h2 class="eval-section">{html.escape(model)} '
+            f'<span class="eval-hash">{html.escape(dir_name)}</span></h2>'
         )
+
+        # Group by example_id
+        by_example: dict[int | str, list[tuple[int, dict]]] = {}
         for i, result in enumerate(ed["results"]):
-            rollout_cards.append(_render_rollout_card(result, i))
+            eid = result.get("example_id", i)
+            by_example.setdefault(eid, []).append((i, result))
+
+        for eid in sorted(by_example):
+            sections.append(_render_example_group(eid, by_example[eid]))
 
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
+<meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Eval Viewer</title>
 <style>
-  :root {{
-    --bg: #0d1117; --surface: #161b22; --border: #30363d;
-    --text: #e6edf3; --text-dim: #8b949e; --accent: #58a6ff;
-  }}
-  * {{ margin: 0; padding: 0; box-sizing: border-box; }}
-  body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
-    background: var(--bg); color: var(--text); padding: 24px; line-height: 1.5; }}
-  h1 {{ margin-bottom: 16px; font-size: 1.5rem; }}
-  h2.eval-section-title {{ margin: 32px 0 12px; font-size: 1.2rem; color: var(--accent); }}
-  .eval-hash {{ color: var(--text-dim); font-weight: 400; font-size: 0.85rem; }}
+  @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=JetBrains+Mono:wght@300;400;500&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap');
 
-  /* Controls */
-  .controls {{ display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 20px; }}
-  .controls label {{ color: var(--text-dim); font-size: 0.85rem; }}
-  .controls select, .controls input {{
-    background: var(--surface); color: var(--text); border: 1px solid var(--border);
-    border-radius: 6px; padding: 4px 8px; font-size: 0.85rem; }}
-  .controls button {{
-    background: var(--accent); color: #000; border: none; border-radius: 6px;
-    padding: 5px 14px; font-size: 0.85rem; cursor: pointer; font-weight: 600; }}
+  * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+  body {{
+    font-family: 'Libre Baskerville', Georgia, serif;
+    font-size: 13.5px; line-height: 1.6;
+    color: #2a2a2a; background: #fdfcfa;
+    padding: 48px 40px 120px;
+    max-width: 1100px; margin: 0 auto;
+    -webkit-font-smoothing: antialiased;
+  }}
+
+  h1 {{
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 28px; font-weight: 600;
+    color: #111; letter-spacing: -0.5px;
+    border-top: 2.5px solid #1a1a1a;
+    border-bottom: 0.5px solid #1a1a1a;
+    padding: 16px 0 12px; margin-bottom: 24px;
+  }}
+  h2.eval-section {{
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 20px; font-weight: 600;
+    color: #1a1a1a; margin: 40px 0 12px;
+    letter-spacing: -0.2px;
+  }}
+  .eval-hash {{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; color: #999; font-weight: 400;
+  }}
 
   /* Summary table */
-  .summary-table {{ width: 100%; border-collapse: collapse; margin-bottom: 24px; font-size: 0.85rem; }}
-  .summary-table th {{ background: var(--surface); text-align: left; padding: 8px 12px;
-    border-bottom: 2px solid var(--border); color: var(--text-dim); white-space: nowrap; }}
-  .summary-table td {{ padding: 8px 12px; border-bottom: 1px solid var(--border); white-space: nowrap; }}
-  .mono {{ font-family: 'SF Mono', SFMono-Regular, Consolas, monospace; font-size: 0.8rem; }}
+  .summary-table {{
+    width: 100%; border-collapse: collapse;
+    margin-bottom: 20px; font-size: 12.5px;
+  }}
+  .summary-table th {{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; font-weight: 500;
+    text-align: left; padding: 6px 10px;
+    border-bottom: 1.5px solid #1a1a1a;
+    color: #888; letter-spacing: 0.3px;
+    text-transform: uppercase;
+  }}
+  .summary-table td {{
+    padding: 6px 10px;
+    border-bottom: 0.5px solid #e8e4de;
+  }}
+  .mono {{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+  }}
+
+  /* Score colors */
+  .score-high {{ color: #16653a; font-weight: 700; }}
+  .score-mid {{ color: #8a6d0b; font-weight: 600; }}
+  .score-low {{ color: #b91c1c; font-weight: 600; }}
 
   /* Badges */
-  .badge {{ display: inline-block; padding: 2px 8px; border-radius: 10px;
-    font-size: 0.75rem; font-weight: 600; color: #000; margin-right: 4px; white-space: nowrap; }}
+  .badge {{
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; font-weight: 500;
+    padding: 1px 7px; border-radius: 3px;
+    margin-right: 4px; white-space: nowrap;
+    background: #f0ede8; color: #555;
+    border: 0.5px solid #ddd;
+  }}
+  .badge.score-high {{ background: #dcfce7; color: #16653a; border-color: #bbf7d0; }}
+  .badge.score-mid {{ background: #fef9c3; color: #8a6d0b; border-color: #fef08a; }}
+  .badge.score-low {{ background: #fee2e2; color: #b91c1c; border-color: #fecaca; }}
+  .stop-label {{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px; color: #bbb;
+  }}
+
+  /* Controls */
+  .controls {{
+    display: flex; gap: 10px; align-items: center;
+    flex-wrap: wrap; margin-bottom: 20px;
+    font-family: 'JetBrains Mono', monospace; font-size: 10.5px;
+  }}
+  .controls label {{ color: #999; }}
+  .controls select, .controls input {{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px; padding: 3px 6px;
+    border: 0.5px solid #ddd; border-radius: 3px;
+    background: #fff; color: #333;
+  }}
+  .controls button {{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px; padding: 3px 10px;
+    background: #1a1a1a; color: #fdfcfa;
+    border: none; border-radius: 3px; cursor: pointer;
+  }}
+  .controls button:hover {{ background: #333; }}
+
+  /* Example groups */
+  .example-group {{ margin-bottom: 4px; }}
+  .example-header {{
+    display: flex; align-items: center; gap: 10px;
+    padding: 6px 12px; cursor: pointer; user-select: none;
+    border-bottom: 0.5px solid #e8e4de;
+  }}
+  .example-header:hover {{ background: #f5f4f0; }}
+  .example-title {{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; font-weight: 500; color: #1a1a1a;
+  }}
+  .example-count {{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9.5px; color: #bbb;
+  }}
+  .collapse-icon {{
+    margin-left: auto; color: #ccc; font-size: 9px;
+    transition: transform 0.15s;
+  }}
+  .collapse-icon::after {{ content: '\\25BC'; }}
+  .collapsed > .example-header .collapse-icon,
+  .collapsed > .rollout-header .collapse-icon {{ transform: rotate(-90deg); }}
+  .collapsed > .example-body,
+  .collapsed > .rollout-body {{ display: none; }}
+  .example-body {{ padding-left: 16px; }}
 
   /* Rollout cards */
-  .rollout-card {{ background: var(--surface); border: 1px solid var(--border);
-    border-radius: 8px; margin-bottom: 8px; overflow: hidden; }}
-  .rollout-header {{ display: flex; align-items: center; gap: 12px; padding: 10px 16px;
-    cursor: pointer; user-select: none; flex-wrap: wrap; }}
-  .rollout-header:hover {{ background: rgba(255,255,255,0.03); }}
-  .rollout-title {{ font-weight: 600; font-size: 0.9rem; white-space: nowrap; }}
+  .rollout-card {{ margin: 2px 0; }}
+  .rollout-header {{
+    display: flex; align-items: center; gap: 8px;
+    padding: 4px 10px; cursor: pointer; user-select: none;
+  }}
+  .rollout-header:hover {{ background: #f5f4f0; }}
+  .rollout-idx {{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; color: #bbb; min-width: 20px;
+  }}
   .rollout-badges {{ flex: 1; }}
-  .collapse-icon {{ color: var(--text-dim); transition: transform 0.15s; font-size: 0.7rem; }}
-  .rollout-card.collapsed .rollout-body {{ display: none; }}
-  .rollout-card.collapsed .collapse-icon {{ transform: rotate(-90deg); }}
-  .rollout-body {{ padding: 12px 16px; border-top: 1px solid var(--border); }}
+  .rollout-body {{
+    padding: 10px 12px;
+    border-left: 1.5px solid #e8e4de;
+    margin-left: 8px;
+  }}
 
   /* Messages */
-  .msg {{ margin-bottom: 10px; border-radius: 6px; padding: 8px 12px; }}
-  .msg-role {{ font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
-    margin-bottom: 4px; letter-spacing: 0.5px; }}
-  .msg-content {{ white-space: pre-wrap; word-break: break-word; font-size: 0.82rem;
-    font-family: 'SF Mono', SFMono-Regular, Consolas, monospace; line-height: 1.4; }}
-  .msg-system {{ background: rgba(139,148,158,0.1); }}
-  .msg-system .msg-role {{ color: #8b949e; }}
-  .msg-user {{ background: rgba(88,166,255,0.08); }}
-  .msg-user .msg-role {{ color: #58a6ff; }}
-  .msg-assistant {{ background: rgba(63,185,80,0.08); }}
-  .msg-assistant .msg-role {{ color: #3fb950; }}
-  .ground-truth {{ background: rgba(210,153,34,0.08); margin-bottom: 10px;
-    border-radius: 6px; padding: 8px 12px; border-left: 3px solid #d2992280; }}
-  .ground-truth .msg-role {{ color: #d29922; }}
-  .ground-truth .msg-content {{ font-size: 0.82rem;
-    font-family: 'SF Mono', SFMono-Regular, Consolas, monospace; }}
+  .msg {{ margin-bottom: 8px; }}
+  .msg-role {{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px; font-weight: 600;
+    color: #bbb; letter-spacing: 0.5px;
+    display: block; margin-bottom: 2px;
+  }}
+  .msg-content {{
+    white-space: pre-wrap; word-break: break-word;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; line-height: 1.45;
+    color: #333; margin: 0;
+  }}
+  .msg-system {{ opacity: 0.5; }}
+  .msg-system .msg-content {{ font-size: 10.5px; }}
+  .msg-user {{
+    background: #f5f4f0;
+    padding: 8px 10px; border-radius: 4px;
+  }}
+
+  /* Turn pair: assistant vs ground truth side by side */
+  .turn-pair {{
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+    margin-bottom: 8px;
+  }}
+  .turn-col {{
+    padding: 8px 10px; border-radius: 4px;
+    background: #f0fdf4; border: 0.5px solid #dcfce7;
+  }}
+  .turn-gt {{
+    background: #fffbeb; border-color: #fef3c7;
+  }}
+  .turn-gt .msg-role {{ color: #92400e; }}
+
+  @media (max-width: 700px) {{
+    .turn-pair {{ grid-template-columns: 1fr; }}
+  }}
 </style>
 </head>
 <body>
 <h1>Eval Viewer</h1>
 
 <table class="summary-table">
-  <thead>
-    <tr>
-      <th>Run</th><th>Model</th><th>Reward</th>
-      {metric_headers}
-      <th>Examples</th><th>Errors</th><th>Time</th>
-    </tr>
-  </thead>
-  <tbody>{summary_rows}</tbody>
+<thead><tr>
+  <th>Run</th><th>Model</th><th>Reward</th>
+  {metric_headers}
+  <th>Examples</th><th>Errors</th><th>Time</th>
+</tr></thead>
+<tbody>{summary_rows}</tbody>
 </table>
 
 <div class="controls">
   <label>Sort:</label>
   <select id="sortBy">
     <option value="example">Example ID</option>
-    <option value="reward-asc">Reward (low&rarr;high)</option>
-    <option value="reward-desc">Reward (high&rarr;low)</option>
+    <option value="reward-asc">Reward (low-high)</option>
+    <option value="reward-desc">Reward (high-low)</option>
   </select>
-  <label>Min reward:</label>
-  <input id="minReward" type="number" value="0" min="0" max="1" step="0.1" style="width:70px">
-  <label>Max reward:</label>
-  <input id="maxReward" type="number" value="1" min="0" max="1" step="0.1" style="width:70px">
+  <label>Min:</label>
+  <input id="minReward" type="number" value="0" min="0" max="1" step="0.1" style="width:55px">
+  <label>Max:</label>
+  <input id="maxReward" type="number" value="1" min="0" max="1" step="0.1" style="width:55px">
   <button onclick="applyFilters()">Apply</button>
   <button onclick="toggleAll(true)">Expand All</button>
   <button onclick="toggleAll(false)">Collapse All</button>
 </div>
 
 <div id="rollouts">
-{"".join(rollout_cards)}
+{"".join(sections)}
 </div>
 
 <script>
@@ -274,37 +429,38 @@ function applyFilters() {{
   const sortBy = document.getElementById('sortBy').value;
   const minR = parseFloat(document.getElementById('minReward').value) || 0;
   const maxR = parseFloat(document.getElementById('maxReward').value) || 1;
-  const container = document.getElementById('rollouts');
-  const cards = Array.from(container.querySelectorAll('.rollout-card'));
-  const sections = Array.from(container.querySelectorAll('.eval-section-title'));
+  const groups = document.querySelectorAll('.example-group');
 
-  cards.forEach(c => {{
-    const r = parseFloat(c.dataset.reward);
-    c.style.display = (r >= minR && r <= maxR) ? '' : 'none';
+  groups.forEach(g => {{
+    const r = parseFloat(g.dataset.reward);
+    g.style.display = (r >= minR && r <= maxR) ? '' : 'none';
   }});
 
-  sections.forEach(sec => {{
-    const group = [];
+  // Sort within each eval section
+  document.querySelectorAll('h2.eval-section').forEach(sec => {{
+    const container = sec.parentElement;
+    const sectionGroups = [];
     let el = sec.nextElementSibling;
-    while (el && !el.classList.contains('eval-section-title')) {{
-      if (el.classList.contains('rollout-card')) group.push(el);
+    while (el && el.tagName !== 'H2') {{
+      if (el.classList.contains('example-group')) sectionGroups.push(el);
       el = el.nextElementSibling;
     }}
-    group.sort((a, b) => {{
+    sectionGroups.sort((a, b) => {{
       if (sortBy === 'reward-asc') return parseFloat(a.dataset.reward) - parseFloat(b.dataset.reward);
       if (sortBy === 'reward-desc') return parseFloat(b.dataset.reward) - parseFloat(a.dataset.reward);
       return parseInt(a.dataset.example) - parseInt(b.dataset.example);
     }});
-    group.forEach(c => c.parentElement.insertBefore(c, el));
+    sectionGroups.forEach(g => container.insertBefore(g, el));
   }});
 }}
 
 function toggleAll(expand) {{
-  document.querySelectorAll('.rollout-card').forEach(c => {{
+  document.querySelectorAll('.example-group, .rollout-card').forEach(c => {{
     c.classList.toggle('collapsed', !expand);
   }});
 }}
 
+// Start collapsed
 toggleAll(false);
 </script>
 </body>
@@ -339,7 +495,6 @@ def view(eval_dirs: list[Path] | None = None) -> None:
 
     if not eval_data_list:
         raise SystemExit("No valid eval dirs found.")
-
 
     html_content = generate_html(eval_data_list)
     out = Path(tempfile.gettempdir()) / "eval_view.html"

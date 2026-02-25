@@ -1,290 +1,322 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="utf-8">
+<title>From RL to GRPO: How LLMs Learn from Rewards</title>
 <style>
-    body {
-        background: #ffffff;
-        color: #1e1e1e;
-        font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', 'Menlo', monospace;
-        font-size: 14px;
-        line-height: 1.35;
-        padding: 0.5em 2em;
-        max-width: 960px;
-        margin: 0 auto;
-    }
-    pre {
-        white-space: pre-wrap;
-        word-wrap: break-word;
-        margin: 0;
-    }
-    ::selection {
-        background: #d0e8ff;
-        color: #1e1e1e;
-    }
-    a { color: #268bd2; text-decoration: none; }
-    a:hover { text-decoration: underline; }
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&display=swap');
 
-    .back { color: #93a1a1; font-size: 12px; margin-bottom: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, serif;
+    font-size: 14.5px;
+    line-height: 1.72;
+    color: #2a2a2a;
+    background: #fdfcfa;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 72px 1rem 120px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a.back {
+    font-family: 'JetBrains Mono', monospace; font-size: 9.5px;
+    color: #bbb; text-decoration: none; letter-spacing: 0.5px;
+  }
+  a.back:hover { color: #1a1a1a; }
+
+  .memo-head {
+    border-top: 2.5px solid #1a1a1a;
+    border-bottom: 0.5px solid #1a1a1a;
+    padding: 20px 0 16px;
+    margin-bottom: 40px;
+  }
+  .memo-head h1 {
+    font-size: 1.6rem;
+    font-weight: normal;
+    color: #333;
+    line-height: 1.25;
+    margin: 0;
+  }
+
+  h2 {
+    font-size: 1.3rem;
+    font-weight: normal;
+    color: #333;
+    margin: 56px 0 6px;
+  }
+  h3 {
+    font-size: 1.1rem;
+    font-weight: normal;
+    color: #333;
+    margin: 36px 0 4px;
+  }
+  p { margin: 10px 0; }
+
+  ul, ol { margin: 12px 0 12px 22px; }
+  li { margin: 5px 0; color: #333; }
+  li::marker { color: #bbb; }
+
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: #1a1a1a;
+    background: #f5f4f0;
+    padding: 1.5px 5px;
+    border-bottom: 1px solid #ddd;
+  }
+  pre {
+    margin: 20px 0;
+    padding: 16px 20px;
+    background: #f5f4f0;
+    border: 0.5px solid #e8e4de;
+    overflow-x: auto;
+    line-height: 1.5;
+  }
+  pre code {
+    background: none;
+    padding: 0;
+    border: none;
+    font-size: 12px;
+  }
+  strong { font-weight: 700; color: #1a1a1a; }
+  em { color: #555; }
+  a { color: #268bd2; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  blockquote {
+    font-size: 13px;
+    color: #888;
+    font-style: italic;
+    margin: 20px 0 20px 28px;
+    padding-left: 16px;
+    border-left: 1.5px solid #ddd;
+    line-height: 1.6;
+  }
+
+  hr {
+    border: none;
+    text-align: center;
+    margin: 56px 0;
+    line-height: 0;
+  }
+  hr::after {
+    content: '\2022\2009\2009\2022\2009\2009\2022';
+    font-size: 10px;
+    color: #ccc;
+    letter-spacing: 4px;
+  }
+
+  .colophon {
+    border-top: 0.5px solid #ddd;
+    margin-top: 64px;
+    padding-top: 16px;
+  }
+  .colophon p {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    color: #ccc;
+    letter-spacing: 0.5px;
+  }
+
 </style>
 </head>
 <body>
-<p class="back"><a href="index.html">back</a></p>
-<pre><!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<style>
-.r1 {color: #268bd2; text-decoration-color: #268bd2; font-weight: bold}
-.r2 {color: #2aa198; text-decoration-color: #2aa198; font-weight: bold}
-.r3 {color: #cb4b16; text-decoration-color: #cb4b16}
-.r4 {font-weight: bold}
-.r5 {background-color: #f5f5f0}
-.r6 {color: #657b83; text-decoration-color: #657b83; background-color: #f5f5f0}
-.r7 {color: #d33682; text-decoration-color: #d33682}
-body {
-    color: #000000;
-    background-color: #f5f5f0;
-}
-</style>
-</head>
-<body>
-    <pre style="font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace"><code style="font-family:inherit"><span class="r1">From RL to GRPO: How LLMs Learn from Rewards</span>                                                        
 
-The path from basic RL to what we actually run. Covers policy gradients, logits, logprobs,          
-baselines, PPO, GRPO, and the normalization fixes (Dr.GRPO/DAPO).                                   
+<a class="back" href="index.html">&larr; docs</a>
 
-<span class="r2">RL Objects, Translated to LLMs</span>                                                                      
+<div class="memo-head">
+  <h1>From RL to GRPO: How LLMs Learn from Rewards</h1>
+</div>
 
-Standard RL has states, actions, policies, trajectories, and rewards. In an LLM:                    
+<p>The path from basic RL to what we actually run. Covers policy gradients, logits, logprobs, baselines, PPO, GRPO, and the normalization fixes (Dr.GRPO/DAPO).</p>
 
-<span class="r3"> • </span><span class="r4">State</span> - the prompt + tokens generated so far                                                     
-<span class="r3"> • </span><span class="r4">Action</span> - the next token                                                                          
-<span class="r3"> • </span><span class="r4">Policy</span> - softmax over logits (probability distribution over the full vocabulary for the next     
-<span class="r3">   </span>token)                                                                                           
-<span class="r3"> • </span><span class="r4">Trajectory</span> - one full completion (a sequence of tokens from start to stop)                       
-<span class="r3"> • </span><span class="r4">Reward</span> - a score for the whole completion (from a verifier, unit tests, exact match, reward      
-<span class="r3">   </span>model)                                                                                           
+<h3>RL Objects, Translated to LLMs</h3>
 
-The goal: adjust weights so the model generates higher-reward completions more often.               
+<p>Standard RL has states, actions, policies, trajectories, and rewards. In an LLM:</p>
 
-<span class="r2">Logits, Softmax, Logprobs</span>                                                                           
+<ul>
+<li><strong>State</strong> - the prompt + tokens generated so far</li>
+<li><strong>Action</strong> - the next token</li>
+<li><strong>Policy</strong> - softmax over logits (probability distribution over the full vocabulary for the next token)</li>
+<li><strong>Trajectory</strong> - one full completion (a sequence of tokens from start to stop)</li>
+<li><strong>Reward</strong> - a score for the whole completion (from a verifier, unit tests, exact match, reward model)</li>
+</ul>
 
-The model outputs a raw score for every token in the vocabulary. These are <span class="r4">logits</span> - unnormalized,   
-can be any real number.                                                                             
+<p>The goal: adjust weights so the model generates higher-reward completions more often.</p>
 
-<span class="r5">                                                                                                    </span>
-<span class="r5"> </span><span class="r6">logits for next token: [2.1, 0.5, -1.3, 0.8, ...]  (one per vocab entry, ~100k values)</span><span class="r5">             </span>
-<span class="r5">                                                                                                    </span>
+<h3>Logits, Softmax, Logprobs</h3>
 
-<span class="r4">Softmax</span> turns logits into a probability distribution (positive, sums to 1):                         
+<p>The model outputs a raw score for every token in the vocabulary. These are <strong>logits</strong> - unnormalized, can be any real number.</p>
 
-<span class="r5">                                                                                                    </span>
-<span class="r5"> </span><span class="r6">probs: [0.74, 0.15, 0.02, 0.08, ...]</span><span class="r5">                                                               </span>
-<span class="r5">                                                                                                    </span>
+<pre><code>logits for next token: [2.1, 0.5, -1.3, 0.8, ...]  (one per vocab entry, ~100k values)</code></pre>
 
-<span class="r4">Logprobs</span> are the log of those probabilities:                                                        
+<p><strong>Softmax</strong> turns logits into a probability distribution (positive, sums to 1):</p>
 
-<span class="r5">                                                                                                    </span>
-<span class="r5"> </span><span class="r6">logprobs: [-0.30, -1.90, -3.91, -2.53, ...]</span><span class="r5">                                                        </span>
-<span class="r5">                                                                                                    </span>
+<pre><code>probs: [0.74, 0.15, 0.02, 0.08, ...]</code></pre>
 
-Why log? A completion&#x27;s total probability is the product of all its token probabilities. Products of
-small numbers get tiny fast. Logs turn products into sums, which are numerically stable and easier  
-to differentiate:                                                                                   
+<p><strong>Logprobs</strong> are the log of those probabilities:</p>
 
-<span class="r5">                                                                                                    </span>
-<span class="r5"> </span><span class="r6">p(completion) = p(token_1) × p(token_2) × ... × p(token_n)</span><span class="r5">                                         </span>
-<span class="r5"> </span><span class="r6">log p(completion) = log p(token_1) + log p(token_2) + ... + log p(token_n)</span><span class="r5">                         </span>
-<span class="r5">                                                                                                    </span>
+<pre><code>logprobs: [-0.30, -1.90, -3.91, -2.53, ...]</code></pre>
 
-This sum of logprobs is what connects &quot;how likely is this completion&quot; to gradient updates.          
+<p>Why log? A completion's total probability is the product of all its token probabilities. Products of small numbers get tiny fast. Logs turn products into sums, which are numerically stable and easier to differentiate:</p>
 
-<span class="r2">The Policy Gradient (Core Idea)</span>                                                                     
+<pre><code>p(completion) = p(token_1) × p(token_2) × ... × p(token_n)
+log p(completion) = log p(token_1) + log p(token_2) + ... + log p(token_n)</code></pre>
 
-The fundamental equation that makes all of this work:                                               
+<p>This sum of logprobs is what connects "how likely is this completion" to gradient updates.</p>
 
-<span class="r5">                                                                                                    </span>
-<span class="r5"> </span><span class="r6">gradient = E[R(completion) × sum of ∇ log π(token_t | context)]</span><span class="r5">                                    </span>
-<span class="r5">                                                                                                    </span>
+<h3>The Policy Gradient (Core Idea)</h3>
 
-In plain terms:                                                                                     
+<p>The fundamental equation that makes all of this work:</p>
 
-<span class="r3"> • </span>Generate a completion, get a reward                                                              
-<span class="r3"> • </span>For each token in that completion, compute the gradient of its logprob                           
-<span class="r3"> • </span>Scale by the reward                                                                              
-<span class="r3"> • </span>Update weights in that direction                                                                 
+<pre><code>gradient = E[R(completion) × sum of ∇ log π(token_t | context)]</code></pre>
 
-<span class="r4">High reward</span> → increase logprobs of those tokens → model generates similar completions more often.   
+<p>In plain terms:</p>
 
-<span class="r4">Low reward</span> → decrease logprobs → model avoids similar completions.                                  
+<ul>
+<li>Generate a completion, get a reward</li>
+<li>For each token in that completion, compute the gradient of its logprob</li>
+<li>Scale by the reward</li>
+<li>Update weights in that direction</li>
+</ul>
 
-This is REINFORCE - the simplest policy gradient. It works but it&#x27;s noisy.                          
+<p><strong>High reward</strong> → increase logprobs of those tokens → model generates similar completions more often.</p>
 
-<span class="r2">The Variance Problem</span>                                                                                
+<p><strong>Low reward</strong> → decrease logprobs → model avoids similar completions.</p>
 
-REINFORCE uses the raw reward to scale gradients. Problem: if all your rewards are between 0.7 and  
-0.9, even the &quot;bad&quot; completions get positive gradient. The model reinforces everything, just at     
-different magnitudes. Learning is slow and noisy.                                                   
+<p>This is REINFORCE - the simplest policy gradient. It works but it's noisy.</p>
 
-<span class="r4">Solution: baselines and advantages.</span>                                                                 
+<h3>The Variance Problem</h3>
 
-Instead of &quot;this completion got reward 0.8,&quot; ask &quot;was this completion better or worse than          
-expected?&quot;                                                                                          
+<p>REINFORCE uses the raw reward to scale gradients. Problem: if all your rewards are between 0.7 and 0.9, even the "bad" completions get positive gradient. The model reinforces everything, just at different magnitudes. Learning is slow and noisy.</p>
 
-<span class="r5">                                                                                                    </span>
-<span class="r5"> </span><span class="r6">advantage = reward - baseline</span><span class="r5">                                                                      </span>
-<span class="r5">                                                                                                    </span>
+<p><strong>Solution: baselines and advantages.</strong></p>
 
-Now:                                                                                                
+<p>Instead of "this completion got reward 0.8," ask "was this completion better or worse than expected?"</p>
 
-<span class="r3"> • </span>Advantage &gt; 0 → better than expected → reinforce                                                 
-<span class="r3"> • </span>Advantage &lt; 0 → worse than expected → suppress                                                   
+<pre><code>advantage = reward - baseline</code></pre>
 
-The baseline can be computed different ways. That&#x27;s where PPO and GRPO diverge.                     
+<p>Now:</p>
 
-<span class="r2">PPO (Actor-Critic)</span>                                                                                  
+<ul>
+<li>Advantage > 0 → better than expected → reinforce</li>
+<li>Advantage < 0 → worse than expected → suppress</li>
+</ul>
 
-PPO uses a <span class="r4">critic</span> - a separate neural network that estimates &quot;how much reward should I expect from  
-this state?&quot; That estimate is the baseline.                                                         
+<p>The baseline can be computed different ways. That's where PPO and GRPO diverge.</p>
 
-<span class="r5">                                                                                                    </span>
-<span class="r5"> </span><span class="r6">advantage = reward - critic_estimate</span><span class="r5">                                                               </span>
-<span class="r5">                                                                                                    </span>
+<h3>PPO (Actor-Critic)</h3>
 
-PPO also introduces a <span class="r4">ratio</span> between new and old policy:                                             
+<p>PPO uses a <strong>critic</strong> - a separate neural network that estimates "how much reward should I expect from this state?" That estimate is the baseline.</p>
 
-<span class="r5">                                                                                                    </span>
-<span class="r5"> </span><span class="r6">ratio = π_new(token | context) / π_old(token | context)</span><span class="r5">                                            </span>
-<span class="r5">                                                                                                    </span>
+<pre><code>advantage = reward - critic_estimate</code></pre>
 
-And <span class="r4">clipping</span> - if the ratio gets too far from 1.0, cap it. This prevents any single update from     
-changing the policy too much (trust region).                                                        
+<p>PPO also introduces a <strong>ratio</strong> between new and old policy:</p>
 
-<span class="r5">                                                                                                    </span>
-<span class="r5"> </span><span class="r6">loss = min(ratio × advantage, clip(ratio, 1-ε, 1+ε) × advantage)</span><span class="r5">                                   </span>
-<span class="r5">                                                                                                    </span>
+<pre><code>ratio = π_new(token | context) / π_old(token | context)</code></pre>
 
-<span class="r4">What PPO buys you:</span> stable training, even with multiple optimization steps per batch.                
+<p>And <strong>clipping</strong> - if the ratio gets too far from 1.0, cap it. This prevents any single update from changing the policy too much (trust region).</p>
 
-<span class="r4">What it costs:</span> a second model (the critic) that needs its own training, memory, and tuning. For     
-large LLMs, that&#x27;s significant overhead.                                                            
+<pre><code>loss = min(ratio × advantage, clip(ratio, 1-ε, 1+ε) × advantage)</code></pre>
 
-<span class="r2">RLHF vs RLVR</span>                                                                                        
+<p><strong>What PPO buys you:</strong> stable training, even with multiple optimization steps per batch.</p>
 
-Two sources of reward:                                                                              
+<p><strong>What it costs:</strong> a second model (the critic) that needs its own training, memory, and tuning. For large LLMs, that's significant overhead.</p>
 
-<span class="r4">RLHF</span> (RL from Human Feedback) - a learned reward model trained on human preferences (&quot;which response
-is better?&quot;). Used for chat alignment. Prone to reward hacking because the reward model is          
-imperfect.                                                                                          
+<h3>RLHF vs RLVR</h3>
 
-<span class="r4">RLVR</span> (RL from Verifiable Rewards) - a deterministic verifier. Did the code pass unit tests? Is the  
-math answer correct? Does the JSON parse? Cleaner signal, harder to hack.                           
+<p>Two sources of reward:</p>
 
-Math and code are popular RLVR domains because &quot;right or wrong&quot; is objective.                       
+<p><strong>RLHF</strong> (RL from Human Feedback) - a learned reward model trained on human preferences ("which response is better?"). Used for chat alignment. Prone to reward hacking because the reward model is imperfect.</p>
 
-<span class="r2">GRPO (Critic-Free)</span>                                                                                  
+<p><strong>RLVR</strong> (RL from Verifiable Rewards) - a deterministic verifier. Did the code pass unit tests? Is the math answer correct? Does the JSON parse? Cleaner signal, harder to hack.</p>
 
-GRPO removes the critic entirely. Instead of a learned baseline, it uses the <span class="r4">group average</span> as the   
-baseline.                                                                                           
+<p>Math and code are popular RLVR domains because "right or wrong" is objective.</p>
 
-For each prompt:                                                                                    
+<h3>GRPO (Critic-Free)</h3>
 
-<span class="r3"> 1 </span>Sample <span class="r4">K completions</span> (typically 4-16)                                                            
-<span class="r3"> 2 </span>Score each with the verifier → rewards r_1, r_2, ..., r_K                                        
-<span class="r3"> 3 </span>Compute advantage per completion: <span class="r7">A_i = r_i - mean(r_1..r_K)</span>                                     
-<span class="r3"> 4 </span>Update: increase logprobs for above-average completions, decrease for below-average              
+<p>GRPO removes the critic entirely. Instead of a learned baseline, it uses the <strong>group average</strong> as the baseline.</p>
 
-<span class="r5">                                                                                                    </span>
-<span class="r5"> </span><span class="r6">prompt: &quot;Assign recipients to To, CC, BCC&quot;</span><span class="r5">                                                         </span>
-<span class="r5">                                                                                                    </span>
-<span class="r5"> </span><span class="r6">completion_1: {&quot;to&quot;: [&quot;alice&quot;], &quot;cc&quot;: [&quot;bob&quot;], &quot;bcc&quot;: []}     → reward 0.9</span><span class="r5">                         </span>
-<span class="r5"> </span><span class="r6">completion_2: {&quot;to&quot;: [&quot;alice&quot;, &quot;bob&quot;], &quot;cc&quot;: [], &quot;bcc&quot;: []}   → reward 0.4</span><span class="r5">                         </span>
-<span class="r5"> </span><span class="r6">completion_3: {&quot;to&quot;: [&quot;alice&quot;], &quot;cc&quot;: [], &quot;bcc&quot;: [&quot;bob&quot;]}     → reward 0.6</span><span class="r5">                         </span>
-<span class="r5"> </span><span class="r6">completion_4: {&quot;to&quot;: [], &quot;cc&quot;: [&quot;alice&quot;, &quot;bob&quot;], &quot;bcc&quot;: []}   → reward 0.1</span><span class="r5">                         </span>
-<span class="r5">                                                                                                    </span>
-<span class="r5"> </span><span class="r6">group mean = 0.5</span><span class="r5">                                                                                   </span>
-<span class="r5">                                                                                                    </span>
-<span class="r5"> </span><span class="r6">advantages: [+0.4, -0.1, +0.1, -0.4]</span><span class="r5">                                                               </span>
-<span class="r5">                                                                                                    </span>
+<p>For each prompt:</p>
 
-Completion 1 gets reinforced the most. Completion 4 gets suppressed the most.                       
+<ol>
+<li>Sample <strong>K completions</strong> (typically 4-16)</li>
+<li>Score each with the verifier → rewards r_1, r_2, ..., r_K</li>
+<li>Compute advantage per completion: <code>A_i = r_i - mean(r_1..r_K)</code></li>
+<li>Update: increase logprobs for above-average completions, decrease for below-average</li>
+</ol>
 
-<span class="r4">Key requirement:</span> reward diversity within the group. If all K completions score the same, all        
-advantages are zero and nothing is learned. This is why the To/CC learnability issue matters - if   
-the model can&#x27;t consistently distinguish the right answer, rewards become random across the group   
-and advantages wash out.                                                                            
+<pre><code>prompt: &quot;Assign recipients to To, CC, BCC&quot;
 
-<span class="r4">Tradeoff vs PPO:</span>                                                                                    
+completion_1: {&quot;to&quot;: [&quot;alice&quot;], &quot;cc&quot;: [&quot;bob&quot;], &quot;bcc&quot;: []}     → reward 0.9
+completion_2: {&quot;to&quot;: [&quot;alice&quot;, &quot;bob&quot;], &quot;cc&quot;: [], &quot;bcc&quot;: []}   → reward 0.4
+completion_3: {&quot;to&quot;: [&quot;alice&quot;], &quot;cc&quot;: [], &quot;bcc&quot;: [&quot;bob&quot;]}     → reward 0.6
+completion_4: {&quot;to&quot;: [], &quot;cc&quot;: [&quot;alice&quot;, &quot;bob&quot;], &quot;bcc&quot;: []}   → reward 0.1
 
-<span class="r3"> • </span>No critic → simpler, less memory, no critic tuning                                               
-<span class="r3"> • </span>But you need more rollouts (larger K) to get a stable baseline                                   
-<span class="r3"> • </span>Works well when rewards are clean (RLVR) and sampling is cheap (vLLM)                            
+group mean = 0.5
 
-<span class="r2">KL Regularization</span>                                                                                   
+advantages: [+0.4, -0.1, +0.1, -0.4]</code></pre>
 
-Both PPO and GRPO often add a penalty for drifting too far from a reference policy (usually the SFT 
-model you started from):                                                                            
+<p>Completion 1 gets reinforced the most. Completion 4 gets suppressed the most.</p>
 
-<span class="r5">                                                                                                    </span>
-<span class="r5"> </span><span class="r6">total_loss = policy_loss + β × KL(π_current || π_reference)</span><span class="r5">                                        </span>
-<span class="r5">                                                                                                    </span>
+<p><strong>Key requirement:</strong> reward diversity within the group. If all K completions score the same, all advantages are zero and nothing is learned. This is why the To/CC learnability issue matters - if the model can't consistently distinguish the right answer, rewards become random across the group and advantages wash out.</p>
 
-Without this, the model can collapse - finding a single reward-hacking pattern and repeating it. The
-KL penalty says &quot;stay close to the original model&#x27;s distribution.&quot; It&#x27;s the practical trust region  
-for LLM RL.                                                                                         
+<p><strong>Tradeoff vs PPO:</strong></p>
 
-<span class="r2">Dr.GRPO and DAPO (Normalization Fixes)</span>                                                              
+<ul>
+<li>No critic → simpler, less memory, no critic tuning</li>
+<li>But you need more rollouts (larger K) to get a stable baseline</li>
+<li>Works well when rewards are clean (RLVR) and sampling is cheap (vLLM)</li>
+</ul>
 
-The core GRPO idea is sound, but practical training can go sideways due to how you normalize and    
-aggregate losses. These variants fix specific pathologies:                                          
+<h3>KL Regularization</h3>
 
-<span class="r4">Std normalization in advantage.</span> Some GRPO implementations divide advantage by the group&#x27;s standard  
-deviation: <span class="r7">A_i = (r_i - mean) / std</span>. Problem: groups where rewards happen to have small variance get
-amplified. A group of all-0.8 completions with one 0.9 outlier gets massive advantage despite being 
-boring. Dr.GRPO says: drop the std normalization, just use <span class="r7">r_i - mean</span>.                              
+<p>Both PPO and GRPO often add a penalty for drifting too far from a reference policy (usually the SFT model you started from):</p>
 
-<span class="r4">Length normalization in loss.</span> If you divide the loss by the completion&#x27;s token count, shorter       
-completions get stronger per-token gradient. The model learns &quot;be brief&quot; regardless of correctness. 
-Dr.GRPO uses a fixed constant (e.g., max sequence length) instead of actual length. Removes the     
-incentive to game length.                                                                           
+<pre><code>total_loss = policy_loss + β × KL(π_current || π_reference)</code></pre>
 
-<span class="r4">DAPO</span> adds further recipes: token-level loss aggregation, overlong reward shaping (give partial      
-credit instead of zero for truncated completions), and filtering out groups with zero variance. All 
-trying to stabilize long reasoning traces.                                                          
+<p>Without this, the model can collapse - finding a single reward-hacking pattern and repeating it. The KL penalty says "stay close to the original model's distribution." It's the practical trust region for LLM RL.</p>
 
-<span class="r4">The meta-point:</span> most training instability in GRPO comes from normalization and aggregation choices, 
-not from the policy gradient itself. The math is fine - it&#x27;s the engineering details that trip      
-people up.                                                                                          
+<h3>Dr.GRPO and DAPO (Normalization Fixes)</h3>
 
-<span class="r2">SFT vs PPO vs GRPO (Mental Model)</span>                                                                   
+<p>The core GRPO idea is sound, but practical training can go sideways due to how you normalize and aggregate losses. These variants fix specific pathologies:</p>
 
-<span class="r3"> • </span><span class="r4">SFT</span> - &quot;imitate these target tokens.&quot; Supervised, no reward signal. Fast, simple, but limited to  
-<span class="r3">   </span>the quality of your training data.                                                               
-<span class="r3"> • </span><span class="r4">PPO</span> - &quot;optimize reward with a critic + clipped updates.&quot; Powerful but heavy. Need a critic model,
-<span class="r3">   </span>careful tuning, more memory.                                                                     
-<span class="r3"> • </span><span class="r4">GRPO</span> - &quot;optimize reward by comparing multiple completions per prompt, no critic.&quot; Lighter, works 
-<span class="r3">   </span>great with clean verifier rewards. The sweet spot for RLVR tasks.                                
-<span class="r3"> • </span><span class="r4">Dr.GRPO / DAPO</span> - &quot;GRPO, but fix the normalization bugs that cause length bias and difficulty     
-<span class="r3">   </span>bias.&quot;                                                                                           
+<p><strong>Std normalization in advantage.</strong> Some GRPO implementations divide advantage by the group's standard deviation: <code>A_i = (r_i - mean) / std</code>. Problem: groups where rewards happen to have small variance get amplified. A group of all-0.8 completions with one 0.9 outlier gets massive advantage despite being boring. Dr.GRPO says: drop the std normalization, just use <code>r_i - mean</code>.</p>
 
-<span class="r2">What &quot;Learning&quot; Actually Means Here</span>                                                                 
+<p><strong>Length normalization in loss.</strong> If you divide the loss by the completion's token count, shorter completions get stronger per-token gradient. The model learns "be brief" regardless of correctness. Dr.GRPO uses a fixed constant (e.g., max sequence length) instead of actual length. Removes the incentive to game length.</p>
 
-RL doesn&#x27;t label the right next token like SFT does. It <span class="r4">reweights which trajectories the model tends</span>
-<span class="r4">to sample:</span>                                                                                          
+<p><strong>DAPO</strong> adds further recipes: token-level loss aggregation, overlong reward shaping (give partial credit instead of zero for truncated completions), and filtering out groups with zero variance. All trying to stabilize long reasoning traces.</p>
 
-<span class="r3"> 1 </span>Generate completions with current weights                                                        
-<span class="r3"> 2 </span>Score them                                                                                       
-<span class="r3"> 3 </span>Compute advantages (better or worse than the group)                                              
-<span class="r3"> 4 </span>Shift token probabilities so good completions become more likely                                 
-<span class="r3"> 5 </span>Repeat                                                                                           
+<p><strong>The meta-point:</strong> most training instability in GRPO comes from normalization and aggregation choices, not from the policy gradient itself. The math is fine - it's the engineering details that trip people up.</p>
 
-Over time, the model&#x27;s distribution shifts - it samples high-reward completions more often, not     
-because it was shown the &quot;right answer,&quot; but because it tried many things and got feedback on what  
-worked.                                                                                             
-</code></pre>
-</body>
-</html>
-</pre>
+<h3>SFT vs PPO vs GRPO (Mental Model)</h3>
+
+<ul>
+<li><strong>SFT</strong> - "imitate these target tokens." Supervised, no reward signal. Fast, simple, but limited to the quality of your training data.</li>
+<li><strong>PPO</strong> - "optimize reward with a critic + clipped updates." Powerful but heavy. Need a critic model, careful tuning, more memory.</li>
+<li><strong>GRPO</strong> - "optimize reward by comparing multiple completions per prompt, no critic." Lighter, works great with clean verifier rewards. The sweet spot for RLVR tasks.</li>
+<li><strong>Dr.GRPO / DAPO</strong> - "GRPO, but fix the normalization bugs that cause length bias and difficulty bias."</li>
+</ul>
+
+<h3>What "Learning" Actually Means Here</h3>
+
+<p>RL doesn't label the right next token like SFT does. It <strong>reweights which trajectories the model tends to sample:</strong></p>
+
+<ol>
+<li>Generate completions with current weights</li>
+<li>Score them</li>
+<li>Compute advantages (better or worse than the group)</li>
+<li>Shift token probabilities so good completions become more likely</li>
+<li>Repeat</li>
+</ol>
+
+<p>Over time, the model's distribution shifts - it samples high-reward completions more often, not because it was shown the "right answer," but because it tried many things and got feedback on what worked.</p>
+
+<div class="colophon">
+  <p>FROM RL TO GRPO: HOW LLMS LEARN FROM REWARDS</p>
+</div>
+
 </body>
 </html>

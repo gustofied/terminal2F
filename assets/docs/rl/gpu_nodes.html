@@ -1,144 +1,218 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="utf-8">
+<title>GPU Nodes and Shapes</title>
 <style>
-    body {
-        background: #ffffff;
-        color: #1e1e1e;
-        font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', 'Menlo', monospace;
-        font-size: 14px;
-        line-height: 1.35;
-        padding: 0.5em 2em;
-        max-width: 960px;
-        margin: 0 auto;
-    }
-    pre {
-        white-space: pre-wrap;
-        word-wrap: break-word;
-        margin: 0;
-    }
-    ::selection {
-        background: #d0e8ff;
-        color: #1e1e1e;
-    }
-    a { color: #268bd2; text-decoration: none; }
-    a:hover { text-decoration: underline; }
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&display=swap');
 
-    .back { color: #93a1a1; font-size: 12px; margin-bottom: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, serif;
+    font-size: 14.5px;
+    line-height: 1.72;
+    color: #2a2a2a;
+    background: #fdfcfa;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 72px 1rem 120px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a.back {
+    font-family: 'JetBrains Mono', monospace; font-size: 9.5px;
+    color: #bbb; text-decoration: none; letter-spacing: 0.5px;
+  }
+  a.back:hover { color: #1a1a1a; }
+
+  .memo-head {
+    border-top: 2.5px solid #1a1a1a;
+    border-bottom: 0.5px solid #1a1a1a;
+    padding: 20px 0 16px;
+    margin-bottom: 40px;
+  }
+  .memo-head h1 {
+    font-size: 1.6rem;
+    font-weight: normal;
+    color: #333;
+    line-height: 1.25;
+    margin: 0;
+  }
+
+  h2 {
+    font-size: 1.3rem;
+    font-weight: normal;
+    color: #333;
+    margin: 56px 0 6px;
+  }
+  h3 {
+    font-size: 1.1rem;
+    font-weight: normal;
+    color: #333;
+    margin: 36px 0 4px;
+  }
+  p { margin: 10px 0; }
+
+  ul, ol { margin: 12px 0 12px 22px; }
+  li { margin: 5px 0; color: #333; }
+  li::marker { color: #bbb; }
+
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: #1a1a1a;
+    background: #f5f4f0;
+    padding: 1.5px 5px;
+    border-bottom: 1px solid #ddd;
+  }
+  pre {
+    margin: 20px 0;
+    padding: 16px 20px;
+    background: #f5f4f0;
+    border: 0.5px solid #e8e4de;
+    overflow-x: auto;
+    line-height: 1.5;
+  }
+  pre code {
+    background: none;
+    padding: 0;
+    border: none;
+    font-size: 12px;
+  }
+  strong { font-weight: 700; color: #1a1a1a; }
+  em { color: #555; }
+  a { color: #268bd2; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  blockquote {
+    font-size: 13px;
+    color: #888;
+    font-style: italic;
+    margin: 20px 0 20px 28px;
+    padding-left: 16px;
+    border-left: 1.5px solid #ddd;
+    line-height: 1.6;
+  }
+
+  hr {
+    border: none;
+    text-align: center;
+    margin: 56px 0;
+    line-height: 0;
+  }
+  hr::after {
+    content: '\2022\2009\2009\2022\2009\2009\2022';
+    font-size: 10px;
+    color: #ccc;
+    letter-spacing: 4px;
+  }
+
+  .colophon {
+    border-top: 0.5px solid #ddd;
+    margin-top: 64px;
+    padding-top: 16px;
+  }
+  .colophon p {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    color: #ccc;
+    letter-spacing: 0.5px;
+  }
+
 </style>
 </head>
 <body>
-<p class="back"><a href="index.html">back</a></p>
-<pre><!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<style>
-.r1 {color: #268bd2; text-decoration-color: #268bd2; font-weight: bold}
-.r2 {font-weight: bold}
-.r3 {color: #cb4b16; text-decoration-color: #cb4b16}
-.r4 {color: #d33682; text-decoration-color: #d33682}
-.r5 {color: #2aa198; text-decoration-color: #2aa198; font-weight: bold}
-.r6 {color: #000080; text-decoration-color: #000080; text-decoration: underline}
-.r7 {background-color: #f5f5f0}
-.r8 {color: #268bd2; text-decoration-color: #268bd2; background-color: #f5f5f0}
-.r9 {color: #657b83; text-decoration-color: #657b83; background-color: #f5f5f0}
-.r10 {color: #2aa198; text-decoration-color: #2aa198; background-color: #f5f5f0}
-.r11 {color: #859900; text-decoration-color: #859900; background-color: #f5f5f0}
-body {
-    color: #000000;
-    background-color: #f5f5f0;
-}
-</style>
-</head>
-<body>
-    <pre style="font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace"><code style="font-family:inherit"><span class="r1">GPU Nodes and Shapes</span>                                                                                
 
-A node is one machine. A GPU is one accelerator inside a machine. These are different &quot;shapes&quot;:     
+<a class="back" href="index.html">&larr; docs</a>
 
-<span class="r2">1 node, 1 GPU</span> - simplest. You can serve or train small jobs. If you try to both serve and train,    
-they&#x27;ll fight for the same GPU (memory/compute), so it&#x27;s usually painful unless everything is tiny. 
+<div class="memo-head">
+  <h1>GPU Nodes and Shapes</h1>
+</div>
 
-<span class="r2">1 node, 2 GPUs</span> - still one machine, but you can separate roles by GPU. This is the common pattern   
-for RL/RFT setups:                                                                                  
+<p>A node is one machine. A GPU is one accelerator inside a machine. These are different "shapes":</p>
 
-<span class="r3"> • </span>Inference server pinned to <span class="r4">CUDA_VISIBLE_DEVICES=0</span>                                                
-<span class="r3"> • </span>Trainer/workers on <span class="r4">CUDA_VISIBLE_DEVICES=1</span>                                                        
-<span class="r3"> • </span>This is what people mean by &quot;need 2 GPUs&quot; - not two nodes, just two GPUs available on the same   
-<span class="r3">   </span>box.                                                                                             
+<p><strong>1 node, 1 GPU</strong> - simplest. You can serve or train small jobs. If you try to both serve and train, they'll fight for the same GPU (memory/compute), so it's usually painful unless everything is tiny.</p>
 
-<span class="r2">2 nodes, 1 GPU each</span> - distributed across machines. You need networking, orchestration, and          
-distributed training comms (NCCL etc). More complex and only worth it if you can&#x27;t fit the work on  
-one box or you need to scale.                                                                       
+<p><strong>1 node, 2 GPUs</strong> - still one machine, but you can separate roles by GPU. This is the common pattern for RL/RFT setups:</p>
 
-<span class="r2">2 nodes, 2+ GPUs each</span> - full multi-node cluster. Best for scaling up, not for starting.             
+<ul>
+<li>Inference server pinned to <code>CUDA_VISIBLE_DEVICES=0</code></li>
+<li>Trainer/workers on <code>CUDA_VISIBLE_DEVICES=1</code></li>
+<li>This is what people mean by "need 2 GPUs" - not two nodes, just two GPUs available on the same box.</li>
+</ul>
 
-<span class="r5">SSH Key Auth</span>                                                                                        
+<p><strong>2 nodes, 1 GPU each</strong> - distributed across machines. You need networking, orchestration, and distributed training comms (NCCL etc). More complex and only worth it if you can't fit the work on one box or you need to scale.</p>
 
-Useful videos:                                                                                      
+<p><strong>2 nodes, 2+ GPUs each</strong> - full multi-node cluster. Best for scaling up, not for starting.</p>
 
-<span class="r3"> • </span><a class="r6" href="https://www.youtube.com/watch?v=j4J_MxkY-4s">SSH Public Key Authentication Oversimplified</a>                                                     
-<span class="r3"> • </span><a class="r6" href="https://www.youtube.com/watch?v=dPAw4opzN9g">SSH Keys</a>                                                                                         
+<h3>SSH Key Auth</h3>
 
-You generate the keypair on your machine because the private key must never leave it. If the        
-server/provider generated it, they could keep a copy, which defeats the point.                      
+<p>Useful videos:</p>
 
-<span class="r2">How it works:</span>                                                                                       
+<ul>
+<li><a href="https://www.youtube.com/watch?v=j4J_MxkY-4s">SSH Public Key Authentication Oversimplified</a></li>
+<li><a href="https://www.youtube.com/watch?v=dPAw4opzN9g">SSH Keys</a></li>
+</ul>
 
-<span class="r3"> 1 </span>You upload the public key to the server (goes into <span class="r4">~/.ssh/authorized_keys</span>)                       
-<span class="r3"> 2 </span>When you connect, the server says &quot;prove you have the matching private key&quot;                      
-<span class="r3"> 3 </span>Your laptop signs a one-time challenge with the private key                                      
-<span class="r3"> 4 </span>The server verifies the signature with the public key. If it checks out, you&#x27;re in.              
+<p>You generate the keypair on your machine because the private key must never leave it. If the server/provider generated it, they could keep a copy, which defeats the point.</p>
 
-It&#x27;s not encryption - it&#x27;s proof of identity. The public key is safe to share. Adding a passphrase  
-protects you if your laptop is stolen.                                                              
+<p><strong>How it works:</strong></p>
 
-<span class="r2">ssh-agent</span> - holds your decrypted private key in memory so you don&#x27;t have to pass <span class="r4">-i</span> every time or   
-re-enter the passphrase:                                                                            
+<ol>
+<li>You upload the public key to the server (goes into <code>~/.ssh/authorized_keys</code>)</li>
+<li>When you connect, the server says "prove you have the matching private key"</li>
+<li>Your laptop signs a one-time challenge with the private key</li>
+<li>The server verifies the signature with the public key. If it checks out, you're in.</li>
+</ol>
 
-<span class="r7">                                                                                                    </span>
-<span class="r7"> </span><span class="r8">eval</span><span class="r9"> </span><span class="r10">&quot;</span><span class="r11">$(</span><span class="r9">ssh-agent -s</span><span class="r11">)</span><span class="r10">&quot;</span><span class="r7">                                                                             </span>
-<span class="r7"> </span><span class="r9">ssh-add ~/.ssh/primeintellect_ed25519</span><span class="r7">                                                              </span>
-<span class="r7">                                                                                                    </span>
+<p>It's not encryption - it's proof of identity. The public key is safe to share. Adding a passphrase protects you if your laptop is stolen.</p>
 
-Now <span class="r4">ssh -p &lt;port&gt; root@&lt;ip&gt;</span> just works. On macOS, add <span class="r4">--apple-use-keychain</span> to persist across        
-reboots:                                                                                            
+<p><strong>ssh-agent</strong> - holds your decrypted private key in memory so you don't have to pass <code>-i</code> every time or re-enter the passphrase:</p>
 
-<span class="r7">                                                                                                    </span>
-<span class="r7"> </span><span class="r9">ssh-add --apple-use-keychain ~/.ssh/primeintellect_ed25519</span><span class="r7">                                         </span>
-<span class="r7">                                                                                                    </span>
+<pre><code>eval &quot;$(ssh-agent -s)&quot;
+ssh-add ~/.ssh/primeintellect_ed25519</code></pre>
 
-<span class="r5">Getting on a GPU Node</span>                                                                               
+<p>Now <code>ssh -p &lt;port&gt; root@&lt;ip&gt;</code> just works. On macOS, add <code>--apple-use-keychain</code> to persist across reboots:</p>
 
-<span class="r3"> 1 </span>Pick a single-node GPU instance with 2x GPUs (one machine, two GPUs)                             
-<span class="r3"> 2 </span>Generate a dedicated SSH keypair on your Mac:                                                    
-<span class="r3">   </span><span class="r7">                                                                                                 </span>
-<span class="r3">   </span><span class="r7"> </span><span class="r9">ssh-keygen -t ed25519 -a </span><span class="r10">64</span><span class="r9"> -f ~/.ssh/primeintellect_ed25519 -C </span><span class="r10">&quot;primeintellect&quot;</span><span class="r7">                </span>
-<span class="r3">   </span><span class="r7">                                                                                                 </span>
-<span class="r3"> 3 </span>Copy the public key: <span class="r4">cat ~/.ssh/primeintellect_ed25519.pub</span>                                       
-<span class="r3"> 4 </span>In the provider dashboard, add a new SSH key and paste the public key                            
-<span class="r3"> 5 </span>Deploy the instance                                                                              
-<span class="r3"> 6 </span>SSH in:                                                                                          
-<span class="r3">   </span><span class="r7">                                                                                                 </span>
-<span class="r3">   </span><span class="r7"> </span><span class="r9">ssh -i ~/.ssh/primeintellect_ed25519 -p &lt;port&gt; root@&lt;ip&gt;</span><span class="r7">                                        </span>
-<span class="r3">   </span><span class="r7">                                                                                                 </span>
-<span class="r3"> 7 </span>Verify GPUs: <span class="r4">nvidia-smi</span> (should show GPU 0 and GPU 1)                                            
-<span class="r3"> 8 </span>Check storage: <span class="r4">df -h /workspace</span> (network mount) and <span class="r4">df -h /</span> (local disk)                         
+<pre><code>ssh-add --apple-use-keychain ~/.ssh/primeintellect_ed25519</code></pre>
 
-<span class="r5">Gotchas from First Run</span>                                                                              
+<h3>Getting on a GPU Node</h3>
 
-<span class="r3"> • </span><span class="r4">/workspace</span> is a network mount on RunPod; local disk is <span class="r4">/</span>                                         
-<span class="r3"> • </span><span class="r4">prime env install</span> downloads environments from the hub; private envs need <span class="r4">prime login</span> on the node 
-<span class="r3"> • </span><span class="r4">prime</span> and <span class="r4">vf-eval</span> installed via <span class="r4">uv tool</span> end up in isolated tool envs - they can&#x27;t see each       
-<span class="r3">   </span>other&#x27;s packages. Options:                                                                       
-<span class="r3">    • </span>Inject deps: <span class="r4">uv tool install prime --with verifiers</span> (adds verifiers into prime&#x27;s tool env)    
-<span class="r3">    • </span>One project venv: put everything in a <span class="r4">pyproject.toml</span> and <span class="r4">uv pip install</span> together              
-<span class="r3">    • </span>Editable installs: <span class="r4">uv pip install -e ./external/verifiers -e ./external/t2f-trainer</span> in one    
-<span class="r3">      </span>venv                                                                                          
-</code></pre>
-</body>
-</html>
-</pre>
+<ol>
+<li>Pick a single-node GPU instance with 2x GPUs (one machine, two GPUs)</li>
+<li>Generate a dedicated SSH keypair on your Mac:</li>
+</ol>
+
+<p>   ``<code>bash    ssh-keygen -t ed25519 -a 64 -f ~/.ssh/primeintellect_ed25519 -C &quot;primeintellect&quot;    </code>``</p>
+
+<ol>
+<li>Copy the public key: <code>cat ~/.ssh/primeintellect_ed25519.pub</code></li>
+<li>In the provider dashboard, add a new SSH key and paste the public key</li>
+<li>Deploy the instance</li>
+<li>SSH in:</li>
+</ol>
+
+<p>   ``<code>bash    ssh -i ~/.ssh/primeintellect_ed25519 -p &lt;port&gt; root@&lt;ip&gt;    </code>``</p>
+
+<ol>
+<li>Verify GPUs: <code>nvidia-smi</code> (should show GPU 0 and GPU 1)</li>
+<li>Check storage: <code>df -h /workspace</code> (network mount) and <code>df -h /</code> (local disk)</li>
+</ol>
+
+<h3>Gotchas from First Run</h3>
+
+<ul>
+<li><code>/workspace</code> is a network mount on RunPod; local disk is <code>/</code></li>
+<li><code>prime env install</code> downloads environments from the hub; private envs need <code>prime login</code> on the node</li>
+<li><code>prime</code> and <code>vf-eval</code> installed via <code>uv tool</code> end up in isolated tool envs - they can't see each other's packages. Options:</li>
+</ul>
+
+<p>  - Inject deps: <code>uv tool install prime --with verifiers</code> (adds verifiers into prime's tool env)   - One project venv: put everything in a <code>pyproject.toml</code> and <code>uv pip install</code> together   - Editable installs: <code>uv pip install -e ./external/verifiers -e ./external/t2f-trainer</code> in one venv</p>
+
+<div class="colophon">
+  <p>GPU NODES AND SHAPES</p>
+</div>
+
 </body>
 </html>

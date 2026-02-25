@@ -1,171 +1,227 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="utf-8">
+<title>Verifiers - Small Learnings</title>
 <style>
-    body {
-        background: #ffffff;
-        color: #1e1e1e;
-        font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', 'Menlo', monospace;
-        font-size: 14px;
-        line-height: 1.35;
-        padding: 0.5em 2em;
-        max-width: 960px;
-        margin: 0 auto;
-    }
-    pre {
-        white-space: pre-wrap;
-        word-wrap: break-word;
-        margin: 0;
-    }
-    ::selection {
-        background: #d0e8ff;
-        color: #1e1e1e;
-    }
-    a { color: #268bd2; text-decoration: none; }
-    a:hover { text-decoration: underline; }
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&display=swap');
 
-    .back { color: #93a1a1; font-size: 12px; margin-bottom: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, serif;
+    font-size: 14.5px;
+    line-height: 1.72;
+    color: #2a2a2a;
+    background: #fdfcfa;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 72px 1rem 120px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a.back {
+    font-family: 'JetBrains Mono', monospace; font-size: 9.5px;
+    color: #bbb; text-decoration: none; letter-spacing: 0.5px;
+  }
+  a.back:hover { color: #1a1a1a; }
+
+  .memo-head {
+    border-top: 2.5px solid #1a1a1a;
+    border-bottom: 0.5px solid #1a1a1a;
+    padding: 20px 0 16px;
+    margin-bottom: 40px;
+  }
+  .memo-head h1 {
+    font-size: 1.6rem;
+    font-weight: normal;
+    color: #333;
+    line-height: 1.25;
+    margin: 0;
+  }
+
+  h2 {
+    font-size: 1.3rem;
+    font-weight: normal;
+    color: #333;
+    margin: 56px 0 6px;
+  }
+  h3 {
+    font-size: 1.1rem;
+    font-weight: normal;
+    color: #333;
+    margin: 36px 0 4px;
+  }
+  p { margin: 10px 0; }
+
+  ul, ol { margin: 12px 0 12px 22px; }
+  li { margin: 5px 0; color: #333; }
+  li::marker { color: #bbb; }
+
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: #1a1a1a;
+    background: #f5f4f0;
+    padding: 1.5px 5px;
+    border-bottom: 1px solid #ddd;
+  }
+  pre {
+    margin: 20px 0;
+    padding: 16px 20px;
+    background: #f5f4f0;
+    border: 0.5px solid #e8e4de;
+    overflow-x: auto;
+    line-height: 1.5;
+  }
+  pre code {
+    background: none;
+    padding: 0;
+    border: none;
+    font-size: 12px;
+  }
+  strong { font-weight: 700; color: #1a1a1a; }
+  em { color: #555; }
+  a { color: #268bd2; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  blockquote {
+    font-size: 13px;
+    color: #888;
+    font-style: italic;
+    margin: 20px 0 20px 28px;
+    padding-left: 16px;
+    border-left: 1.5px solid #ddd;
+    line-height: 1.6;
+  }
+
+  hr {
+    border: none;
+    text-align: center;
+    margin: 56px 0;
+    line-height: 0;
+  }
+  hr::after {
+    content: '\2022\2009\2009\2022\2009\2009\2022';
+    font-size: 10px;
+    color: #ccc;
+    letter-spacing: 4px;
+  }
+
+  .colophon {
+    border-top: 0.5px solid #ddd;
+    margin-top: 64px;
+    padding-top: 16px;
+  }
+  .colophon p {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    color: #ccc;
+    letter-spacing: 0.5px;
+  }
+
 </style>
 </head>
 <body>
-<p class="back"><a href="index.html">back</a></p>
-<pre><!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<style>
-.r1 {color: #268bd2; text-decoration-color: #268bd2; font-weight: bold}
-.r2 {color: #2aa198; text-decoration-color: #2aa198; font-weight: bold}
-.r3 {color: #d33682; text-decoration-color: #d33682}
-.r4 {background-color: #f5f5f0}
-.r5 {color: #657b83; text-decoration-color: #657b83; background-color: #f5f5f0}
-.r6 {color: #cb4b16; text-decoration-color: #cb4b16}
-.r7 {font-weight: bold}
-.r8 {color: #268bd2; text-decoration-color: #268bd2; background-color: #f5f5f0}
-.r9 {color: #2aa198; text-decoration-color: #2aa198; background-color: #f5f5f0}
-.r10 {color: #93a1a1; text-decoration-color: #93a1a1; background-color: #f5f5f0}
-.r11 {color: #859900; text-decoration-color: #859900; background-color: #f5f5f0}
-.r12 {color: #93a1a1; text-decoration-color: #93a1a1; background-color: #f5f5f0; font-style: italic}
-.r13 {color: #d33682; text-decoration-color: #d33682; font-weight: bold}
-body {
-    color: #000000;
-    background-color: #f5f5f0;
-}
-</style>
-</head>
-<body>
-    <pre style="font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace"><code style="font-family:inherit"><span class="r1">Verifiers - Small Learnings</span>                                                                         
 
-Things worth knowing when working with the verifiers library.                                       
+<a class="back" href="index.html">&larr; docs</a>
 
-<span class="r2">Dataset auto-wrapping</span>                                                                               
+<div class="memo-head">
+  <h1>Verifiers - Small Learnings</h1>
+</div>
 
-If your dataset rows have a <span class="r3">question</span> string column, Verifiers will auto-wrap it into a user message 
-for you:                                                                                            
+<p>Things worth knowing when working with the verifiers library.</p>
 
-<span class="r4">                                                                                                    </span>
-<span class="r4"> </span><span class="r5"># you provide:</span><span class="r4">                                                                                     </span>
-<span class="r4"> </span><span class="r5">&quot;question&quot;: &quot;What is 2+2?&quot;</span><span class="r4">                                                                         </span>
-<span class="r4">                                                                                                    </span>
-<span class="r4"> </span><span class="r5"># it becomes:</span><span class="r4">                                                                                      </span>
-<span class="r4"> </span><span class="r5">prompt = [{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;What is 2+2?&quot;}]</span><span class="r4">                                             </span>
-<span class="r4">                                                                                                    </span>
+<h3>Dataset auto-wrapping</h3>
 
-You don&#x27;t need to manually build the messages list. Just give it a string and it handles the chat   
-format.                                                                                             
+<p>If your dataset rows have a <code>question</code> string column, Verifiers will auto-wrap it into a user message for you:</p>
 
-<span class="r2">Environment references</span>                                                                              
+<pre><code># you provide:
+&quot;question&quot;: &quot;What is 2+2?&quot;
 
-Three formats depending on what you&#x27;re doing:                                                       
+# it becomes:
+prompt = [{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;What is 2+2?&quot;}]</code></pre>
 
-<span class="r6"> • </span><span class="r7">Hub reference</span> - <span class="r3">owner/name@version</span> - for installing from the hub:                                
-<span class="r6">   </span><span class="r4">                                                                                                 </span>
-<span class="r6">   </span><span class="r4"> </span><span class="r5">prime env install owner/my-env@0.1.0</span><span class="r4">                                                            </span>
-<span class="r6">   </span><span class="r4">                                                                                                 </span>
-<span class="r6"> • </span><span class="r7">Hub slug</span> - <span class="r3">owner/name</span> - for running eval via prime (auto-installs if not local):                 
-<span class="r6">   </span><span class="r4">                                                                                                 </span>
-<span class="r6">   </span><span class="r4"> </span><span class="r5">prime </span><span class="r8">eval</span><span class="r5"> run owner/my-env -m gpt-4.1-mini -n </span><span class="r9">10</span><span class="r5"> -r </span><span class="r9">3</span><span class="r4">                                          </span>
-<span class="r6">   </span><span class="r4">                                                                                                 </span>
-<span class="r6"> • </span><span class="r7">Environment ID</span> - just the name - for local eval with vf-eval:                                    
-<span class="r6">   </span><span class="r4">                                                                                                 </span>
-<span class="r6">   </span><span class="r4"> </span><span class="r5">uv run vf-eval my-env</span><span class="r4">                                                                           </span>
-<span class="r6">   </span><span class="r4">                                                                                                 </span>
+<p>You don't need to manually build the messages list. Just give it a string and it handles the chat format.</p>
 
-Under the hood it&#x27;s all the same: the environment ID gets converted to a Python module name (hyphens
-→ underscores) and imported. <span class="r3">prime eval</span> can also resolve from the hub by slug, <span class="r3">vf-eval</span> only looks   
-locally.                                                                                            
+<h3>Environment references</h3>
 
-<span class="r2">Rubric vs reward function</span>                                                                           
+<p>Three formats depending on what you're doing:</p>
 
-A rubric is a collection of reward functions. Each reward function scores one aspect (e.g.          
-<span class="r3">to_correct</span>, <span class="r3">cc_correct</span>, <span class="r3">bcc_correct</span>), and the rubric combines them into the final reward score.     
+<ul>
+<li><strong>Hub reference</strong> - <code>owner/name@version</code> - for installing from the hub:</li>
+</ul>
 
-In verifiers, you pass multiple scoring functions with weights to the rubric:                       
+<p>  ``<code>bash   prime env install owner/my-env@0.1.0   </code>``</p>
 
-<span class="r4">                                                                                                    </span>
-<span class="r4"> </span><span class="r5">rubric </span><span class="r10">=</span><span class="r5"> vf</span><span class="r10">.</span><span class="r5">Rubric(</span><span class="r4">                                                                                </span>
-<span class="r4"> </span><span class="r5">    funcs</span><span class="r10">=</span><span class="r5">[to_correct, cc_correct],</span><span class="r4">                                                                </span>
-<span class="r4"> </span><span class="r5">    weights</span><span class="r10">=</span><span class="r5">[</span><span class="r9">1.0</span><span class="r5">, </span><span class="r9">1.0</span><span class="r5">],</span><span class="r4">                                                                            </span>
-<span class="r4"> </span><span class="r5">)</span><span class="r4">                                                                                                  </span>
-<span class="r4">                                                                                                    </span>
+<ul>
+<li><strong>Hub slug</strong> - <code>owner/name</code> - for running eval via prime (auto-installs if not local):</li>
+</ul>
 
-<span class="r2">Reward function parameters</span>                                                                          
+<p>  ``<code>bash   prime eval run owner/my-env -m gpt-4.1-mini -n 10 -r 3   </code>``</p>
 
-Verifiers auto-maps parameter names to available data. You can ask for any combination:             
+<ul>
+<li><strong>Environment ID</strong> - just the name - for local eval with vf-eval:</li>
+</ul>
 
-<span class="r4">                                                                                                    </span>
-<span class="r4"> </span><span class="r11">def</span><span class="r5"> </span><span class="r8">score</span><span class="r5">(completion, answer, </span><span class="r10">**</span><span class="r5">kwargs)   </span><span class="r12"># completion + answer column</span><span class="r4">                             </span>
-<span class="r4"> </span><span class="r11">def</span><span class="r5"> </span><span class="r8">score</span><span class="r5">(completion, info, </span><span class="r10">**</span><span class="r5">kwargs)     </span><span class="r12"># completion + info dict</span><span class="r4">                                 </span>
-<span class="r4"> </span><span class="r11">def</span><span class="r5"> </span><span class="r8">score</span><span class="r5">(completion, state, </span><span class="r10">**</span><span class="r5">kwargs)    </span><span class="r12"># completion + full state</span><span class="r4">                                </span>
-<span class="r4"> </span><span class="r11">def</span><span class="r5"> </span><span class="r8">score</span><span class="r5">(state, </span><span class="r10">**</span><span class="r5">kwargs)               </span><span class="r12"># just state, pull everything yourself</span><span class="r4">                    </span>
-<span class="r4">                                                                                                    </span>
+<p>  ``<code>bash   uv run vf-eval my-env   </code>``</p>
 
-<span class="r3">async</span> is optional - verifiers uses <span class="r3">maybe_await</span> so both sync and async reward functions work. Use    
-<span class="r3">async</span> when your reward function makes API calls (e.g. LLM-as-judge).                                
+<p>Under the hood it's all the same: the environment ID gets converted to a Python module name (hyphens → underscores) and imported. <code>prime eval</code> can also resolve from the hub by slug, <code>vf-eval</code> only looks locally.</p>
 
-<span class="r13">info</span><span class="r2"> is static, </span><span class="r13">state</span><span class="r2"> is live</span>                                                                       
+<h3>Rubric vs reward function</h3>
 
-<span class="r3">info</span> is a dict on the dataset row - it stays the same for the entire rollout. Put ground truths,    
-follow-up questions, rules, or any reference data here.                                             
+<p>A rubric is a collection of reward functions. Each reward function scores one aspect (e.g. <code>to_correct</code>, <code>cc_correct</code>, <code>bcc_correct</code>), and the rubric combines them into the final reward score.</p>
 
-<span class="r3">state</span> updates every turn - it holds the growing trajectory, completion, turn count, rewards, etc.   
+<p>In verifiers, you pass multiple scoring functions with weights to the rubric:</p>
 
-For multi-turn, index into <span class="r3">info</span> by turn number:                                                     
+<pre><code>rubric = vf.Rubric(
+    funcs=[to_correct, cc_correct],
+    weights=[1.0, 1.0],
+)</code></pre>
 
-<span class="r4">                                                                                                    </span>
-<span class="r4"> </span><span class="r5">turn </span><span class="r10">=</span><span class="r5"> </span><span class="r8">len</span><span class="r5">(state[</span><span class="r9">&quot;trajectory&quot;</span><span class="r5">])</span><span class="r4">                                                                    </span>
-<span class="r4"> </span><span class="r5">expected </span><span class="r10">=</span><span class="r5"> state[</span><span class="r9">&quot;info&quot;</span><span class="r5">][</span><span class="r9">&quot;expected&quot;</span><span class="r5">][turn]</span><span class="r4">                                                         </span>
-<span class="r4">                                                                                                    </span>
+<h3>Reward function parameters</h3>
 
-<span class="r2">Configuration knobs go on </span><span class="r13">load_environment</span>                                                          
+<p>Verifiers auto-maps parameter names to available data. You can ask for any combination:</p>
 
-<span class="r3">--env-args</span> from the CLI get passed as kwargs to <span class="r3">load_environment()</span>. So any knob you want            
-configurable from outside goes on that function signature with a default:                           
+<pre><code>def score(completion, answer, **kwargs)   # completion + answer column
+def score(completion, info, **kwargs)     # completion + info dict
+def score(completion, state, **kwargs)    # completion + full state
+def score(state, **kwargs)               # just state, pull everything yourself</code></pre>
 
-<span class="r4">                                                                                                    </span>
-<span class="r4"> </span><span class="r11">def</span><span class="r5"> </span><span class="r8">load_environment</span><span class="r5">(max_turns: </span><span class="r8">int</span><span class="r5"> </span><span class="r10">=</span><span class="r5"> </span><span class="r9">1</span><span class="r5">, difficulty: </span><span class="r8">str</span><span class="r5"> </span><span class="r10">=</span><span class="r5"> </span><span class="r9">&quot;easy&quot;</span><span class="r5">, </span><span class="r10">**</span><span class="r5">kwargs):</span><span class="r4">                      </span>
-<span class="r4"> </span><span class="r5">    dataset </span><span class="r10">=</span><span class="r5"> build_dataset(difficulty)</span><span class="r4">                                                            </span>
-<span class="r4"> </span><span class="r5">    </span><span class="r11">return</span><span class="r5"> MyEnv(dataset</span><span class="r10">=</span><span class="r5">dataset, rubric</span><span class="r10">=</span><span class="r5">rubric, max_turns</span><span class="r10">=</span><span class="r5">max_turns)</span><span class="r4">                              </span>
-<span class="r4">                                                                                                    </span>
+<p><code>async</code> is optional - verifiers uses <code>maybe_await</code> so both sync and async reward functions work. Use <code>async</code> when your reward function makes API calls (e.g. LLM-as-judge).</p>
 
-Then from the CLI:                                                                                  
+<h3><code>info</code> is static, <code>state</code> is live</h3>
 
-<span class="r4">                                                                                                    </span>
-<span class="r4"> </span><span class="r5">prime </span><span class="r8">eval</span><span class="r5"> run my-env --env-args </span><span class="r9">&#x27;{&quot;max_turns&quot;: 3, &quot;difficulty&quot;: &quot;hard&quot;}&#x27;</span><span class="r4">                          </span>
-<span class="r4">                                                                                                    </span>
+<p><code>info</code> is a dict on the dataset row - it stays the same for the entire rollout. Put ground truths, follow-up questions, rules, or any reference data here.</p>
 
-<span class="r3">load_environment</span> receives it, passes it down to the class or dataset builder. The class itself      
-doesn&#x27;t need to know about CLI args - it just takes constructor params like any normal class.       
+<p><code>state</code> updates every turn - it holds the growing trajectory, completion, turn count, rewards, etc.</p>
 
-<span class="r13">answer</span><span class="r2"> is just a convention</span>                                                                         
+<p>For multi-turn, index into <code>info</code> by turn number:</p>
 
-Nothing in verifiers requires an <span class="r3">answer</span> column. It&#x27;s just a dataset column name that gets passed to 
-reward functions. You can use <span class="r3">info</span> for everything, or any column name you want - as long as your    
-reward function parameters match.                                                                   
-</code></pre>
-</body>
-</html>
-</pre>
+<pre><code>turn = len(state[&quot;trajectory&quot;])
+expected = state[&quot;info&quot;][&quot;expected&quot;][turn]</code></pre>
+
+<h3>Configuration knobs go on <code>load_environment</code></h3>
+
+<p><code>--env-args</code> from the CLI get passed as kwargs to <code>load_environment()</code>. So any knob you want configurable from outside goes on that function signature with a default:</p>
+
+<pre><code>def load_environment(max_turns: int = 1, difficulty: str = &quot;easy&quot;, **kwargs):
+    dataset = build_dataset(difficulty)
+    return MyEnv(dataset=dataset, rubric=rubric, max_turns=max_turns)</code></pre>
+
+<p>Then from the CLI:</p>
+
+<pre><code>prime eval run my-env --env-args &#x27;{&quot;max_turns&quot;: 3, &quot;difficulty&quot;: &quot;hard&quot;}&#x27;</code></pre>
+
+<p><code>load_environment</code> receives it, passes it down to the class or dataset builder. The class itself doesn't need to know about CLI args - it just takes constructor params like any normal class.</p>
+
+<h3><code>answer</code> is just a convention</h3>
+
+<p>Nothing in verifiers requires an <code>answer</code> column. It's just a dataset column name that gets passed to reward functions. You can use <code>info</code> for everything, or any column name you want - as long as your reward function parameters match.</p>
+
+<div class="colophon">
+  <p>VERIFIERS - SMALL LEARNINGS</p>
+</div>
+
 </body>
 </html>

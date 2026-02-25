@@ -1,123 +1,206 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="utf-8">
+<title>Async Execution Flow in Verifiers</title>
 <style>
-    body {
-        background: #ffffff;
-        color: #1e1e1e;
-        font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', 'Menlo', monospace;
-        font-size: 14px;
-        line-height: 1.35;
-        padding: 0.5em 2em;
-        max-width: 960px;
-        margin: 0 auto;
-    }
-    pre {
-        white-space: pre-wrap;
-        word-wrap: break-word;
-        margin: 0;
-    }
-    ::selection {
-        background: #d0e8ff;
-        color: #1e1e1e;
-    }
-    a { color: #268bd2; text-decoration: none; }
-    a:hover { text-decoration: underline; }
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&display=swap');
 
-    .back { color: #93a1a1; font-size: 12px; margin-bottom: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, serif;
+    font-size: 14.5px;
+    line-height: 1.72;
+    color: #2a2a2a;
+    background: #fdfcfa;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 72px 1rem 120px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a.back {
+    font-family: 'JetBrains Mono', monospace; font-size: 9.5px;
+    color: #bbb; text-decoration: none; letter-spacing: 0.5px;
+  }
+  a.back:hover { color: #1a1a1a; }
+
+  .memo-head {
+    border-top: 2.5px solid #1a1a1a;
+    border-bottom: 0.5px solid #1a1a1a;
+    padding: 20px 0 16px;
+    margin-bottom: 40px;
+  }
+  .memo-head h1 {
+    font-size: 1.6rem;
+    font-weight: normal;
+    color: #333;
+    line-height: 1.25;
+    margin: 0;
+  }
+
+  h2 {
+    font-size: 1.3rem;
+    font-weight: normal;
+    color: #333;
+    margin: 56px 0 6px;
+  }
+  h3 {
+    font-size: 1.1rem;
+    font-weight: normal;
+    color: #333;
+    margin: 36px 0 4px;
+  }
+  p { margin: 10px 0; }
+
+  ul, ol { margin: 12px 0 12px 22px; }
+  li { margin: 5px 0; color: #333; }
+  li::marker { color: #bbb; }
+
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: #1a1a1a;
+    background: #f5f4f0;
+    padding: 1.5px 5px;
+    border-bottom: 1px solid #ddd;
+  }
+  pre {
+    margin: 20px 0;
+    padding: 16px 20px;
+    background: #f5f4f0;
+    border: 0.5px solid #e8e4de;
+    overflow-x: auto;
+    line-height: 1.5;
+  }
+  pre code {
+    background: none;
+    padding: 0;
+    border: none;
+    font-size: 12px;
+  }
+  strong { font-weight: 700; color: #1a1a1a; }
+  em { color: #555; }
+  a { color: #268bd2; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  blockquote {
+    font-size: 13px;
+    color: #888;
+    font-style: italic;
+    margin: 20px 0 20px 28px;
+    padding-left: 16px;
+    border-left: 1.5px solid #ddd;
+    line-height: 1.6;
+  }
+
+  hr {
+    border: none;
+    text-align: center;
+    margin: 56px 0;
+    line-height: 0;
+  }
+  hr::after {
+    content: '\2022\2009\2009\2022\2009\2009\2022';
+    font-size: 10px;
+    color: #ccc;
+    letter-spacing: 4px;
+  }
+
+  .colophon {
+    border-top: 0.5px solid #ddd;
+    margin-top: 64px;
+    padding-top: 16px;
+  }
+  .colophon p {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    color: #ccc;
+    letter-spacing: 0.5px;
+  }
+
 </style>
 </head>
 <body>
-<p class="back"><a href="index.html">back</a></p>
-<pre><!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<style>
-.r1 {color: #268bd2; text-decoration-color: #268bd2; font-weight: bold}
-.r2 {color: #d33682; text-decoration-color: #d33682}
-.r3 {color: #2aa198; text-decoration-color: #2aa198; font-weight: bold}
-.r4 {color: #cb4b16; text-decoration-color: #cb4b16}
-.r5 {color: #d33682; text-decoration-color: #d33682; font-weight: bold}
-.r6 {font-weight: bold}
-.r7 {background-color: #f5f5f0}
-.r8 {color: #657b83; text-decoration-color: #657b83; background-color: #f5f5f0}
-.r9 {color: #008080; text-decoration-color: #008080}
-body {
-    color: #000000;
-    background-color: #f5f5f0;
-}
-</style>
-</head>
-<body>
-    <pre style="font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace"><code style="font-family:inherit"><span class="r1">Async Execution Flow in Verifiers</span>                                                                   
 
-How <span class="r2">env.generate()</span> orchestrates groups, rollouts, scoring, and callbacks.                           
+<a class="back" href="index.html">&larr; docs</a>
 
-<span class="r3">The Flow</span>                                                                                            
+<div class="memo-head">
+  <h1>Async Execution Flow in Verifiers</h1>
+</div>
 
-<span class="r4"> 1 </span><span class="r5">env.generate()</span><span class="r6"> is called</span> with <span class="r2">n</span> examples and <span class="r2">r</span> rollouts per example.                             
-<span class="r4"> 2 </span><span class="r6">Inputs are built</span> - each example gets <span class="r2">r</span> copies, so 10 examples × 3 rollouts = 30 total inputs.    
-<span class="r4"> 3 </span><span class="r6">Inputs are grouped by </span><span class="r5">example_id</span> - all 3 rollouts for the same prompt end up in one group. This  
-<span class="r4">   </span>is critical because GRPO needs the group to compute advantages.                                  
-<span class="r4"> 4 </span><span class="r6">Each group becomes an </span><span class="r5">asyncio.create_task</span> - groups run in parallel. A semaphore controls how many
-<span class="r4">   </span>groups run concurrently (prevents overwhelming the API/vLLM):                                    
+<p>How <code>env.generate()</code> orchestrates groups, rollouts, scoring, and callbacks.</p>
 
-<span class="r7">                                                                                                    </span>
-<span class="r7"> </span><span class="r8">Group 0 (prompt A, 3 rollouts) ──┐</span><span class="r7">                                                                 </span>
-<span class="r7"> </span><span class="r8">Group 1 (prompt B, 3 rollouts) ──┼── all launched as tasks</span><span class="r7">                                         </span>
-<span class="r7"> </span><span class="r8">Group 2 (prompt C, 3 rollouts) ──┘</span><span class="r7">                                                                 </span>
-<span class="r7"> </span><span class="r8">                                  semaphore limits concurrency</span><span class="r7">                                     </span>
-<span class="r7">                                                                                                    </span>
+<h3>The Flow</h3>
 
-<span class="r4">  5 </span><span class="r6">Inside each group (</span><span class="r5">run_group</span><span class="r6">)</span> - the rollouts within a group also run in parallel. Each rollout  
-<span class="r4">    </span>is its own async call to the model. For multi-turn, each rollout runs the full loop (prompt →   
-<span class="r4">    </span>model → env_response → model → ... → stop) independently.                                       
-<span class="r4">  6 </span><span class="r6">Rubric scores the group</span> - once all rollouts in a group finish, the rubric runs. It scores all   
-<span class="r4">    </span>rollouts, computes per-rollout rewards, metrics, and group-relative advantages. This happens    
-<span class="r4">    </span>inside <span class="r2">run_group</span>, before it returns.                                                            
-<span class="r4">  7 </span><span class="r5">asyncio.as_completed</span><span class="r6"> picks up finished groups</span> - as each group finishes (rollouts done + rubric  
-<span class="r4">    </span>scored), it yields. The order is whichever group finishes first, not input order.               
-<span class="r4">  8 </span><span class="r5">on_progress</span><span class="r6"> fires per completed group</span> - right after a group is yielded by <span class="r2">as_completed</span>. This is 
-<span class="r4">    </span>where the TUI updates, and where a Rerun logger would hook in. At this point, the state has     
-<span class="r4">    </span>everything: trajectory, completion, reward, metrics, advantage.                                 
-<span class="r4">  9 </span><span class="r6">Results are saved incrementally</span> - after <span class="r2">on_progress</span>, results for that group are appended to the 
-<span class="r4">    </span>output file. You don&#x27;t wait for all groups to finish.                                           
-<span class="r4"> 10 </span><span class="r6">After all groups complete</span> - final summary, return all results.                                  
+<ol>
+<li><strong><code>env.generate()</code> is called</strong> with <code>n</code> examples and <code>r</code> rollouts per example.</li>
+</ol>
 
-<span class="r3">What&#x27;s Parallel, What&#x27;s Sequential</span>                                                                  
+<ol>
+<li><strong>Inputs are built</strong> - each example gets <code>r</code> copies, so 10 examples × 3 rollouts = 30 total inputs.</li>
+</ol>
 
-<span class="r9">                                                                                                    </span>
-<span class="r9"> </span><span class="r9">Level</span><span class="r1">                      </span><span class="r9"> </span><span class="r9">Parallel?</span><span class="r1">            </span><span class="r9"> </span><span class="r9">How</span><span class="r1">                                             </span><span class="r9"> </span>
-<span class="r9"> ────────────────────────────────────────────────────────────────────────────────────────────────── </span>
-<span class="r9"> </span>Groups (different prompts) <span class="r9"> </span>Yes                  <span class="r9"> </span><span class="r2">asyncio.create_task</span> per group, semaphore-bounded<span class="r9"> </span>
-<span class="r9"> </span>Rollouts within a group    <span class="r9"> </span>Yes                  <span class="r9"> </span>All rollouts for same prompt run concurrently   <span class="r9"> </span>
-<span class="r9"> </span>Turns within a rollout     <span class="r9"> </span>Sequential           <span class="r9"> </span>Must wait for model → env_response → model      <span class="r9"> </span>
-<span class="r9"> </span>Rubric scoring             <span class="r9"> </span>Sequential per group <span class="r9"> </span>Runs after all rollouts in group finish         <span class="r9"> </span>
-<span class="r9"> </span><span class="r2">on_progress</span>                <span class="r9"> </span>Sequential           <span class="r9"> </span>Fires one group at a time as they complete      <span class="r9"> </span>
-<span class="r9">                                                                                                    </span>
+<ol>
+<li><strong>Inputs are grouped by <code>example_id</code></strong> - all 3 rollouts for the same prompt end up in one group. This is critical because GRPO needs the group to compute advantages.</li>
+</ol>
 
-<span class="r3">Timeline Example (3 prompts, 2 rollouts each)</span>                                                       
+<ol>
+<li><strong>Each group becomes an <code>asyncio.create_task</code></strong> - groups run in parallel. A semaphore controls how many groups run concurrently (prevents overwhelming the API/vLLM):</li>
+</ol>
 
-<span class="r7">                                                                                                    </span>
-<span class="r7"> </span><span class="r8">t=0   Launch Group0(A), Group1(B), Group2(C)</span><span class="r7">                                                       </span>
-<span class="r7"> </span><span class="r8">t=1   Group0: rollout0 turn1, rollout1 turn1  (parallel)</span><span class="r7">                                           </span>
-<span class="r7"> </span><span class="r8">      Group1: rollout0 turn1, rollout1 turn1  (parallel)</span><span class="r7">                                           </span>
-<span class="r7"> </span><span class="r8">      Group2: rollout0 turn1, rollout1 turn1  (parallel)</span><span class="r7">                                           </span>
-<span class="r7"> </span><span class="r8">t=2   Group1 finishes first → rubric scores → on_progress → save</span><span class="r7">                                   </span>
-<span class="r7"> </span><span class="r8">t=3   Group0 finishes → rubric scores → on_progress → save</span><span class="r7">                                         </span>
-<span class="r7"> </span><span class="r8">t=4   Group2 finishes → rubric scores → on_progress → save</span><span class="r7">                                         </span>
-<span class="r7"> </span><span class="r8">t=5   All done, return results</span><span class="r7">                                                                     </span>
-<span class="r7">                                                                                                    </span>
+<pre><code>Group 0 (prompt A, 3 rollouts) ──┐
+Group 1 (prompt B, 3 rollouts) ──┼── all launched as tasks
+Group 2 (prompt C, 3 rollouts) ──┘
+                                  semaphore limits concurrency</code></pre>
 
-<span class="r3">Key Insight</span>                                                                                         
+<ol>
+<li><strong>Inside each group (<code>run_group</code>)</strong> - the rollouts within a group also run in parallel. Each rollout is its own async call to the model. For multi-turn, each rollout runs the full loop (prompt → model → env_response → model → ... → stop) independently.</li>
+</ol>
 
-Scoring and progress happen at the group boundary. You never get a score mid-rollout or mid-group. A
-group is the atomic unit - all its rollouts must finish before anything gets scored or reported.    
-</code></pre>
-</body>
-</html>
-</pre>
+<ol>
+<li><strong>Rubric scores the group</strong> - once all rollouts in a group finish, the rubric runs. It scores all rollouts, computes per-rollout rewards, metrics, and group-relative advantages. This happens inside <code>run_group</code>, before it returns.</li>
+</ol>
+
+<ol>
+<li><strong><code>asyncio.as_completed</code> picks up finished groups</strong> - as each group finishes (rollouts done + rubric scored), it yields. The order is whichever group finishes first, not input order.</li>
+</ol>
+
+<ol>
+<li><strong><code>on_progress</code> fires per completed group</strong> - right after a group is yielded by <code>as_completed</code>. This is where the TUI updates, and where a Rerun logger would hook in. At this point, the state has everything: trajectory, completion, reward, metrics, advantage.</li>
+</ol>
+
+<ol>
+<li><strong>Results are saved incrementally</strong> - after <code>on_progress</code>, results for that group are appended to the output file. You don't wait for all groups to finish.</li>
+</ol>
+
+<ol>
+<li><strong>After all groups complete</strong> - final summary, return all results.</li>
+</ol>
+
+<h3>What's Parallel, What's Sequential</h3>
+
+<p>| Level | Parallel? | How | |-------|-----------|-----| | Groups (different prompts) | Yes | <code>asyncio.create_task</code> per group, semaphore-bounded | | Rollouts within a group | Yes | All rollouts for same prompt run concurrently | | Turns within a rollout | Sequential | Must wait for model → env_response → model | | Rubric scoring | Sequential per group | Runs after all rollouts in group finish | | <code>on_progress</code> | Sequential | Fires one group at a time as they complete |</p>
+
+<h3>Timeline Example (3 prompts, 2 rollouts each)</h3>
+
+<pre><code>t=0   Launch Group0(A), Group1(B), Group2(C)
+t=1   Group0: rollout0 turn1, rollout1 turn1  (parallel)
+      Group1: rollout0 turn1, rollout1 turn1  (parallel)
+      Group2: rollout0 turn1, rollout1 turn1  (parallel)
+t=2   Group1 finishes first → rubric scores → on_progress → save
+t=3   Group0 finishes → rubric scores → on_progress → save
+t=4   Group2 finishes → rubric scores → on_progress → save
+t=5   All done, return results</code></pre>
+
+<h3>Key Insight</h3>
+
+<p>Scoring and progress happen at the group boundary. You never get a score mid-rollout or mid-group. A group is the atomic unit - all its rollouts must finish before anything gets scored or reported.</p>
+
+<div class="colophon">
+  <p>ASYNC EXECUTION FLOW IN VERIFIERS</p>
+</div>
+
 </body>
 </html>

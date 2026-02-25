@@ -1,232 +1,267 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="utf-8">
+<title>GRPO Training Loop: What Gets Fed to the Trainer</title>
 <style>
-    body {
-        background: #ffffff;
-        color: #1e1e1e;
-        font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', 'Menlo', monospace;
-        font-size: 14px;
-        line-height: 1.35;
-        padding: 0.5em 2em;
-        max-width: 960px;
-        margin: 0 auto;
-    }
-    pre {
-        white-space: pre-wrap;
-        word-wrap: break-word;
-        margin: 0;
-    }
-    ::selection {
-        background: #d0e8ff;
-        color: #1e1e1e;
-    }
-    a { color: #268bd2; text-decoration: none; }
-    a:hover { text-decoration: underline; }
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&display=swap');
 
-    .back { color: #93a1a1; font-size: 12px; margin-bottom: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, serif;
+    font-size: 14.5px;
+    line-height: 1.72;
+    color: #2a2a2a;
+    background: #fdfcfa;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 72px 1rem 120px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a.back {
+    font-family: 'JetBrains Mono', monospace; font-size: 9.5px;
+    color: #bbb; text-decoration: none; letter-spacing: 0.5px;
+  }
+  a.back:hover { color: #1a1a1a; }
+
+  .memo-head {
+    border-top: 2.5px solid #1a1a1a;
+    border-bottom: 0.5px solid #1a1a1a;
+    padding: 20px 0 16px;
+    margin-bottom: 40px;
+  }
+  .memo-head h1 {
+    font-size: 1.6rem;
+    font-weight: normal;
+    color: #333;
+    line-height: 1.25;
+    margin: 0;
+  }
+
+  h2 {
+    font-size: 1.3rem;
+    font-weight: normal;
+    color: #333;
+    margin: 56px 0 6px;
+  }
+  h3 {
+    font-size: 1.1rem;
+    font-weight: normal;
+    color: #333;
+    margin: 36px 0 4px;
+  }
+  p { margin: 10px 0; }
+
+  ul, ol { margin: 12px 0 12px 22px; }
+  li { margin: 5px 0; color: #333; }
+  li::marker { color: #bbb; }
+
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: #1a1a1a;
+    background: #f5f4f0;
+    padding: 1.5px 5px;
+    border-bottom: 1px solid #ddd;
+  }
+  pre {
+    margin: 20px 0;
+    padding: 16px 20px;
+    background: #f5f4f0;
+    border: 0.5px solid #e8e4de;
+    overflow-x: auto;
+    line-height: 1.5;
+  }
+  pre code {
+    background: none;
+    padding: 0;
+    border: none;
+    font-size: 12px;
+  }
+  strong { font-weight: 700; color: #1a1a1a; }
+  em { color: #555; }
+  a { color: #268bd2; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  blockquote {
+    font-size: 13px;
+    color: #888;
+    font-style: italic;
+    margin: 20px 0 20px 28px;
+    padding-left: 16px;
+    border-left: 1.5px solid #ddd;
+    line-height: 1.6;
+  }
+
+  hr {
+    border: none;
+    text-align: center;
+    margin: 56px 0;
+    line-height: 0;
+  }
+  hr::after {
+    content: '\2022\2009\2009\2022\2009\2009\2022';
+    font-size: 10px;
+    color: #ccc;
+    letter-spacing: 4px;
+  }
+
+  .colophon {
+    border-top: 0.5px solid #ddd;
+    margin-top: 64px;
+    padding-top: 16px;
+  }
+  .colophon p {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    color: #ccc;
+    letter-spacing: 0.5px;
+  }
+
 </style>
 </head>
 <body>
-<p class="back"><a href="index.html">back</a></p>
-<pre><!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<style>
-.r1 {color: #268bd2; text-decoration-color: #268bd2; font-weight: bold}
-.r2 {color: #2aa198; text-decoration-color: #2aa198; font-weight: bold}
-.r3 {color: #d33682; text-decoration-color: #d33682}
-.r4 {background-color: #f5f5f0}
-.r5 {color: #657b83; text-decoration-color: #657b83; background-color: #f5f5f0}
-.r6 {color: #93a1a1; text-decoration-color: #93a1a1; background-color: #f5f5f0; font-style: italic}
-.r7 {color: #93a1a1; text-decoration-color: #93a1a1; background-color: #f5f5f0}
-.r8 {color: #2aa198; text-decoration-color: #2aa198; background-color: #f5f5f0}
-.r9 {color: #859900; text-decoration-color: #859900; background-color: #f5f5f0}
-.r10 {font-weight: bold}
-.r11 {color: #d33682; text-decoration-color: #d33682; font-weight: bold}
-.r12 {color: #268bd2; text-decoration-color: #268bd2; background-color: #f5f5f0}
-.r13 {color: #cb4b16; text-decoration-color: #cb4b16}
-body {
-    color: #000000;
-    background-color: #f5f5f0;
-}
-</style>
-</head>
-<body>
-    <pre style="font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace"><code style="font-family:inherit"><span class="r1">GRPO Training Loop: What Gets Fed to the Trainer</span>                                                    
 
-How data flows from vLLM generation through scoring to weight updates. Covers tokens, logprobs,     
-masks, advantages, and the loss calculation.                                                        
+<a class="back" href="index.html">&larr; docs</a>
 
-<span class="r2">LLM Tokens vs Compiler Tokens</span>                                                                       
+<div class="memo-head">
+  <h1>GRPO Training Loop: What Gets Fed to the Trainer</h1>
+</div>
 
-In compilers, a token is a typed symbolic unit - <span class="r3">IDENT(&quot;foo&quot;)</span>, <span class="r3">PLUS</span>, <span class="r3">SEMICOLON</span>. It carries structure
-and meaning. The lexer matches regex patterns against a grammar.                                    
+<p>How data flows from vLLM generation through scoring to weight updates. Covers tokens, logprobs, masks, advantages, and the loss calculation.</p>
 
-In LLMs, a token is just an integer index into a vocabulary table. No types, no grammar. The        
-tokenizer chops text into subword pieces based on frequency:                                        
+<h3>LLM Tokens vs Compiler Tokens</h3>
 
-<span class="r4">                                                                                                    </span>
-<span class="r4"> </span><span class="r5">&quot;Hello world&quot; → [&quot;Hello&quot;, &quot; world&quot;] → [15496, 995]</span><span class="r4">                                                 </span>
-<span class="r4">                                                                                                    </span>
+<p>In compilers, a token is a typed symbolic unit - <code>IDENT(&quot;foo&quot;)</code>, <code>PLUS</code>, <code>SEMICOLON</code>. It carries structure and meaning. The lexer matches regex patterns against a grammar.</p>
 
-Built via BPE (Byte Pair Encoding): start with individual bytes, repeatedly merge the most frequent 
-adjacent pair until you hit ~100k vocabulary entries. Common words get one token, rare words get    
-split:                                                                                              
+<p>In LLMs, a token is just an integer index into a vocabulary table. No types, no grammar. The tokenizer chops text into subword pieces based on frequency:</p>
 
-<span class="r4">                                                                                                    </span>
-<span class="r4"> </span><span class="r5">&quot;John&quot;     → [2198]                    (common, one token)</span><span class="r4">                                         </span>
-<span class="r4"> </span><span class="r5">&quot;Zygmunt&quot;  → [31849, 4452, 1628]       (rare, three tokens)</span><span class="r4">                                        </span>
-<span class="r4">                                                                                                    </span>
+<pre><code>&quot;Hello world&quot; → [&quot;Hello&quot;, &quot; world&quot;] → [15496, 995]</code></pre>
 
-Two names can share subword tokens - &quot;Hans&quot; and &quot;Hannah&quot; might both start with a <span class="r3">&quot; Han&quot;</span> token but   
-diverge after that. It&#x27;s frequency-driven compression, closer to Huffman coding than lexical        
-analysis.                                                                                           
+<p>Built via BPE (Byte Pair Encoding): start with individual bytes, repeatedly merge the most frequent adjacent pair until you hit ~100k vocabulary entries. Common words get one token, rare words get split:</p>
 
-<span class="r2">One vLLM Call, Two Outputs</span>                                                                          
+<pre><code>&quot;John&quot;     → [2198]                    (common, one token)
+&quot;Zygmunt&quot;  → [31849, 4452, 1628]       (rare, three tokens)</code></pre>
 
-vLLM generates a completion and returns both forms in a single response:                            
+<p>Two names can share subword tokens - "Hans" and "Hannah" might both start with a <code>&quot; Han&quot;</code> token but diverge after that. It's frequency-driven compression, closer to Huffman coding than lexical analysis.</p>
 
-<span class="r4">                                                                                                    </span>
-<span class="r4"> </span><span class="r6"># Token IDs - integers, for the trainer</span><span class="r4">                                                            </span>
-<span class="r4"> </span><span class="r5">prompt_ids     </span><span class="r7">=</span><span class="r5"> response</span><span class="r7">.</span><span class="r5">prompt_token_ids          </span><span class="r6"># [1042, 553, 8821]</span><span class="r4">                            </span>
-<span class="r4"> </span><span class="r5">completion_ids </span><span class="r7">=</span><span class="r5"> response</span><span class="r7">.</span><span class="r5">choices[</span><span class="r8">0</span><span class="r5">]</span><span class="r7">.</span><span class="r5">token_ids       </span><span class="r6"># [4417, 229, 1105]</span><span class="r4">                           </span>
-<span class="r4">                                                                                                    </span>
-<span class="r4"> </span><span class="r6"># Log probs - per completion token, for the trainer</span><span class="r4">                                                </span>
-<span class="r4"> </span><span class="r5">completion_logprobs </span><span class="r7">=</span><span class="r5"> [token</span><span class="r7">.</span><span class="r5">logprob </span><span class="r9">for</span><span class="r5"> token </span><span class="r9">in</span><span class="r5"> logprobs_content]  </span><span class="r6"># [-0.3, -1.2, -0.1]</span><span class="r4">          </span>
-<span class="r4">                                                                                                    </span>
-<span class="r4"> </span><span class="r6"># Text - detokenized string, for verifiers/reward functions</span><span class="r4">                                        </span>
-<span class="r4"> </span><span class="r5">text </span><span class="r7">=</span><span class="r5"> response</span><span class="r7">.</span><span class="r5">choices[</span><span class="r8">0</span><span class="r5">]</span><span class="r7">.</span><span class="r5">message</span><span class="r7">.</span><span class="r5">content           </span><span class="r6"># &#x27;{&quot;to&quot;: [&quot;alice@acme.com&quot;]}&#x27;</span><span class="r4">                </span>
-<span class="r4">                                                                                                    </span>
+<h3>One vLLM Call, Two Outputs</h3>
 
-No re-tokenization needed. The token IDs and text are the same content in two representations. Token
-IDs go to the trainer, text goes to the reward functions (which need to parse JSON, compare strings,
-etc.).                                                                                              
+<p>vLLM generates a completion and returns both forms in a single response:</p>
 
-Code: <span class="r3">verifiers/clients/openai_chat_completions_client.py</span>, lines 439-478.                           
+<pre><code># Token IDs - integers, for the trainer
+prompt_ids     = response.prompt_token_ids          # [1042, 553, 8821]
+completion_ids = response.choices[0].token_ids       # [4417, 229, 1105]
 
-<span class="r2">What the Trainer Receives</span>                                                                           
+# Log probs - per completion token, for the trainer
+completion_logprobs = [token.logprob for token in logprobs_content]  # [-0.3, -1.2, -0.1]
 
-Four things per training example, packaged into a <span class="r3">Microbatch</span> by the orchestrator:                   
+# Text - detokenized string, for verifiers/reward functions
+text = response.choices[0].message.content           # &#x27;{&quot;to&quot;: [&quot;alice@acme.com&quot;]}&#x27;</code></pre>
 
-<span class="r10">1. </span><span class="r11">input_ids</span> - the full token sequence, prompt + completion concatenated:                           
+<p>No re-tokenization needed. The token IDs and text are the same content in two representations. Token IDs go to the trainer, text goes to the reward functions (which need to parse JSON, compare strings, etc.).</p>
 
-<span class="r4">                                                                                                    </span>
-<span class="r4"> </span><span class="r5">[1042, 553, 8821, 4417, 229, 1105]</span><span class="r4">                                                                 </span>
-<span class="r4"> </span><span class="r5"> |--- prompt ---|  |-- completion --|</span><span class="r4">                                                              </span>
-<span class="r4">                                                                                                    </span>
+<p>Code: <code>verifiers/clients/openai_chat_completions_client.py</code>, lines 439-478.</p>
 
-The trainer needs the full sequence because each token&#x27;s probability depends on everything before   
-it. You can&#x27;t evaluate the completion without the prompt as context.                                
+<h3>What the Trainer Receives</h3>
 
-<span class="r10">2. </span><span class="r11">loss_mask</span> - same length, binary. 0 = prompt (context only), 1 = completion (train on this):      
+<p>Four things per training example, packaged into a <code>Microbatch</code> by the orchestrator:</p>
 
-<span class="r4">                                                                                                    </span>
-<span class="r4"> </span><span class="r5">[0, 0, 0, 1, 1, 1]</span><span class="r4">                                                                                 </span>
-<span class="r4">                                                                                                    </span>
+<p><strong>1. <code>input_ids</code></strong> - the full token sequence, prompt + completion concatenated:</p>
 
-Built automatically by verifiers the moment vLLM returns - it knows the boundary because vLLM       
-returns <span class="r3">prompt_token_ids</span> and <span class="r3">token_ids</span> separately. In multi-turn, environment responses between     
-turns also get masked to 0:                                                                         
+<pre><code>[1042, 553, 8821, 4417, 229, 1105]
+ |--- prompt ---|  |-- completion --|</code></pre>
 
-<span class="r4">                                                                                                    </span>
-<span class="r4"> </span><span class="r5">[user prompt] [model turn 1] [env response] [model turn 2]</span><span class="r4">                                         </span>
-<span class="r4"> </span><span class="r5">     0              1              0               1</span><span class="r4">                                               </span>
-<span class="r4">                                                                                                    </span>
+<p>The trainer needs the full sequence because each token's probability depends on everything before it. You can't evaluate the completion without the prompt as context.</p>
 
-Only the model&#x27;s own outputs get trained on.                                                        
+<p><strong>2. <code>loss_mask</code></strong> - same length, binary. 0 = prompt (context only), 1 = completion (train on this):</p>
 
-<span class="r10">3. </span><span class="r11">sampling_logprobs</span> - the log probability vLLM assigned to each token when it generated them. These
-are the &quot;old policy&quot; probabilities:                                                                 
+<pre><code>[0, 0, 0, 1, 1, 1]</code></pre>
 
-<span class="r4">                                                                                                    </span>
-<span class="r4"> </span><span class="r5">[0.0, 0.0, 0.0, -0.3, -1.2, -0.1]</span><span class="r4">                                                                  </span>
-<span class="r4"> </span><span class="r5"> |-- zeros for prompt --|  |-- completion logprobs --|</span><span class="r4">                                             </span>
-<span class="r4">                                                                                                    </span>
+<p>Built automatically by verifiers the moment vLLM returns - it knows the boundary because vLLM returns <code>prompt_token_ids</code> and <code>token_ids</code> separately. In multi-turn, environment responses between turns also get masked to 0:</p>
 
-Log probs are the log of the softmax of the raw logits:                                             
+<pre><code>[user prompt] [model turn 1] [env response] [model turn 2]
+     0              1              0               1</code></pre>
 
-<span class="r4">                                                                                                    </span>
-<span class="r4"> </span><span class="r5">logits:   [2.1, 0.5, -1.3, ...]   ← raw scores for every vocab token</span><span class="r4">                               </span>
-<span class="r4"> </span><span class="r5">              ↓ softmax</span><span class="r4">                                                                            </span>
-<span class="r4"> </span><span class="r5">probs:    [0.74, 0.15, 0.02, ...]  ← probabilities (sum to 1)</span><span class="r4">                                      </span>
-<span class="r4"> </span><span class="r5">              ↓ log</span><span class="r4">                                                                                </span>
-<span class="r4"> </span><span class="r5">logprobs: [-0.3, -1.9, -3.9, ...]  ← stored for the sampled token</span><span class="r4">                                  </span>
-<span class="r4">                                                                                                    </span>
+<p>Only the model's own outputs get trained on.</p>
 
-Open-weight models on vLLM give full access to logits, so logprobs are computed directly. No API    
-restrictions.                                                                                       
+<p><strong>3. <code>sampling_logprobs</code></strong> - the log probability vLLM assigned to each token when it generated them. These are the "old policy" probabilities:</p>
 
-<span class="r10">4. </span><span class="r11">advantages</span> - a single scalar (reward minus group mean), repeated for every token:                
+<pre><code>[0.0, 0.0, 0.0, -0.3, -1.2, -0.1]
+ |-- zeros for prompt --|  |-- completion logprobs --|</code></pre>
 
-<span class="r4">                                                                                                    </span>
-<span class="r4"> </span><span class="r5">[0.3, 0.3, 0.3, 0.3, 0.3, 0.3]</span><span class="r4">                                                                     </span>
-<span class="r4">                                                                                                    </span>
+<p>Log probs are the log of the softmax of the raw logits:</p>
 
-Computed in the orchestrator from raw rewards:                                                      
+<pre><code>logits:   [2.1, 0.5, -1.3, ...]   ← raw scores for every vocab token
+              ↓ softmax
+probs:    [0.74, 0.15, 0.02, ...]  ← probabilities (sum to 1)
+              ↓ log
+logprobs: [-0.3, -1.9, -3.9, ...]  ← stored for the sampled token</code></pre>
 
-<span class="r4">                                                                                                    </span>
-<span class="r4"> </span><span class="r9">for</span><span class="r5"> g </span><span class="r9">in</span><span class="r5"> </span><span class="r12">range</span><span class="r5">(</span><span class="r8">0</span><span class="r5">, </span><span class="r12">len</span><span class="r5">(raw_rewards), rollouts_per_example):</span><span class="r4">                                         </span>
-<span class="r4"> </span><span class="r5">    group </span><span class="r7">=</span><span class="r5"> raw_rewards[g : g </span><span class="r7">+</span><span class="r5"> rollouts_per_example]</span><span class="r4">                                              </span>
-<span class="r4"> </span><span class="r5">    group_mean </span><span class="r7">=</span><span class="r5"> </span><span class="r12">sum</span><span class="r5">(group) </span><span class="r7">/</span><span class="r5"> </span><span class="r12">len</span><span class="r5">(group)</span><span class="r4">                                                           </span>
-<span class="r4"> </span><span class="r5">    advantages</span><span class="r7">.</span><span class="r5">extend(r </span><span class="r7">-</span><span class="r5"> group_mean </span><span class="r9">for</span><span class="r5"> r </span><span class="r9">in</span><span class="r5"> group)</span><span class="r4">                                               </span>
-<span class="r4">                                                                                                    </span>
+<p>Open-weight models on vLLM give full access to logits, so logprobs are computed directly. No API restrictions.</p>
 
-GRPO generates N completions per prompt. If this completion scored 0.8 and the group mean was 0.5,  
-the advantage is +0.3 (better than average, reinforce it). If it scored 0.2, advantage is -0.3      
-(worse than average, suppress it).                                                                  
+<p><strong>4. <code>advantages</code></strong> - a single scalar (reward minus group mean), repeated for every token:</p>
 
-Code: <span class="r3">t2f_trainer/rl/trainer/orchestrator.py</span>, lines 253-258.                                        
+<pre><code>[0.3, 0.3, 0.3, 0.3, 0.3, 0.3]</code></pre>
 
-<span class="r2">The Loss Calculation</span>                                                                                
+<p>Computed in the orchestrator from raw rewards:</p>
 
-The trainer runs one forward pass on <span class="r3">input_ids</span>, gets its own log probs (<span class="r3">trainer_logprobs</span>), then:    
+<pre><code>for g in range(0, len(raw_rewards), rollouts_per_example):
+    group = raw_rewards[g : g + rollouts_per_example]
+    group_mean = sum(group) / len(group)
+    advantages.extend(r - group_mean for r in group)</code></pre>
 
-<span class="r4">                                                                                                    </span>
-<span class="r4"> </span><span class="r5">ratio = exp(trainer_logprob - sampling_logprob)</span><span class="r4">                                                    </span>
-<span class="r4"> </span><span class="r5">loss = -ratio × advantage</span><span class="r4">                                                                          </span>
-<span class="r4">                                                                                                    </span>
+<p>GRPO generates N completions per prompt. If this completion scored 0.8 and the group mean was 0.5, the advantage is +0.3 (better than average, reinforce it). If it scored 0.2, advantage is -0.3 (worse than average, suppress it).</p>
 
-<span class="r13"> • </span><span class="r10">Positive advantage</span> → negative loss → gradient makes these tokens more probable                   
-<span class="r13"> • </span><span class="r10">Negative advantage</span> → positive loss → gradient makes these tokens less probable                   
-<span class="r13"> • </span><span class="r10">Ratio</span> measures how much the policy has shifted - PPO clipping caps it so updates don&#x27;t overshoot 
+<p>Code: <code>t2f_trainer/rl/trainer/orchestrator.py</code>, lines 253-258.</p>
 
-The <span class="r3">loss_mask</span> ensures backprop only flows through completion tokens.                                
+<h3>The Loss Calculation</h3>
 
-Code: <span class="r3">t2f_trainer/rl/trainer/trainer.py</span>, lines 260-270.                                             
+<p>The trainer runs one forward pass on <code>input_ids</code>, gets its own log probs (<code>trainer_logprobs</code>), then:</p>
 
-<span class="r2">The Full Loop</span>                                                                                       
+<pre><code>ratio = exp(trainer_logprob - sampling_logprob)
+loss = -ratio × advantage</code></pre>
 
-<span class="r4">                                                                                                    </span>
-<span class="r4"> </span><span class="r5">1. vLLM generates N completions per prompt (token IDs + logprobs + text)</span><span class="r4">                           </span>
-<span class="r4"> </span><span class="r5">2. Verifiers scores them with reward functions (text → reward scalar)</span><span class="r4">                              </span>
-<span class="r4"> </span><span class="r5">3. Orchestrator computes advantages (reward - group_mean)</span><span class="r4">                                          </span>
-<span class="r4"> </span><span class="r5">4. Orchestrator packages microbatches (input_ids, loss_mask, sampling_logprobs, advantages)</span><span class="r4">        </span>
-<span class="r4"> </span><span class="r5">5. Trainer forward pass → trainer_logprobs on same token sequences</span><span class="r4">                                 </span>
-<span class="r4"> </span><span class="r5">6. Loss = -ratio × advantage, masked to completion tokens only</span><span class="r4">                                     </span>
-<span class="r4"> </span><span class="r5">7. Backprop → update trainer weights</span><span class="r4">                                                               </span>
-<span class="r4"> </span><span class="r5">8. NCCL broadcast → sync weights to vLLM (GPU-to-GPU, every step)</span><span class="r4">                                  </span>
-<span class="r4"> </span><span class="r5">9. Back to 1</span><span class="r4">                                                                                       </span>
-<span class="r4">                                                                                                    </span>
+<ul>
+<li><strong>Positive advantage</strong> → negative loss → gradient makes these tokens more probable</li>
+<li><strong>Negative advantage</strong> → positive loss → gradient makes these tokens less probable</li>
+<li><strong>Ratio</strong> measures how much the policy has shifted - PPO clipping caps it so updates don't overshoot</li>
+</ul>
 
-<span class="r2">Two Copies, One Model</span>                                                                               
+<p>The <code>loss_mask</code> ensures backprop only flows through completion tokens.</p>
 
-There are two copies of the same weights in GPU memory:                                             
+<p>Code: <code>t2f_trainer/rl/trainer/trainer.py</code>, lines 260-270.</p>
 
-<span class="r13"> • </span><span class="r10">Trainer copy</span> (transformers/deepspeed) - where gradients flow and weights get updated             
-<span class="r13"> • </span><span class="r10">Inference copy</span> (vLLM) - generates completions fast, receives weight syncs                        
+<h3>The Full Loop</h3>
 
-Same architecture, same weights after sync. Two copies because generation and gradient computation  
-have different computational patterns and can&#x27;t efficiently share a single loaded model. The sync   
-happens every training step via NCCL broadcast - not at checkpoints. Checkpoints are periodic saves 
-to disk for crash recovery and HuggingFace upload.                                                  
+<pre><code>1. vLLM generates N completions per prompt (token IDs + logprobs + text)
+2. Verifiers scores them with reward functions (text → reward scalar)
+3. Orchestrator computes advantages (reward - group_mean)
+4. Orchestrator packages microbatches (input_ids, loss_mask, sampling_logprobs, advantages)
+5. Trainer forward pass → trainer_logprobs on same token sequences
+6. Loss = -ratio × advantage, masked to completion tokens only
+7. Backprop → update trainer weights
+8. NCCL broadcast → sync weights to vLLM (GPU-to-GPU, every step)
+9. Back to 1</code></pre>
 
-Code: <span class="r3">t2f_trainer/rl/trainer/trainer.py</span>, <span class="r3">update_vllm()</span> at line 319.                                 
-</code></pre>
-</body>
-</html>
-</pre>
+<h3>Two Copies, One Model</h3>
+
+<p>There are two copies of the same weights in GPU memory:</p>
+
+<ul>
+<li><strong>Trainer copy</strong> (transformers/deepspeed) - where gradients flow and weights get updated</li>
+<li><strong>Inference copy</strong> (vLLM) - generates completions fast, receives weight syncs</li>
+</ul>
+
+<p>Same architecture, same weights after sync. Two copies because generation and gradient computation have different computational patterns and can't efficiently share a single loaded model. The sync happens every training step via NCCL broadcast - not at checkpoints. Checkpoints are periodic saves to disk for crash recovery and HuggingFace upload.</p>
+
+<p>Code: <code>t2f_trainer/rl/trainer/trainer.py</code>, <code>update_vllm()</code> at line 319.</p>
+
+<div class="colophon">
+  <p>GRPO TRAINING LOOP: WHAT GETS FED TO THE TRAINER</p>
+</div>
+
 </body>
 </html>

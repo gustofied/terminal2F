@@ -1,206 +1,245 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="utf-8">
+<title>How Advantages Update Weights</title>
 <style>
-    body {
-        background: #ffffff;
-        color: #1e1e1e;
-        font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', 'Menlo', monospace;
-        font-size: 14px;
-        line-height: 1.35;
-        padding: 0.5em 2em;
-        max-width: 960px;
-        margin: 0 auto;
-    }
-    pre {
-        white-space: pre-wrap;
-        word-wrap: break-word;
-        margin: 0;
-    }
-    ::selection {
-        background: #d0e8ff;
-        color: #1e1e1e;
-    }
-    a { color: #268bd2; text-decoration: none; }
-    a:hover { text-decoration: underline; }
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&display=swap');
 
-    .back { color: #93a1a1; font-size: 12px; margin-bottom: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, serif;
+    font-size: 14.5px;
+    line-height: 1.72;
+    color: #2a2a2a;
+    background: #fdfcfa;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 72px 1rem 120px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a.back {
+    font-family: 'JetBrains Mono', monospace; font-size: 9.5px;
+    color: #bbb; text-decoration: none; letter-spacing: 0.5px;
+  }
+  a.back:hover { color: #1a1a1a; }
+
+  .memo-head {
+    border-top: 2.5px solid #1a1a1a;
+    border-bottom: 0.5px solid #1a1a1a;
+    padding: 20px 0 16px;
+    margin-bottom: 40px;
+  }
+  .memo-head h1 {
+    font-size: 1.6rem;
+    font-weight: normal;
+    color: #333;
+    line-height: 1.25;
+    margin: 0;
+  }
+
+  h2 {
+    font-size: 1.3rem;
+    font-weight: normal;
+    color: #333;
+    margin: 56px 0 6px;
+  }
+  h3 {
+    font-size: 1.1rem;
+    font-weight: normal;
+    color: #333;
+    margin: 36px 0 4px;
+  }
+  p { margin: 10px 0; }
+
+  ul, ol { margin: 12px 0 12px 22px; }
+  li { margin: 5px 0; color: #333; }
+  li::marker { color: #bbb; }
+
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: #1a1a1a;
+    background: #f5f4f0;
+    padding: 1.5px 5px;
+    border-bottom: 1px solid #ddd;
+  }
+  pre {
+    margin: 20px 0;
+    padding: 16px 20px;
+    background: #f5f4f0;
+    border: 0.5px solid #e8e4de;
+    overflow-x: auto;
+    line-height: 1.5;
+  }
+  pre code {
+    background: none;
+    padding: 0;
+    border: none;
+    font-size: 12px;
+  }
+  strong { font-weight: 700; color: #1a1a1a; }
+  em { color: #555; }
+  a { color: #268bd2; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  blockquote {
+    font-size: 13px;
+    color: #888;
+    font-style: italic;
+    margin: 20px 0 20px 28px;
+    padding-left: 16px;
+    border-left: 1.5px solid #ddd;
+    line-height: 1.6;
+  }
+
+  hr {
+    border: none;
+    text-align: center;
+    margin: 56px 0;
+    line-height: 0;
+  }
+  hr::after {
+    content: '\2022\2009\2009\2022\2009\2009\2022';
+    font-size: 10px;
+    color: #ccc;
+    letter-spacing: 4px;
+  }
+
+  .colophon {
+    border-top: 0.5px solid #ddd;
+    margin-top: 64px;
+    padding-top: 16px;
+  }
+  .colophon p {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    color: #ccc;
+    letter-spacing: 0.5px;
+  }
+
 </style>
 </head>
 <body>
-<p class="back"><a href="index.html">back</a></p>
-<pre><!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<style>
-.r1 {color: #268bd2; text-decoration-color: #268bd2; font-weight: bold}
-.r2 {color: #2aa198; text-decoration-color: #2aa198; font-weight: bold}
-.r3 {color: #cb4b16; text-decoration-color: #cb4b16}
-.r4 {font-weight: bold}
-.r5 {color: #d33682; text-decoration-color: #d33682}
-.r6 {background-color: #f5f5f0}
-.r7 {color: #657b83; text-decoration-color: #657b83; background-color: #f5f5f0}
-.r8 {font-style: italic}
-body {
-    color: #000000;
-    background-color: #f5f5f0;
-}
-</style>
-</head>
-<body>
-    <pre style="font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace"><code style="font-family:inherit"><span class="r1">How Advantages Update Weights</span>                                                                       
 
-How the advantage signal flows through the loss function to actually change model weights. The      
-mechanics of turning &quot;good completion / bad completion&quot; into gradient updates.                      
+<a class="back" href="index.html">&larr; docs</a>
 
-<span class="r2">The Goal</span>                                                                                            
+<div class="memo-head">
+  <h1>How Advantages Update Weights</h1>
+</div>
 
-Each token the model generated has a logprob - how probable that token was when the model picked it.
-After scoring, you know the advantage (good or bad completion). The trainer&#x27;s job:                  
+<p>How the advantage signal flows through the loss function to actually change model weights. The mechanics of turning "good completion / bad completion" into gradient updates.</p>
 
-<span class="r3"> • </span><span class="r4">Positive advantage</span> → push logprobs of those tokens <span class="r4">up</span> (make the model more likely to pick them   
-<span class="r3">   </span>again in similar contexts)                                                                       
-<span class="r3"> • </span><span class="r4">Negative advantage</span> → push logprobs of those tokens <span class="r4">down</span> (make the model less likely to pick them)
+<h3>The Goal</h3>
 
-<span class="r2">How It Actually Happens</span>                                                                             
+<p>Each token the model generated has a logprob - how probable that token was when the model picked it. After scoring, you know the advantage (good or bad completion). The trainer's job:</p>
 
-<span class="r4">Step 1: The trainer re-scores the same tokens.</span>                                                      
+<ul>
+<li><strong>Positive advantage</strong> → push logprobs of those tokens <strong>up</strong> (make the model more likely to pick them again in similar contexts)</li>
+<li><strong>Negative advantage</strong> → push logprobs of those tokens <strong>down</strong> (make the model less likely to pick them)</li>
+</ul>
 
-vLLM generated the completion with the old weights and recorded its logprobs (<span class="r5">sampling_logprobs</span>).   
-Now the trainer feeds the same token sequence through its copy of the model and gets fresh logprobs 
-(<span class="r5">trainer_logprobs</span>). This is not another rollout - it&#x27;s just a forward pass on the same fixed token  
-sequence to get logprobs under the current weights. These might already differ slightly because the 
-weights have been updated from previous steps.                                                      
+<h3>How It Actually Happens</h3>
 
-<span class="r4">Step 2: The loss function.</span>                                                                          
+<p><strong>Step 1: The trainer re-scores the same tokens.</strong></p>
 
-For each completion token t (mask = 1):                                                             
+<p>vLLM generated the completion with the old weights and recorded its logprobs (<code>sampling_logprobs</code>). Now the trainer feeds the same token sequence through its copy of the model and gets fresh logprobs (<code>trainer_logprobs</code>). This is not another rollout - it's just a forward pass on the same fixed token sequence to get logprobs under the current weights. These might already differ slightly because the weights have been updated from previous steps.</p>
 
-<span class="r6">                                                                                                    </span>
-<span class="r6"> </span><span class="r7">ratio_t = exp(trainer_logprob_t - sampling_logprob_t)</span><span class="r6">                                              </span>
-<span class="r6"> </span><span class="r7">loss_t  = -ratio_t × advantage</span><span class="r6">                                                                     </span>
-<span class="r6">                                                                                                    </span>
+<p><strong>Step 2: The loss function.</strong></p>
 
-Total loss = sum of loss_t over all completion tokens, over all rollouts in the microbatch.         
+<p>For each completion token t (mask = 1):</p>
 
-The ratio is a PPO-style importance-sampling correction (using the rollout policy as &quot;old&quot;). Some   
-GRPO implementations skip the ratio if they treat updates as strictly on-policy, but many LLM RL    
-stacks keep it with clipping for stability.                                                         
+<pre><code>ratio_t = exp(trainer_logprob_t - sampling_logprob_t)
+loss_t  = -ratio_t × advantage</code></pre>
 
-Let&#x27;s unpack what this does with real numbers.                                                      
+<p>Total loss = sum of loss_t over all completion tokens, over all rollouts in the microbatch.</p>
 
-Say the model generated the token <span class="r5">&quot;alice&quot;</span> (ID 4417):                                                
+<p>The ratio is a PPO-style importance-sampling correction (using the rollout policy as "old"). Some GRPO implementations skip the ratio if they treat updates as strictly on-policy, but many LLM RL stacks keep it with clipping for stability.</p>
 
-<span class="r6">                                                                                                    </span>
-<span class="r6"> </span><span class="r7">sampling_logprob = -0.3    (token probability ≈ 0.74)</span><span class="r6">                                              </span>
-<span class="r6"> </span><span class="r7">trainer_logprob  = -0.35   (token probability ≈ 0.70)</span><span class="r6">                                              </span>
-<span class="r6"> </span><span class="r7">advantage        = +0.4    (this was a good completion)</span><span class="r6">                                            </span>
-<span class="r6">                                                                                                    </span>
-<span class="r6"> </span><span class="r7">ratio = exp(-0.35 - (-0.3)) = exp(-0.05) = 0.95</span><span class="r6">                                                    </span>
-<span class="r6"> </span><span class="r7">loss  = -0.95 × 0.4 = -0.38</span><span class="r6">                                                                        </span>
-<span class="r6">                                                                                                    </span>
+<p>Let's unpack what this does with real numbers.</p>
 
-The derivative is <span class="r5">∂L/∂log π = -A × r = -0.4 × 0.95 = -0.38</span>. Since A &gt; 0, gradient descent increases 
-the logprob for <span class="r5">&quot;alice&quot;</span> - making the model more likely to pick it in this context. That&#x27;s exactly   
-what we want.                                                                                       
+<p>Say the model generated the token <code>&quot;alice&quot;</code> (ID 4417):</p>
 
-Now a bad completion with the token <span class="r5">&quot;bob&quot;</span> (ID 3382):                                                
+<pre><code>sampling_logprob = -0.3    (token probability ≈ 0.74)
+trainer_logprob  = -0.35   (token probability ≈ 0.70)
+advantage        = +0.4    (this was a good completion)
 
-<span class="r6">                                                                                                    </span>
-<span class="r6"> </span><span class="r7">sampling_logprob = -1.2</span><span class="r6">                                                                            </span>
-<span class="r6"> </span><span class="r7">trainer_logprob  = -1.1</span><span class="r6">                                                                            </span>
-<span class="r6"> </span><span class="r7">advantage        = -0.4    (this was a bad completion)</span><span class="r6">                                             </span>
-<span class="r6">                                                                                                    </span>
-<span class="r6"> </span><span class="r7">ratio = exp(-1.1 - (-1.2)) = exp(0.1) = 1.10</span><span class="r6">                                                       </span>
-<span class="r6"> </span><span class="r7">loss  = -1.10 × (-0.4) = +0.44</span><span class="r6">                                                                     </span>
-<span class="r6">                                                                                                    </span>
+ratio = exp(-0.35 - (-0.3)) = exp(-0.05) = 0.95
+loss  = -0.95 × 0.4 = -0.38</code></pre>
 
-The derivative is <span class="r5">∂L/∂log π = -A × r = -(-0.4) × 1.10 = +0.44</span>. Since A &lt; 0, gradient descent        
-decreases the logprob for <span class="r5">&quot;bob&quot;</span> - making the model less likely to pick it here.                     
+<p>The derivative is <code>∂L/∂log π = -A × r = -0.4 × 0.95 = -0.38</code>. Since A > 0, gradient descent increases the logprob for <code>&quot;alice&quot;</code> - making the model more likely to pick it in this context. That's exactly what we want.</p>
 
-The loss value itself (negative or positive) doesn&#x27;t matter. What matters is the gradient direction,
-which the advantage controls:                                                                       
+<p>Now a bad completion with the token <code>&quot;bob&quot;</code> (ID 3382):</p>
 
-<span class="r6">                                                                                                    </span>
-<span class="r6"> </span><span class="r7">∂L/∂log π = -A × r</span><span class="r6">                                                                                 </span>
-<span class="r6">                                                                                                    </span>
+<pre><code>sampling_logprob = -1.2
+trainer_logprob  = -1.1
+advantage        = -0.4    (this was a bad completion)
 
-<span class="r3"> • </span>A &gt; 0 → gradient descent increases log π (makes the sampled token more likely)                   
-<span class="r3"> • </span>A &lt; 0 → gradient descent decreases log π (makes it less likely)                                  
+ratio = exp(-1.1 - (-1.2)) = exp(0.1) = 1.10
+loss  = -1.10 × (-0.4) = +0.44</code></pre>
 
-<span class="r4">Step 3: Clipping (the PPO part).</span>                                                                    
+<p>The derivative is <code>∂L/∂log π = -A × r = -(-0.4) × 1.10 = +0.44</code>. Since A < 0, gradient descent decreases the logprob for <code>&quot;bob&quot;</code> - making the model less likely to pick it here.</p>
 
-The ratio can get extreme if the policy has shifted a lot. Clipping caps it:                        
+<p>The loss value itself (negative or positive) doesn't matter. What matters is the gradient direction, which the advantage controls:</p>
 
-<span class="r6">                                                                                                    </span>
-<span class="r6"> </span><span class="r7">clipped_ratio = clip(ratio, 1 - ε, 1 + ε)    # typically ε = 0.2</span><span class="r6">                                   </span>
-<span class="r6"> </span><span class="r7">loss = -min(ratio × advantage, clipped_ratio × advantage)</span><span class="r6">                                          </span>
-<span class="r6">                                                                                                    </span>
+<pre><code>∂L/∂log π = -A × r</code></pre>
 
-This prevents any single update from moving the weights too aggressively. Clipping stops further    
-movement in the direction that would increase the objective - for A &gt; 0, it caps large increases in 
-probability; for A &lt; 0, it caps large decreases.                                                    
+<ul>
+<li>A > 0 → gradient descent increases log π (makes the sampled token more likely)</li>
+<li>A < 0 → gradient descent decreases log π (makes it less likely)</li>
+</ul>
 
-<span class="r4">Step 4: The loss mask.</span>                                                                              
+<p><strong>Step 3: Clipping (the PPO part).</strong></p>
 
-The loss is only computed on completion tokens (mask = 1). Prompt tokens are there for context but  
-contribute zero to the loss. So when you sum up the total loss across the sequence, it&#x27;s only over  
-the tokens the model actually generated.                                                            
+<p>The ratio can get extreme if the policy has shifted a lot. Clipping caps it:</p>
 
-<span class="r4">Step 5: Backprop.</span>                                                                                   
+<pre><code>clipped_ratio = clip(ratio, 1 - ε, 1 + ε)    # typically ε = 0.2
+loss = -min(ratio × advantage, clipped_ratio × advantage)</code></pre>
 
-The total loss (summed across all completion tokens, across all examples in the microbatch) gets    
-backpropagated through the network. This produces gradients on every weight in the model. The       
-optimizer (usually AdamW) uses those gradients to nudge the weights.                                
+<p>This prevents any single update from moving the weights too aggressively. Clipping stops further movement in the direction that would increase the objective - for A > 0, it caps large increases in probability; for A < 0, it caps large decreases.</p>
 
-<span class="r2">What Changes in the Weights</span>                                                                         
+<p><strong>Step 4: The loss mask.</strong></p>
 
-This is the part that feels abstract. The model has billions of parameters - attention weights, MLP 
-weights, embeddings. Backprop computes how much each weight contributed to the loss, and nudges it  
-accordingly.                                                                                        
+<p>The loss is only computed on completion tokens (mask = 1). Prompt tokens are there for context but contribute zero to the loss. So when you sum up the total loss across the sequence, it's only over the tokens the model actually generated.</p>
 
-You don&#x27;t directly say &quot;make the logprob of token 4417 go up.&quot; Instead, the gradient flows backward 
-through the entire network:                                                                         
+<p><strong>Step 5: Backprop.</strong></p>
 
-<span class="r6">                                                                                                    </span>
-<span class="r6"> </span><span class="r7">loss → output logits → final layer weights → ... → attention weights → ... → embeddings</span><span class="r6">            </span>
-<span class="r6">                                                                                                    </span>
+<p>The total loss (summed across all completion tokens, across all examples in the microbatch) gets backpropagated through the network. This produces gradients on every weight in the model. The optimizer (usually AdamW) uses those gradients to nudge the weights.</p>
 
-Every weight gets a tiny nudge. The cumulative effect of all those nudges is that next time the     
-model sees a similar prompt, the logit for <span class="r5">&quot;alice&quot;</span> will be slightly higher and the logit for <span class="r5">&quot;bob&quot;</span>  
-will be slightly lower. That shifts the softmax, which shifts the logprobs, which shifts what the   
-model samples.                                                                                      
+<h3>What Changes in the Weights</h3>
 
-<span class="r2">The Advantage is the Steering Wheel</span>                                                                 
+<p>This is the part that feels abstract. The model has billions of parameters - attention weights, MLP weights, embeddings. Backprop computes how much each weight contributed to the loss, and nudges it accordingly.</p>
 
-The advantage doesn&#x27;t change the loss function&#x27;s shape - it <span class="r4">scales</span> it. The loss function always     
-tries to push logprobs. The advantage controls <span class="r4">which direction and how hard</span>:                        
+<p>You don't directly say "make the logprob of token 4417 go up." Instead, the gradient flows backward through the entire network:</p>
 
-<span class="r3"> • </span>Large positive advantage → strong push to increase these token logprobs                          
-<span class="r3"> • </span>Small positive advantage → gentle push                                                           
-<span class="r3"> • </span>Zero advantage → no push at all (this completion was average, nothing to learn)                  
-<span class="r3"> • </span>Negative advantage → push to decrease these token logprobs                                       
+<pre><code>loss → output logits → final layer weights → ... → attention weights → ... → embeddings</code></pre>
 
-That&#x27;s why GRPO needs reward diversity in the group. If all K completions get the same reward, all  
-advantages are zero, and the loss contributes nothing. No learning happens.                         
+<p>Every weight gets a tiny nudge. The cumulative effect of all those nudges is that next time the model sees a similar prompt, the logit for <code>&quot;alice&quot;</code> will be slightly higher and the logit for <code>&quot;bob&quot;</code> will be slightly lower. That shifts the softmax, which shifts the logprobs, which shifts what the model samples.</p>
 
-<span class="r2">One Completion, All Tokens Move Together</span>                                                            
+<h3>The Advantage is the Steering Wheel</h3>
 
-Every token in the completion gets the same advantage value. If the completion scored well, <span class="r8">all</span> its 
-tokens get reinforced - even the &quot;boring&quot; ones like punctuation or formatting. The model can&#x27;t tell 
-which specific tokens were responsible for the good score. This is the <span class="r4">credit assignment</span> limitation 
-of sequence-level reward.                                                                           
+<p>The advantage doesn't change the loss function's shape - it <strong>scales</strong> it. The loss function always tries to push logprobs. The advantage controls <strong>which direction and how hard</strong>:</p>
 
-Over many training steps and many examples, the signal averages out: tokens that consistently appear
-in good completions get reinforced, tokens that consistently appear in bad ones get suppressed. This
-is coarse credit assignment (sequence-level advantage applied to all tokens), but it works          
-surprisingly well in practice because the model sees enough variation across the group to tease out 
-what matters.                                                                                       
-</code></pre>
-</body>
-</html>
-</pre>
+<ul>
+<li>Large positive advantage → strong push to increase these token logprobs</li>
+<li>Small positive advantage → gentle push</li>
+<li>Zero advantage → no push at all (this completion was average, nothing to learn)</li>
+<li>Negative advantage → push to decrease these token logprobs</li>
+</ul>
+
+<p>That's why GRPO needs reward diversity in the group. If all K completions get the same reward, all advantages are zero, and the loss contributes nothing. No learning happens.</p>
+
+<h3>One Completion, All Tokens Move Together</h3>
+
+<p>Every token in the completion gets the same advantage value. If the completion scored well, <em>all</em> its tokens get reinforced - even the "boring" ones like punctuation or formatting. The model can't tell which specific tokens were responsible for the good score. This is the <strong>credit assignment</strong> limitation of sequence-level reward.</p>
+
+<p>Over many training steps and many examples, the signal averages out: tokens that consistently appear in good completions get reinforced, tokens that consistently appear in bad ones get suppressed. This is coarse credit assignment (sequence-level advantage applied to all tokens), but it works surprisingly well in practice because the model sees enough variation across the group to tease out what matters.</p>
+
+<div class="colophon">
+  <p>HOW ADVANTAGES UPDATE WEIGHTS</p>
+</div>
+
 </body>
 </html>

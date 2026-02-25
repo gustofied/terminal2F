@@ -1,104 +1,173 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="utf-8">
+<title>TODO: t2f-eval and Rerun Logging</title>
 <style>
-    body {
-        background: #ffffff;
-        color: #1e1e1e;
-        font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', 'Menlo', monospace;
-        font-size: 14px;
-        line-height: 1.35;
-        padding: 0.5em 2em;
-        max-width: 960px;
-        margin: 0 auto;
-    }
-    pre {
-        white-space: pre-wrap;
-        word-wrap: break-word;
-        margin: 0;
-    }
-    ::selection {
-        background: #d0e8ff;
-        color: #1e1e1e;
-    }
-    a { color: #268bd2; text-decoration: none; }
-    a:hover { text-decoration: underline; }
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&display=swap');
 
-    .back { color: #93a1a1; font-size: 12px; margin-bottom: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, serif;
+    font-size: 14.5px;
+    line-height: 1.72;
+    color: #2a2a2a;
+    background: #fdfcfa;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 72px 1rem 120px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a.back {
+    font-family: 'JetBrains Mono', monospace; font-size: 9.5px;
+    color: #bbb; text-decoration: none; letter-spacing: 0.5px;
+  }
+  a.back:hover { color: #1a1a1a; }
+
+  .memo-head {
+    border-top: 2.5px solid #1a1a1a;
+    border-bottom: 0.5px solid #1a1a1a;
+    padding: 20px 0 16px;
+    margin-bottom: 40px;
+  }
+  .memo-head h1 {
+    font-size: 1.6rem;
+    font-weight: normal;
+    color: #333;
+    line-height: 1.25;
+    margin: 0;
+  }
+
+  h2 {
+    font-size: 1.3rem;
+    font-weight: normal;
+    color: #333;
+    margin: 56px 0 6px;
+  }
+  h3 {
+    font-size: 1.1rem;
+    font-weight: normal;
+    color: #333;
+    margin: 36px 0 4px;
+  }
+  p { margin: 10px 0; }
+
+  ul, ol { margin: 12px 0 12px 22px; }
+  li { margin: 5px 0; color: #333; }
+  li::marker { color: #bbb; }
+
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: #1a1a1a;
+    background: #f5f4f0;
+    padding: 1.5px 5px;
+    border-bottom: 1px solid #ddd;
+  }
+  pre {
+    margin: 20px 0;
+    padding: 16px 20px;
+    background: #f5f4f0;
+    border: 0.5px solid #e8e4de;
+    overflow-x: auto;
+    line-height: 1.5;
+  }
+  pre code {
+    background: none;
+    padding: 0;
+    border: none;
+    font-size: 12px;
+  }
+  strong { font-weight: 700; color: #1a1a1a; }
+  em { color: #555; }
+  a { color: #268bd2; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  blockquote {
+    font-size: 13px;
+    color: #888;
+    font-style: italic;
+    margin: 20px 0 20px 28px;
+    padding-left: 16px;
+    border-left: 1.5px solid #ddd;
+    line-height: 1.6;
+  }
+
+  hr {
+    border: none;
+    text-align: center;
+    margin: 56px 0;
+    line-height: 0;
+  }
+  hr::after {
+    content: '\2022\2009\2009\2022\2009\2009\2022';
+    font-size: 10px;
+    color: #ccc;
+    letter-spacing: 4px;
+  }
+
+  .colophon {
+    border-top: 0.5px solid #ddd;
+    margin-top: 64px;
+    padding-top: 16px;
+  }
+  .colophon p {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    color: #ccc;
+    letter-spacing: 0.5px;
+  }
+
 </style>
 </head>
 <body>
-<p class="back"><a href="index.html">back</a></p>
-<pre><!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<style>
-.r1 {color: #268bd2; text-decoration-color: #268bd2; font-weight: bold}
-.r2 {color: #2aa198; text-decoration-color: #2aa198; font-weight: bold}
-.r3 {font-weight: bold}
-.r4 {color: #d33682; text-decoration-color: #d33682; font-weight: bold}
-.r5 {color: #d33682; text-decoration-color: #d33682}
-.r6 {background-color: #f5f5f0}
-.r7 {color: #859900; text-decoration-color: #859900; background-color: #f5f5f0}
-.r8 {color: #657b83; text-decoration-color: #657b83; background-color: #f5f5f0}
-.r9 {color: #268bd2; text-decoration-color: #268bd2; background-color: #f5f5f0}
-.r10 {color: #93a1a1; text-decoration-color: #93a1a1; background-color: #f5f5f0}
-.r11 {color: #2aa198; text-decoration-color: #2aa198; background-color: #f5f5f0}
-.r12 {color: #cb4b16; text-decoration-color: #cb4b16}
-body {
-    color: #000000;
-    background-color: #f5f5f0;
-}
-</style>
-</head>
-<body>
-    <pre style="font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace"><code style="font-family:inherit"><span class="r1">TODO: t2f-eval and Rerun Logging</span>                                                                    
 
-<span class="r2">Idea</span>                                                                                                
+<a class="back" href="index.html">&larr; docs</a>
 
-Custom eval/training visualization with Rerun instead of Rich TUI.                                  
+<div class="memo-head">
+  <h1>TODO: t2f-eval and Rerun Logging</h1>
+</div>
 
-<span class="r2">Two Approaches</span>                                                                                      
+<h3>Idea</h3>
 
-<span class="r3">1. Eval-level: </span><span class="r4">t2f-eval</span><span class="r3"> command</span>                                                                     
+<p>Custom eval/training visualization with Rerun instead of Rich TUI.</p>
 
-Verifiers&#x27; <span class="r5">run_evaluation()</span> in <span class="r5">eval_utils.py</span> takes <span class="r5">on_progress</span> and <span class="r5">on_log</span> callbacks. The Rich TUI is
-just one implementation. Write a <span class="r5">t2f-eval</span> that passes Rerun callbacks instead. Fires on every       
-completed rollout - live logging, not post-processing.                                              
+<h3>Two Approaches</h3>
 
-<span class="r3">2. Environment-level: callback on </span><span class="r4">env_response</span>                                                      
+<p><strong>1. Eval-level: <code>t2f-eval</code> command</strong></p>
 
-Log from inside the multi-turn loop via an optional callback on the environment. No Rerun dependency
-in the environment itself - keep it portable for the hub:                                           
+<p>Verifiers' <code>run_evaluation()</code> in <code>eval_utils.py</code> takes <code>on_progress</code> and <code>on_log</code> callbacks. The Rich TUI is just one implementation. Write a <code>t2f-eval</code> that passes Rerun callbacks instead. Fires on every completed rollout - live logging, not post-processing.</p>
 
-<span class="r6">                                                                                                    </span>
-<span class="r6"> </span><span class="r7">class</span><span class="r8"> </span><span class="r9">MyEnv</span><span class="r8">(vf</span><span class="r10">.</span><span class="r8">MultiTurnEnv):</span><span class="r6">                                                                      </span>
-<span class="r6"> </span><span class="r8">    </span><span class="r7">def</span><span class="r8"> </span><span class="r9">__init__</span><span class="r8">(</span><span class="r9">self</span><span class="r8">, on_step</span><span class="r10">=</span><span class="r11">None</span><span class="r8">, </span><span class="r10">**</span><span class="r8">kwargs):</span><span class="r6">                                                    </span>
-<span class="r6"> </span><span class="r8">        </span><span class="r9">self</span><span class="r10">.</span><span class="r8">on_step </span><span class="r10">=</span><span class="r8"> on_step</span><span class="r6">                                                                     </span>
-<span class="r6"> </span><span class="r8">        </span><span class="r9">super</span><span class="r8">()</span><span class="r10">.</span><span class="r9">__init__</span><span class="r8">(</span><span class="r10">**</span><span class="r8">kwargs)</span><span class="r6">                                                                 </span>
-<span class="r6">                                                                                                    </span>
-<span class="r6"> </span><span class="r8">    </span><span class="r7">async</span><span class="r8"> </span><span class="r7">def</span><span class="r8"> </span><span class="r9">env_response</span><span class="r8">(</span><span class="r9">self</span><span class="r8">, messages, state):</span><span class="r6">                                                 </span>
-<span class="r6"> </span><span class="r8">        result </span><span class="r10">=</span><span class="r8"> do_stuff(messages)</span><span class="r6">                                                                </span>
-<span class="r6"> </span><span class="r8">        </span><span class="r7">if</span><span class="r8"> </span><span class="r9">self</span><span class="r10">.</span><span class="r8">on_step:</span><span class="r6">                                                                           </span>
-<span class="r6"> </span><span class="r8">            </span><span class="r9">self</span><span class="r10">.</span><span class="r8">on_step(messages, state, result)</span><span class="r6">                                                  </span>
-<span class="r6"> </span><span class="r8">        </span><span class="r7">return</span><span class="r8"> result</span><span class="r6">                                                                              </span>
-<span class="r6">                                                                                                    </span>
+<p><strong>2. Environment-level: callback on <code>env_response</code></strong></p>
 
-This gives you per-turn data in real time: model actions, observations, trajectory, turn count,     
-info. Scores are 1 step behind (computed after the full rollout), but everything else is live.      
+<p>Log from inside the multi-turn loop via an optional callback on the environment. No Rerun dependency in the environment itself - keep it portable for the hub:</p>
 
-<span class="r2">Tradeoffs</span>                                                                                           
+<pre><code>class MyEnv(vf.MultiTurnEnv):
+    def __init__(self, on_step=None, **kwargs):
+        self.on_step = on_step
+        super().__init__(**kwargs)
 
-<span class="r12"> • </span><span class="r3">Eval-level</span> - sees final scores and metrics per rollout, no verifiers changes needed, but no      
-<span class="r12">   </span>per-turn visibility                                                                              
-<span class="r12"> • </span><span class="r3">Environment-level</span> - sees every turn in real time, but only the data available at that point (no  
-<span class="r12">   </span>final score yet). Keeps Rerun out of the environment via optional callback                       
-<span class="r12"> • </span>Both can work together - per-turn logging in <span class="r5">env_response</span>, final scores via eval callback        
-</code></pre>
-</body>
-</html>
-</pre>
+    async def env_response(self, messages, state):
+        result = do_stuff(messages)
+        if self.on_step:
+            self.on_step(messages, state, result)
+        return result</code></pre>
+
+<p>This gives you per-turn data in real time: model actions, observations, trajectory, turn count, info. Scores are 1 step behind (computed after the full rollout), but everything else is live.</p>
+
+<h3>Tradeoffs</h3>
+
+<ul>
+<li><strong>Eval-level</strong> - sees final scores and metrics per rollout, no verifiers changes needed, but no per-turn visibility</li>
+<li><strong>Environment-level</strong> - sees every turn in real time, but only the data available at that point (no final score yet). Keeps Rerun out of the environment via optional callback</li>
+<li>Both can work together - per-turn logging in <code>env_response</code>, final scores via eval callback</li>
+</ul>
+
+<div class="colophon">
+  <p>TODO: T2F-EVAL AND RERUN LOGGING</p>
+</div>
+
 </body>
 </html>

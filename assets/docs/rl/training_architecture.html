@@ -1,129 +1,211 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="utf-8">
+<title>Training Architecture: Who Does What</title>
 <style>
-    body {
-        background: #ffffff;
-        color: #1e1e1e;
-        font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', 'Menlo', monospace;
-        font-size: 14px;
-        line-height: 1.35;
-        padding: 0.5em 2em;
-        max-width: 960px;
-        margin: 0 auto;
-    }
-    pre {
-        white-space: pre-wrap;
-        word-wrap: break-word;
-        margin: 0;
-    }
-    ::selection {
-        background: #d0e8ff;
-        color: #1e1e1e;
-    }
-    a { color: #268bd2; text-decoration: none; }
-    a:hover { text-decoration: underline; }
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&display=swap');
 
-    .back { color: #93a1a1; font-size: 12px; margin-bottom: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, serif;
+    font-size: 14.5px;
+    line-height: 1.72;
+    color: #2a2a2a;
+    background: #fdfcfa;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 72px 1rem 120px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a.back {
+    font-family: 'JetBrains Mono', monospace; font-size: 9.5px;
+    color: #bbb; text-decoration: none; letter-spacing: 0.5px;
+  }
+  a.back:hover { color: #1a1a1a; }
+
+  .memo-head {
+    border-top: 2.5px solid #1a1a1a;
+    border-bottom: 0.5px solid #1a1a1a;
+    padding: 20px 0 16px;
+    margin-bottom: 40px;
+  }
+  .memo-head h1 {
+    font-size: 1.6rem;
+    font-weight: normal;
+    color: #333;
+    line-height: 1.25;
+    margin: 0;
+  }
+
+  h2 {
+    font-size: 1.3rem;
+    font-weight: normal;
+    color: #333;
+    margin: 56px 0 6px;
+  }
+  h3 {
+    font-size: 1.1rem;
+    font-weight: normal;
+    color: #333;
+    margin: 36px 0 4px;
+  }
+  p { margin: 10px 0; }
+
+  ul, ol { margin: 12px 0 12px 22px; }
+  li { margin: 5px 0; color: #333; }
+  li::marker { color: #bbb; }
+
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: #1a1a1a;
+    background: #f5f4f0;
+    padding: 1.5px 5px;
+    border-bottom: 1px solid #ddd;
+  }
+  pre {
+    margin: 20px 0;
+    padding: 16px 20px;
+    background: #f5f4f0;
+    border: 0.5px solid #e8e4de;
+    overflow-x: auto;
+    line-height: 1.5;
+  }
+  pre code {
+    background: none;
+    padding: 0;
+    border: none;
+    font-size: 12px;
+  }
+  strong { font-weight: 700; color: #1a1a1a; }
+  em { color: #555; }
+  a { color: #268bd2; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  blockquote {
+    font-size: 13px;
+    color: #888;
+    font-style: italic;
+    margin: 20px 0 20px 28px;
+    padding-left: 16px;
+    border-left: 1.5px solid #ddd;
+    line-height: 1.6;
+  }
+
+  hr {
+    border: none;
+    text-align: center;
+    margin: 56px 0;
+    line-height: 0;
+  }
+  hr::after {
+    content: '\2022\2009\2009\2022\2009\2009\2022';
+    font-size: 10px;
+    color: #ccc;
+    letter-spacing: 4px;
+  }
+
+  .colophon {
+    border-top: 0.5px solid #ddd;
+    margin-top: 64px;
+    padding-top: 16px;
+  }
+  .colophon p {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    color: #ccc;
+    letter-spacing: 0.5px;
+  }
+
 </style>
 </head>
 <body>
-<p class="back"><a href="index.html">back</a></p>
-<pre><!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<style>
-.r1 {color: #268bd2; text-decoration-color: #268bd2; font-weight: bold}
-.r2 {color: #2aa198; text-decoration-color: #2aa198; font-weight: bold}
-.r3 {color: #cb4b16; text-decoration-color: #cb4b16}
-.r4 {color: #d33682; text-decoration-color: #d33682}
-.r5 {background-color: #f5f5f0}
-.r6 {color: #657b83; text-decoration-color: #657b83; background-color: #f5f5f0}
-.r7 {font-weight: bold}
-body {
-    color: #000000;
-    background-color: #f5f5f0;
-}
-</style>
-</head>
-<body>
-    <pre style="font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace"><code style="font-family:inherit"><span class="r1">Training Architecture: Who Does What</span>                                                                
 
-Four pieces, each with one job:                                                                     
+<a class="back" href="index.html">&larr; docs</a>
 
-<span class="r2">vLLM (Inference Server)</span>                                                                             
+<div class="memo-head">
+  <h1>Training Architecture: Who Does What</h1>
+</div>
 
-<span class="r3"> • </span>Hosts the model as an OpenAI-compatible API                                                      
-<span class="r3"> • </span>Serves completions when asked                                                                    
-<span class="r3"> • </span>Accepts weight updates from the trainer via NCCL                                                 
+<p>Four pieces, each with one job:</p>
 
-<span class="r2">Verifiers (Environment + Scoring)</span>                                                                   
+<h3>vLLM (Inference Server)</h3>
 
-<span class="r3"> • </span>Calls vLLM to generate completions                                                               
-<span class="r3"> • </span>Manages multi-turn conversation loops (prompt → response → environment feedback → response → ...)
-<span class="r3"> • </span>Scores rollouts with rubrics                                                                     
-<span class="r3"> • </span>Returns rollouts with rewards                                                                    
+<ul>
+<li>Hosts the model as an OpenAI-compatible API</li>
+<li>Serves completions when asked</li>
+<li>Accepts weight updates from the trainer via NCCL</li>
+</ul>
 
-<span class="r2">Trainer (Weight Updates)</span>                                                                            
+<h3>Verifiers (Environment + Scoring)</h3>
 
-<span class="r3"> • </span>Receives rollouts and rewards from verifiers                                                     
-<span class="r3"> • </span>Computes advantages from the rewards (using whatever method the trainer chooses - GRPO,          
-<span class="r3">   </span>REINFORCE, etc.)                                                                                 
-<span class="r3"> • </span>Computes loss, updates model weights                                                             
-<span class="r3"> • </span>Pushes new weights back to vLLM                                                                  
-<span class="r3"> • </span>Never serves completions, never scores anything                                                  
+<ul>
+<li>Calls vLLM to generate completions</li>
+<li>Manages multi-turn conversation loops (prompt → response → environment feedback → response → ...)</li>
+<li>Scores rollouts with rubrics</li>
+<li>Returns rollouts with rewards</li>
+</ul>
 
-<span class="r2">Orchestrator (Glue)</span>                                                                                 
+<h3>Trainer (Weight Updates)</h3>
 
-<span class="r3"> • </span>Lives inside the trainer (<span class="r4">orchestrator.py</span>)                                                       
-<span class="r3"> • </span>Calls <span class="r4">env.generate()</span> on verifiers with the vLLM client                                           
-<span class="r3"> • </span>Processes the results into microbatches (token IDs, masks, logprobs, advantages)                 
-<span class="r3"> • </span>Feeds microbatches to the trainer&#x27;s training loop                                                
+<ul>
+<li>Receives rollouts and rewards from verifiers</li>
+<li>Computes advantages from the rewards (using whatever method the trainer chooses - GRPO, REINFORCE, etc.)</li>
+<li>Computes loss, updates model weights</li>
+<li>Pushes new weights back to vLLM</li>
+<li>Never serves completions, never scores anything</li>
+</ul>
 
-<span class="r2">The Loop</span>                                                                                            
+<h3>Orchestrator (Glue)</h3>
 
-<span class="r5">                                                                                                    </span>
-<span class="r5"> </span><span class="r6">vLLM serves model</span><span class="r5">                                                                                  </span>
-<span class="r5"> </span><span class="r6">    ↓</span><span class="r5">                                                                                              </span>
-<span class="r5"> </span><span class="r6">Verifiers calls vLLM, gets completions, scores them</span><span class="r5">                                                </span>
-<span class="r5"> </span><span class="r6">    ↓</span><span class="r5">                                                                                              </span>
-<span class="r5"> </span><span class="r6">Orchestrator packages scored rollouts into microbatches</span><span class="r5">                                            </span>
-<span class="r5"> </span><span class="r6">    ↓</span><span class="r5">                                                                                              </span>
-<span class="r5"> </span><span class="r6">Trainer computes advantages, does weight update</span><span class="r5">                                                    </span>
-<span class="r5"> </span><span class="r6">    ↓</span><span class="r5">                                                                                              </span>
-<span class="r5"> </span><span class="r6">Weight sync pushes new weights to vLLM</span><span class="r5">                                                             </span>
-<span class="r5"> </span><span class="r6">    ↓</span><span class="r5">                                                                                              </span>
-<span class="r5"> </span><span class="r6">repeat</span><span class="r5">                                                                                             </span>
-<span class="r5">                                                                                                    </span>
+<ul>
+<li>Lives inside the trainer (<code>orchestrator.py</code>)</li>
+<li>Calls <code>env.generate()</code> on verifiers with the vLLM client</li>
+<li>Processes the results into microbatches (token IDs, masks, logprobs, advantages)</li>
+<li>Feeds microbatches to the trainer's training loop</li>
+</ul>
 
-<span class="r2">Where Advantages Get Computed</span>                                                                       
+<h3>The Loop</h3>
 
-This depends on which trainer you use:                                                              
+<pre><code>vLLM serves model
+    ↓
+Verifiers calls vLLM, gets completions, scores them
+    ↓
+Orchestrator packages scored rollouts into microbatches
+    ↓
+Trainer computes advantages, does weight update
+    ↓
+Weight sync pushes new weights to vLLM
+    ↓
+repeat</code></pre>
 
-<span class="r7">t2f-trainer</span> - computes its own advantages from raw rewards in <span class="r4">orchestrator.py</span>. Currently uses GRPO  
-(<span class="r4">reward - group_mean</span>), but we own the formula and can swap in std normalization, KL penalty, or     
-different algorithms without touching verifiers.                                                    
+<h3>Where Advantages Get Computed</h3>
 
-<span class="r7">prime-rl, SkyRL, rLLM, etc.</span> - same idea. Verifiers only returns rollouts + reward scores. The       
-trainer computes its own advantages using whatever algorithm it wants.                              
+<p>This depends on which trainer you use:</p>
 
-Note: verifiers still computes and attaches its own <span class="r4">advantage</span> field in <span class="r4">rubric.py</span>, but t2f-trainer   
-ignores it and uses the raw <span class="r4">reward</span> values instead.                                                  
+<p><strong>t2f-trainer</strong> - computes its own advantages from raw rewards in <code>orchestrator.py</code>. Currently uses GRPO (<code>reward - group_mean</code>), but we own the formula and can swap in std normalization, KL penalty, or different algorithms without touching verifiers.</p>
 
-<span class="r2">Why Verifiers is Trainer-Agnostic</span>                                                                   
+<p><strong>prime-rl, SkyRL, rLLM, etc.</strong> - same idea. Verifiers only returns rollouts + reward scores. The trainer computes its own advantages using whatever algorithm it wants.</p>
 
-Verifiers just needs an OpenAI-compatible endpoint. It doesn&#x27;t care who&#x27;s hosting it or who&#x27;s       
-consuming the results. Any trainer can plug in - it just needs to:                                  
+<p>Note: verifiers still computes and attaches its own <code>advantage</code> field in <code>rubric.py</code>, but t2f-trainer ignores it and uses the raw <code>reward</code> values instead.</p>
 
-<span class="r3"> 1 </span>Spin up vLLM (or similar) with the model                                                         
-<span class="r3"> 2 </span>Point verifiers at it                                                                            
-<span class="r3"> 3 </span>Consume the rollouts and rewards                                                                 
-<span class="r3"> 4 </span>Compute advantages, update weights, sync back to vLLM                                            
-</code></pre>
-</body>
-</html>
-</pre>
+<h3>Why Verifiers is Trainer-Agnostic</h3>
+
+<p>Verifiers just needs an OpenAI-compatible endpoint. It doesn't care who's hosting it or who's consuming the results. Any trainer can plug in - it just needs to:</p>
+
+<ol>
+<li>Spin up vLLM (or similar) with the model</li>
+<li>Point verifiers at it</li>
+<li>Consume the rollouts and rewards</li>
+<li>Compute advantages, update weights, sync back to vLLM</li>
+</ol>
+
+<div class="colophon">
+  <p>TRAINING ARCHITECTURE: WHO DOES WHAT</p>
+</div>
+
 </body>
 </html>
