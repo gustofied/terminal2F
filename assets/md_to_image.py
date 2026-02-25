@@ -256,6 +256,30 @@ def _md_to_html(lines: list[str]) -> str:
             out.append("<ol>\n" + "\n".join(items) + "\n</ol>")
             continue
 
+        # Table
+        if line.startswith("|"):
+            rows = []
+            while i < len(lines) and lines[i].startswith("|"):
+                cells = [c.strip() for c in lines[i].strip("|").split("|")]
+                rows.append(cells)
+                i += 1
+            if len(rows) >= 2:
+                # First row = header, second row = separator (skip), rest = body
+                header = rows[0]
+                body = rows[2:] if len(rows) > 2 else []
+                table_html = '<table style="width:100%;border-collapse:collapse;margin:16px 0;font-size:13.5px;">\n<tr>\n'
+                for h in header:
+                    table_html += f'<th style="font-family:\'JetBrains Mono\',monospace;font-size:9px;font-weight:400;color:#aaa;letter-spacing:1px;text-transform:uppercase;text-align:left;padding:6px 16px;border-bottom:1px solid #1a1a1a;">{_inline(h)}</th>\n'
+                table_html += '</tr>\n'
+                for row in body:
+                    table_html += '<tr>\n'
+                    for cell in row:
+                        table_html += f'<td style="padding:10px 16px;border-bottom:0.5px solid #eee;">{_inline(cell)}</td>\n'
+                    table_html += '</tr>\n'
+                table_html += '</table>'
+                out.append(table_html)
+            continue
+
         # Blockquote
         if line.startswith("> "):
             bq_lines = []
@@ -278,7 +302,8 @@ def _md_to_html(lines: list[str]) -> str:
                and not lines[i].strip() in ("---", "***", "___")
                and not re.match(r"^[\-\*] ", lines[i])
                and not re.match(r"^\d+\. ", lines[i])
-               and not lines[i].startswith("> ")):
+               and not lines[i].startswith("> ")
+               and not lines[i].startswith("|")):
             para_lines.append(lines[i])
             i += 1
         out.append(f"<p>{_inline(' '.join(para_lines))}</p>")

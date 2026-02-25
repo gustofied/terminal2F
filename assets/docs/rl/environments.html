@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Environments</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, serif;
+    font-size: 14.5px;
+    line-height: 1.72;
+    color: #2a2a2a;
+    background: #fdfcfa;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 72px 1rem 120px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── Header / Memo ── */
+  .memo-head {
+    border-top: 2.5px solid #1a1a1a;
+    border-bottom: 0.5px solid #1a1a1a;
+    padding: 20px 0 16px;
+    margin-bottom: 40px;
+  }
+  .memo-head h1 {
+    font-size: 1.6rem;
+    font-weight: normal;
+    color: #333;
+    line-height: 1.25;
+    margin: 0;
+  }
+  .memo-sub {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: #999;
+    letter-spacing: 0.8px;
+    margin-top: 8px;
+  }
+  a.back {
+    font-family: 'JetBrains Mono', monospace; font-size: 9.5px;
+    color: #bbb; text-decoration: none; letter-spacing: 0.5px;
+  }
+  a.back:hover { color: #1a1a1a; }
+
+  /* ── Sections ── */
+  h2 {
+    font-size: 1.3rem;
+    font-weight: normal;
+    color: #333;
+    margin: 56px 0 6px;
+  }
+  h2 .num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 400;
+    color: #aaa;
+    letter-spacing: 1px;
+    display: block;
+    margin-bottom: 2px;
+  }
+  h3 {
+    font-size: 1rem;
+    font-weight: normal;
+    color: #333;
+    margin: 32px 0 4px;
+  }
+  h3 .sub {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    font-weight: 400;
+    color: #bbb;
+    letter-spacing: 0.5px;
+    margin-right: 6px;
+  }
+  p { margin: 10px 0; }
+  .lede { font-size: 15px; color: #555; line-height: 1.68; }
+
+  /* ── Figures ── */
+  .fig {
+    margin: 28px 0 36px;
+    border: 0.5px solid #ddd;
+    background: #fff;
+    padding: 24px 20px 16px;
+  }
+  .fig svg { display: block; margin: 0 auto; max-width: 100%; }
+  .fig-cap {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9.5px;
+    color: #999;
+    letter-spacing: 0.3px;
+    margin-top: 14px;
+    padding-top: 10px;
+    border-top: 0.5px solid #eee;
+  }
+
+  /* ── Inline ── */
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: #1a1a1a;
+    background: #f5f4f0;
+    padding: 1.5px 5px;
+    border-bottom: 1px solid #ddd;
+  }
+  pre {
+    margin: 20px 0;
+    padding: 16px 20px;
+    background: #f5f4f0;
+    border: 0.5px solid #e8e4de;
+    overflow-x: auto;
+    line-height: 1.5;
+  }
+  pre code {
+    background: none;
+    padding: 0;
+    border: none;
+    font-size: 12px;
+  }
+  strong { font-weight: 700; color: #1a1a1a; }
+
+  /* ── Tables ── */
+  .ch-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 20px 0 0;
+    font-size: 13.5px;
+  }
+  .ch-table th {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    font-weight: 400;
+    color: #aaa;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    text-align: left;
+    padding: 6px 16px;
+    border-bottom: 1px solid #1a1a1a;
+  }
+  .ch-table td {
+    padding: 10px 16px;
+    border-bottom: 0.5px solid #eee;
+    vertical-align: top;
+  }
+  .ch-table .mono {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  /* ── Separators ── */
+  .sep {
+    border: none;
+    text-align: center;
+    margin: 56px 0;
+    line-height: 0;
+  }
+  .sep::after {
+    content: '\2022\2009\2009\2022\2009\2009\2022';
+    font-size: 10px;
+    color: #ccc;
+    letter-spacing: 4px;
+  }
+
+  /* ── Footer ── */
+  .colophon {
+    border-top: 0.5px solid #ddd;
+    margin-top: 64px;
+    padding-top: 16px;
+  }
+  .colophon p {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    color: #ccc;
+    letter-spacing: 0.5px;
+  }
+</style>
+</head>
+<body>
+
+<a class="back" href="index.html">&larr; rl / docs</a>
+
+<div class="memo-head">
+  <h1>Environments</h1>
+  <div class="memo-sub">MULTI-TURN, ROLLOUTS, ENV LOGIC</div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     I. MULTI-TURN ENVIRONMENTS
+     ═══════════════════════════════════════════════════════════ -->
+
+<h2><span class="num">I</span>Multi-Turn Environments</h2>
+<p class="lede">Every environment is a loop: the model responds, the environment reacts, and state accumulates the full trajectory. Four components drive this.</p>
+
+<h3><span class="sub">a</span>Pieces</h3>
+
+<table class="ch-table">
+  <tr>
+    <th>Component</th>
+    <th>Role</th>
+  </tr>
+  <tr>
+    <td class="mono">dataset row</td>
+    <td>Starting state. Has <code>prompt</code> (initial message) plus extra data in <code>info</code>: follow-ups, ground truths, turn count.</td>
+  </tr>
+  <tr>
+    <td class="mono">state</td>
+    <td>Mutable dict that accumulates data throughout the rollout. Dataset fields via <code>state["info"]</code> (follow-ups, ground truths, seed), <code>state["answer"]</code>. Runtime fields: <code>trajectory</code>, <code>completion</code>, <code>reward</code>, <code>error</code>. Shared across reward functions: earlier ones can store computed values for later ones to consume.</td>
+  </tr>
+  <tr>
+    <td class="mono">env_response</td>
+    <td>Your function. Called after each model turn with the full conversation + state. Returns new messages to append. This is where environment logic lives.</td>
+  </tr>
+  <tr>
+    <td class="mono">@vf.stop</td>
+    <td>Methods that check if the rollout is done. Called after each turn. Return <code>True</code> to end.</td>
+  </tr>
+</table>
+
+<p>Example dataset row:</p>
+
+<pre><code>{
+    "prompt": [{"role": "user", "content": "Sort these names: Alice, Bob"}],
+    "info": {
+        "follow_ups": ["Now add Charlie", "Now add Dan"],
+        "ground_truths": [["Alice", "Bob"], ["Alice", "Bob", "Charlie"], ...],
+        "num_turns": 3,
+    }
+}</code></pre>
+
+<h3><span class="sub">b</span>Loop</h3>
+
+<table class="ch-table">
+  <tr>
+    <th></th>
+    <th>Step</th>
+  </tr>
+  <tr>
+    <td class="mono" style="color: #aaa;">0</td>
+    <td><code>setup_state(state)</code> prepares per-rollout resources</td>
+  </tr>
+  <tr>
+    <td class="mono" style="color: #aaa;">1</td>
+    <td>Model sees accumulated messages, generates response</td>
+  </tr>
+  <tr>
+    <td class="mono" style="color: #aaa;">2</td>
+    <td>Check <code>@vf.stop</code>: if done, go to 5</td>
+  </tr>
+  <tr>
+    <td class="mono" style="color: #aaa;">3</td>
+    <td><code>env_response(messages, state)</code> returns new messages</td>
+  </tr>
+  <tr>
+    <td class="mono" style="color: #aaa;">4</td>
+    <td>New messages appended to conversation, go to 1</td>
+  </tr>
+  <tr>
+    <td class="mono" style="color: #aaa;">5</td>
+    <td>Completion rendered into <code>state["completion"]</code>, scored by rubric, <code>@vf.cleanup</code> runs</td>
+  </tr>
+</table>
+
+<p>State accumulates the full conversation. Each turn appends to the trajectory. At the end, the whole thing is assembled into <code>state["completion"]</code>:</p>
+
+<pre><code>Turn 1: [{user: "Sort: Alice, Bob"}, {assistant: "Alice, Bob"}, {user: "Now add Charlie"}]
+Turn 2: [...all above..., {assistant: "Alice, Bob, Charlie"}, {user: "Now add Dan"}]
+Turn 3: [...all above..., {assistant: "Alice, Bob, Charlie, Dan"}] → stop → score</code></pre>
+
+<h3><span class="sub">c</span>Data Patterns</h3>
+
+<table class="ch-table">
+  <tr>
+    <th>Pattern</th>
+    <th>How it works</th>
+  </tr>
+  <tr>
+    <td class="mono">pre-planned</td>
+    <td>Follow-up questions stored in <code>info</code>, pulled out in <code>env_response</code> by turn index</td>
+  </tr>
+  <tr>
+    <td class="mono">dynamic</td>
+    <td>Responses generated based on what the model did: execute action, return observation</td>
+  </tr>
+  <tr>
+    <td class="mono">hybrid</td>
+    <td>Dataset has the scaffolding, <code>env_response</code> adapts based on what happens. Most real environments are this.</td>
+  </tr>
+</table>
+
+<pre><code># pre-planned: pull from dataset
+async def env_response(self, messages, state):
+    turn = len([m for m in messages if m["role"] == "assistant"]) - 1
+    return [{"role": "user", "content": state["info"]["follow_ups"][turn]}]
+
+# dynamic: react to model output
+async def env_response(self, messages, state):
+    result = execute_action(messages[-1]["content"])
+    return [{"role": "user", "content": result}]</code></pre>
+
+<h3><span class="sub">d</span>Hierarchy</h3>
+
+<p>Everything is a <code>MultiTurnEnv</code> with a different <code>env_response</code>:</p>
+
+<pre><code>Environment (base)
+  └── MultiTurnEnv (adds the env_response loop)
+        ├── SingleTurnEnv (one turn, no env_response)
+        ├── ToolEnv (env_response = execute tool calls, return results)
+        │     ├── StatefulToolEnv (persistent state between turns)
+        │     │     ├── SandboxEnv (tools run in isolated sandbox)
+        │     │     └── BrowserEnv (browser automation)
+        │     └── MCPEnv (MCP server tools)
+        ├── OpenEnvEnv (talks to OpenEnv server)
+        ├── TextArenaEnv (game environments)
+        └── CliAgentEnv (terminal/CLI agent in sandbox)</code></pre>
+
+<p>The pattern is always the same: parse the model's last message, execute the action, return the observation as messages. The model never talks to the real system directly. <code>env_response</code> is always the bridge.</p>
+
+<hr class="sep">
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     II. ROLLOUT SEQUENCE
+     ═══════════════════════════════════════════════════════════ -->
+
+<h2><span class="num">II</span>Rollout Sequence</h2>
+<p class="lede">Inside <code>env.generate()</code>. Verifiers drives the loop, vLLM generates when asked, the env produces the next message each turn. Scoring happens once at the end: the rubric evaluates all turns together, results flow back to the orchestrator.</p>
+
+<div class="fig">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 530" width="680" height="530">
+  <defs>
+    <marker id="sq" markerWidth="4" markerHeight="4" refX="4" refY="2" orient="auto">
+      <path d="M0,0 L4,2 L0,4 Z" fill="#1a1a1a"/>
+    </marker>
+    <marker id="sqg" markerWidth="4" markerHeight="4" refX="4" refY="2" orient="auto">
+      <path d="M0,0 L4,2 L0,4 Z" fill="#999"/>
+    </marker>
+    <marker id="sqr" markerWidth="4" markerHeight="4" refX="4" refY="2" orient="auto">
+      <path d="M0,0 L4,2 L0,4 Z" fill="#b33a3a"/>
+    </marker>
+  </defs>
+
+  <!-- Column headers -->
+  <text x="94" y="16" font-family="'Palatino Linotype','Book Antiqua',Palatino,serif" font-size="13" fill="#1a1a1a" font-weight="600" text-anchor="middle">Verifiers</text>
+  <text x="324" y="16" font-family="'Palatino Linotype','Book Antiqua',Palatino,serif" font-size="13" fill="#1a1a1a" font-weight="600" text-anchor="middle">vLLM</text>
+  <text x="560" y="16" font-family="'Palatino Linotype','Book Antiqua',Palatino,serif" font-size="13" fill="#1a1a1a" font-weight="600" text-anchor="middle">Env Logic</text>
+
+  <!-- Header underlines -->
+  <line x1="46" y1="22" x2="142" y2="22" stroke="#1a1a1a" stroke-width="0.4"/>
+  <line x1="286" y1="22" x2="362" y2="22" stroke="#1a1a1a" stroke-width="0.4"/>
+  <line x1="514" y1="22" x2="606" y2="22" stroke="#1a1a1a" stroke-width="0.4"/>
+
+  <!-- Lifelines -->
+  <line x1="94" y1="30" x2="94" y2="510" stroke="#eee" stroke-width="0.5"/>
+  <line x1="324" y1="30" x2="324" y2="510" stroke="#eee" stroke-width="0.5"/>
+  <line x1="560" y1="30" x2="560" y2="510" stroke="#eee" stroke-width="0.5"/>
+
+  <!-- ── TURN 1 ── -->
+  <line x1="14" y1="40" x2="14" y2="162" stroke="#ddd" stroke-width="0.4"/>
+  <line x1="14" y1="40" x2="20" y2="40" stroke="#ddd" stroke-width="0.4"/>
+  <line x1="14" y1="162" x2="20" y2="162" stroke="#ddd" stroke-width="0.4"/>
+  <text x="10" y="105" font-family="'JetBrains Mono',monospace" font-size="7" fill="#ccc" text-anchor="end" transform="rotate(-90 10 105)">TURN 1</text>
+
+  <rect x="48" y="38" width="92" height="18" fill="#fdfcfa" stroke="#ccc" stroke-width="0.4"/>
+  <text x="94" y="51" font-family="'JetBrains Mono',monospace" font-size="8.5" fill="#888" text-anchor="middle">load prompt</text>
+
+  <line x1="94" y1="66" x2="318" y2="66" stroke="#1a1a1a" stroke-width="0.4" marker-end="url(#sq)"/>
+  <text x="206" y="62" font-family="'JetBrains Mono',monospace" font-size="7.5" fill="#aaa" text-anchor="middle">prompt &rarr; generate</text>
+
+  <rect x="282" y="74" width="84" height="16" fill="#fdfcfa" stroke="#ccc" stroke-width="0.4"/>
+  <text x="324" y="86" font-family="'JetBrains Mono',monospace" font-size="8.5" fill="#888" text-anchor="middle">completion&#x2081;</text>
+
+  <line x1="324" y1="98" x2="100" y2="98" stroke="#999" stroke-width="0.4" stroke-dasharray="3,2" marker-end="url(#sqg)"/>
+  <text x="206" y="94" font-family="'JetBrains Mono',monospace" font-size="7" fill="#ccc" text-anchor="middle">text + token IDs + logprobs</text>
+
+  <line x1="94" y1="116" x2="554" y2="116" stroke="#b33a3a" stroke-width="0.4" marker-end="url(#sqr)"/>
+  <text x="324" y="112" font-family="'JetBrains Mono',monospace" font-size="7.5" fill="#b33a3a" text-anchor="middle">env_response()</text>
+
+  <rect x="516" y="124" width="88" height="16" fill="#fff" stroke="#b33a3a" stroke-width="0.4"/>
+  <text x="560" y="136" font-family="'JetBrains Mono',monospace" font-size="8.5" fill="#b33a3a" text-anchor="middle">follow-up&#x2082;</text>
+
+  <line x1="560" y1="148" x2="100" y2="148" stroke="#b33a3a" stroke-width="0.4" stroke-dasharray="3,2" marker-end="url(#sqr)"/>
+
+  <!-- ── TURN 2 ── -->
+  <line x1="14" y1="178" x2="14" y2="308" stroke="#ddd" stroke-width="0.4"/>
+  <line x1="14" y1="178" x2="20" y2="178" stroke="#ddd" stroke-width="0.4"/>
+  <line x1="14" y1="308" x2="20" y2="308" stroke="#ddd" stroke-width="0.4"/>
+  <text x="10" y="247" font-family="'JetBrains Mono',monospace" font-size="7" fill="#ccc" text-anchor="end" transform="rotate(-90 10 247)">TURN 2</text>
+
+  <rect x="38" y="176" width="112" height="16" fill="#fdfcfa" stroke="#ccc" stroke-width="0.4"/>
+  <text x="94" y="188" font-family="'JetBrains Mono',monospace" font-size="8.5" fill="#888" text-anchor="middle">append to conv</text>
+
+  <line x1="94" y1="204" x2="318" y2="204" stroke="#1a1a1a" stroke-width="0.4" marker-end="url(#sq)"/>
+  <text x="206" y="200" font-family="'JetBrains Mono',monospace" font-size="7" fill="#aaa" text-anchor="middle">conv + follow-up&#x2082; &rarr; generate</text>
+
+  <rect x="282" y="212" width="84" height="16" fill="#fdfcfa" stroke="#ccc" stroke-width="0.4"/>
+  <text x="324" y="224" font-family="'JetBrains Mono',monospace" font-size="8.5" fill="#888" text-anchor="middle">completion&#x2082;</text>
+
+  <line x1="324" y1="236" x2="100" y2="236" stroke="#999" stroke-width="0.4" stroke-dasharray="3,2" marker-end="url(#sqg)"/>
+  <text x="206" y="232" font-family="'JetBrains Mono',monospace" font-size="7" fill="#ccc" text-anchor="middle">text + token IDs + logprobs</text>
+
+  <line x1="94" y1="256" x2="554" y2="256" stroke="#b33a3a" stroke-width="0.4" marker-end="url(#sqr)"/>
+  <text x="324" y="252" font-family="'JetBrains Mono',monospace" font-size="7.5" fill="#b33a3a" text-anchor="middle">env_response()</text>
+
+  <rect x="516" y="264" width="88" height="16" fill="#fff" stroke="#b33a3a" stroke-width="0.4"/>
+  <text x="560" y="276" font-family="'JetBrains Mono',monospace" font-size="8.5" fill="#b33a3a" text-anchor="middle">follow-up&#x2083;</text>
+
+  <line x1="560" y1="288" x2="100" y2="288" stroke="#b33a3a" stroke-width="0.4" stroke-dasharray="3,2" marker-end="url(#sqr)"/>
+
+  <!-- ── TURN 3 ── -->
+  <line x1="14" y1="320" x2="14" y2="400" stroke="#ddd" stroke-width="0.4"/>
+  <line x1="14" y1="320" x2="20" y2="320" stroke="#ddd" stroke-width="0.4"/>
+  <line x1="14" y1="400" x2="20" y2="400" stroke="#ddd" stroke-width="0.4"/>
+  <text x="10" y="364" font-family="'JetBrains Mono',monospace" font-size="7" fill="#ccc" text-anchor="end" transform="rotate(-90 10 364)">TURN 3</text>
+
+  <line x1="94" y1="324" x2="318" y2="324" stroke="#1a1a1a" stroke-width="0.4" marker-end="url(#sq)"/>
+  <text x="206" y="320" font-family="'JetBrains Mono',monospace" font-size="7" fill="#aaa" text-anchor="middle">full conversation &rarr; generate</text>
+
+  <rect x="282" y="334" width="84" height="16" fill="#fdfcfa" stroke="#ccc" stroke-width="0.4"/>
+  <text x="324" y="346" font-family="'JetBrains Mono',monospace" font-size="8.5" fill="#888" text-anchor="middle">completion&#x2083;</text>
+
+  <line x1="324" y1="358" x2="100" y2="358" stroke="#999" stroke-width="0.4" stroke-dasharray="3,2" marker-end="url(#sqg)"/>
+
+  <!-- ── SCORE ── -->
+  <rect x="42" y="388" width="104" height="16" fill="#fff" stroke="#b33a3a" stroke-width="0.4"/>
+  <text x="94" y="400" font-family="'JetBrains Mono',monospace" font-size="8.5" fill="#b33a3a" text-anchor="middle">max_turns &rarr; stop</text>
+
+  <rect x="42" y="416" width="104" height="16" fill="#fdfcfa" stroke="#ccc" stroke-width="0.4"/>
+  <text x="94" y="428" font-family="'JetBrains Mono',monospace" font-size="8" fill="#aaa" text-anchor="middle">rubric(all turns)</text>
+
+  <!-- ── RESULTS → ORCHESTRATOR ── -->
+  <rect x="32" y="448" width="124" height="18" fill="#fdfcfa" stroke="#1a1a1a" stroke-width="0.5"/>
+  <text x="94" y="461" font-family="'JetBrains Mono',monospace" font-size="8.5" fill="#1a1a1a" text-anchor="middle">scored rollout</text>
+
+  <line x1="156" y1="457" x2="290" y2="457" stroke="#1a1a1a" stroke-width="0.5" stroke-dasharray="4,2"/>
+  <text x="224" y="450" font-family="'JetBrains Mono',monospace" font-size="7" fill="#aaa" text-anchor="middle">trajectories + rewards</text>
+
+  <rect x="292" y="448" width="136" height="18" fill="#fff" stroke="#1a1a1a" stroke-width="0.5"/>
+  <text x="360" y="461" font-family="'JetBrains Mono',monospace" font-size="8.5" fill="#1a1a1a" text-anchor="middle">&rarr; orchestrator</text>
+
+  <!-- Legend -->
+  <rect x="600" y="68" width="72" height="60" fill="none" stroke="#eee" stroke-width="0.4"/>
+  <line x1="608" y1="82" x2="626" y2="82" stroke="#1a1a1a" stroke-width="0.4" marker-end="url(#sq)"/>
+  <text x="632" y="85" font-family="'JetBrains Mono',monospace" font-size="6.5" fill="#ccc">request</text>
+  <line x1="608" y1="98" x2="626" y2="98" stroke="#999" stroke-width="0.4" stroke-dasharray="3,2"/>
+  <text x="632" y="101" font-family="'JetBrains Mono',monospace" font-size="6.5" fill="#ccc">response</text>
+  <line x1="608" y1="114" x2="626" y2="114" stroke="#b33a3a" stroke-width="0.4"/>
+  <text x="632" y="117" font-family="'JetBrains Mono',monospace" font-size="6.5" fill="#ccc">env</text>
+</svg>
+<p class="fig-cap"><strong>Rollout</strong></p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     III. EXECUTION
+     ═══════════════════════════════════════════════════════════ -->
+
+<h2><span class="num">III</span>Execution</h2>
+<p class="lede">Inside <code>env.generate()</code>, rollouts for the same example are grouped and run concurrently. Scoring happens at the group boundary. After that, group structure dissolves.</p>
+
+<p><code>env.generate()</code> is called with <code>n</code> examples and <code>r</code> rollouts per example. Each example gets <code>r</code> copies, so 10 examples × 3 rollouts = 30 total inputs, grouped into 10 groups of 3.</p>
+
+<h3><span class="sub">a</span>Concurrency</h3>
+
+<table class="ch-table">
+  <tr>
+    <th>Level</th>
+    <th>Parallel?</th>
+    <th>Mechanism</th>
+  </tr>
+  <tr>
+    <td class="mono">groups</td>
+    <td>yes</td>
+    <td><code>asyncio.create_task</code> per group, semaphore-bounded</td>
+  </tr>
+  <tr>
+    <td class="mono">rollouts in group</td>
+    <td>yes</td>
+    <td>All rollouts for same example run concurrently</td>
+  </tr>
+  <tr>
+    <td class="mono">turns in rollout</td>
+    <td>no</td>
+    <td>Sequential: model, env_response, model, ...</td>
+  </tr>
+  <tr>
+    <td class="mono">scoring</td>
+    <td>per group</td>
+    <td>All rollouts finish, then rubric scores the group</td>
+  </tr>
+</table>
+
+<p>A group is the atomic unit. All its rollouts must finish before anything gets scored or reported. <code>asyncio.as_completed</code> picks up finished groups in whatever order they complete, fires <code>on_progress</code>, and saves results incrementally. You don't wait for all groups to finish.</p>
+
+<pre><code>t=0  Launch Group0(A), Group1(B), Group2(C)      ← all as async tasks
+t=1  Group0: rollout0 turn1, rollout1 turn1       ← parallel within group
+     Group1: rollout0 turn1, rollout1 turn1
+     Group2: rollout0 turn1, rollout1 turn1
+t=2  Group1 finishes first → rubric → on_progress → save
+t=3  Group0 finishes       → rubric → on_progress → save
+t=4  Group2 finishes       → rubric → on_progress → save
+t=5  All done, return results</code></pre>
+
+<h3><span class="sub">b</span>Handoff</h3>
+
+<p>Once groups are scored, the group structure is no longer needed. The orchestrator collects scored rollouts, computes advantages (this still needs the group, since advantage = reward minus group mean), then packages everything into microbatches. Microbatches don't respect group boundaries: they're just chunks of rollouts sized for GPU memory. From there, the trainer processes one microbatch at a time.</p>
+
+<div class="colophon">
+  <p>ENVIRONMENTS &middot; MULTI-TURN, ROLLOUTS, ENV LOGIC</p>
+</div>
+
+</body>
+</html>

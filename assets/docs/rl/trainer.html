@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Trainer</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, serif;
+    font-size: 14.5px;
+    line-height: 1.72;
+    color: #2a2a2a;
+    background: #fdfcfa;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 72px 1rem 120px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── Header / Memo ── */
+  .memo-head {
+    border-top: 2.5px solid #1a1a1a;
+    border-bottom: 0.5px solid #1a1a1a;
+    padding: 20px 0 16px;
+    margin-bottom: 40px;
+  }
+  .memo-head h1 {
+    font-size: 1.6rem;
+    font-weight: normal;
+    color: #333;
+    line-height: 1.25;
+    margin: 0;
+  }
+  .memo-sub {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: #999;
+    letter-spacing: 0.8px;
+    margin-top: 8px;
+  }
+  a.back {
+    font-family: 'JetBrains Mono', monospace; font-size: 9.5px;
+    color: #bbb; text-decoration: none; letter-spacing: 0.5px;
+  }
+  a.back:hover { color: #1a1a1a; }
+
+  /* ── Sections ── */
+  h2 {
+    font-size: 1.3rem;
+    font-weight: normal;
+    color: #333;
+    margin: 56px 0 6px;
+  }
+  h2 .num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 400;
+    color: #aaa;
+    letter-spacing: 1px;
+    display: block;
+    margin-bottom: 2px;
+  }
+  h3 {
+    font-size: 1rem;
+    font-weight: normal;
+    color: #333;
+    margin: 32px 0 4px;
+  }
+  h3 .sub {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    font-weight: 400;
+    color: #bbb;
+    letter-spacing: 0.5px;
+    margin-right: 6px;
+  }
+  p { margin: 10px 0; }
+  .lede { font-size: 15px; color: #555; line-height: 1.68; }
+
+  /* ── Figures ── */
+  .fig {
+    margin: 28px 0 36px;
+    border: 0.5px solid #ddd;
+    background: #fff;
+    padding: 24px 20px 16px;
+  }
+  .fig svg { display: block; margin: 0 auto; max-width: 100%; }
+  .fig-cap {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9.5px;
+    color: #999;
+    letter-spacing: 0.3px;
+    margin-top: 14px;
+    padding-top: 10px;
+    border-top: 0.5px solid #eee;
+  }
+
+  /* ── Lists ── */
+  ul { margin: 12px 0 12px 22px; }
+  li { margin: 5px 0; color: #333; }
+  li::marker { color: #bbb; }
+
+  /* ── Inline ── */
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: #1a1a1a;
+    background: #f5f4f0;
+    padding: 1.5px 5px;
+    border-bottom: 1px solid #ddd;
+  }
+  pre {
+    margin: 20px 0;
+    padding: 16px 20px;
+    background: #f5f4f0;
+    border: 0.5px solid #e8e4de;
+    overflow-x: auto;
+    line-height: 1.5;
+  }
+  pre code {
+    background: none;
+    padding: 0;
+    border: none;
+    font-size: 12px;
+  }
+  strong { font-weight: 700; color: #1a1a1a; }
+
+  /* ── Channel table ── */
+  .ch-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 20px 0 0;
+    font-size: 13.5px;
+  }
+  .ch-table th {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    font-weight: 400;
+    color: #aaa;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    text-align: left;
+    padding: 6px 16px;
+    border-bottom: 1px solid #1a1a1a;
+  }
+  .ch-table td {
+    padding: 10px 16px;
+    border-bottom: 0.5px solid #eee;
+    vertical-align: top;
+  }
+  .ch-table .proto {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: #aaa;
+  }
+  .ch-table .mono {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  /* ── Separators ── */
+  .sep {
+    border: none;
+    text-align: center;
+    margin: 56px 0;
+    line-height: 0;
+  }
+  .sep::after {
+    content: '\2022\2009\2009\2022\2009\2009\2022';
+    font-size: 10px;
+    color: #ccc;
+    letter-spacing: 4px;
+  }
+
+  /* ── Footer ── */
+  .colophon {
+    border-top: 0.5px solid #ddd;
+    margin-top: 64px;
+    padding-top: 16px;
+  }
+  .colophon p {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    color: #ccc;
+    letter-spacing: 0.5px;
+  }
+</style>
+</head>
+<body>
+
+<a class="back" href="index.html">&larr; rl / docs</a>
+
+<div class="memo-head">
+  <h1>Trainer</h1>
+  <div class="memo-sub">TOPOLOGY &amp; WORKINGS</div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     I. ARCHITECTURE
+     ═══════════════════════════════════════════════════════════ -->
+
+<h2><span class="num">I</span>Topology</h2>
+
+<div class="fig">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 370" width="700" height="370">
+  <defs>
+    <marker id="t1" markerWidth="4" markerHeight="4" refX="4" refY="2" orient="auto">
+      <path d="M0,0 L4,2 L0,4 Z" fill="#1a1a1a"/>
+    </marker>
+    <marker id="t2" markerWidth="4" markerHeight="4" refX="4" refY="2" orient="auto">
+      <path d="M0,0 L4,2 L0,4 Z" fill="#999"/>
+    </marker>
+    <marker id="t3" markerWidth="4" markerHeight="4" refX="4" refY="2" orient="auto">
+      <path d="M0,0 L4,2 L0,4 Z" fill="#b33a3a"/>
+    </marker>
+  </defs>
+
+  <!-- Trainer process boundary -->
+  <rect x="8" y="8" width="684" height="148" fill="none" stroke="#ccc" stroke-width="0.5" stroke-dasharray="4,3"/>
+  <text x="18" y="22" font-family="'JetBrains Mono',monospace" font-size="7.5" fill="#bbb" letter-spacing="1.5">TRAINER PROCESS</text>
+
+  <!-- Trainer box -->
+  <rect x="28" y="38" width="196" height="104" fill="#fff" stroke="#1a1a1a" stroke-width="0.6"/>
+  <text x="42" y="56" font-family="'Palatino Linotype','Book Antiqua',Palatino,serif" font-size="14.5" fill="#1a1a1a" font-weight="600">Trainer</text>
+  <line x1="42" y1="62" x2="126" y2="62" stroke="#ddd" stroke-width="0.4"/>
+  <text x="42" y="78" font-family="'JetBrains Mono',monospace" font-size="9" fill="#888">forward pass</text>
+  <text x="42" y="92" font-family="'JetBrains Mono',monospace" font-size="9" fill="#888">loss + backprop</text>
+  <text x="42" y="106" font-family="'JetBrains Mono',monospace" font-size="9" fill="#888">weight update</text>
+  <text x="42" y="120" font-family="'JetBrains Mono',monospace" font-size="9" fill="#888">weight sync</text>
+  <text x="190" y="56" font-family="'JetBrains Mono',monospace" font-size="7.5" fill="#ccc" text-anchor="end">4&ndash;6</text>
+
+  <!-- Orchestrator box -->
+  <rect x="296" y="38" width="380" height="104" fill="#fff" stroke="#1a1a1a" stroke-width="0.6"/>
+  <text x="310" y="56" font-family="'Palatino Linotype','Book Antiqua',Palatino,serif" font-size="14.5" fill="#1a1a1a" font-weight="600">Orchestrator</text>
+  <line x1="310" y1="62" x2="420" y2="62" stroke="#ddd" stroke-width="0.4"/>
+  <text x="310" y="78" font-family="'JetBrains Mono',monospace" font-size="9" fill="#888">calls env.generate()</text>
+  <text x="310" y="92" font-family="'JetBrains Mono',monospace" font-size="9" fill="#888">computes advantages</text>
+  <text x="442" y="92" font-family="'JetBrains Mono',monospace" font-size="9" fill="#ccc">(reward &minus; group_mean)</text>
+  <text x="310" y="106" font-family="'JetBrains Mono',monospace" font-size="9" fill="#888">packages microbatches</text>
+  <text x="310" y="120" font-family="'JetBrains Mono',monospace" font-size="9" fill="#ccc">input_ids &middot; loss_mask &middot; logprobs &middot; advantages</text>
+  <text x="644" y="56" font-family="'JetBrains Mono',monospace" font-size="7.5" fill="#ccc" text-anchor="end">1&ndash;3</text>
+
+  <!-- Orch -> Trainer -->
+  <line x1="296" y1="94" x2="230" y2="94" stroke="#1a1a1a" stroke-width="0.5" marker-end="url(#t1)"/>
+  <text x="254" y="88" font-family="'JetBrains Mono',monospace" font-size="7" fill="#aaa" text-anchor="middle">microbatch</text>
+
+  <!-- vLLM box -->
+  <rect x="28" y="222" width="240" height="130" fill="#fff" stroke="#1a1a1a" stroke-width="0.6"/>
+  <text x="42" y="244" font-family="'Palatino Linotype','Book Antiqua',Palatino,serif" font-size="14.5" fill="#1a1a1a" font-weight="600">vLLM</text>
+  <line x1="42" y1="250" x2="120" y2="250" stroke="#ddd" stroke-width="0.4"/>
+  <text x="42" y="268" font-family="'JetBrains Mono',monospace" font-size="9" fill="#888">hosts model weights</text>
+  <text x="42" y="282" font-family="'JetBrains Mono',monospace" font-size="9" fill="#888">OpenAI-compatible API</text>
+  <text x="42" y="296" font-family="'JetBrains Mono',monospace" font-size="9" fill="#888">returns completions</text>
+  <text x="42" y="310" font-family="'JetBrains Mono',monospace" font-size="9" fill="#ccc">  + token IDs + logprobs</text>
+  <text x="42" y="324" font-family="'JetBrains Mono',monospace" font-size="9" fill="#888">accepts weight sync</text>
+
+  <!-- Verifiers box -->
+  <rect x="400" y="222" width="276" height="130" fill="#fff" stroke="#1a1a1a" stroke-width="0.6"/>
+  <text x="414" y="244" font-family="'Palatino Linotype','Book Antiqua',Palatino,serif" font-size="14.5" fill="#1a1a1a" font-weight="600">Verifiers</text>
+  <text x="478" y="244" font-family="'JetBrains Mono',monospace" font-size="9" fill="#ccc">(env)</text>
+  <line x1="414" y1="250" x2="560" y2="250" stroke="#ddd" stroke-width="0.4"/>
+  <text x="414" y="268" font-family="'JetBrains Mono',monospace" font-size="9" fill="#888">multi-turn conversation loop</text>
+  <text x="414" y="282" font-family="'JetBrains Mono',monospace" font-size="9" fill="#888">env_response() between turns</text>
+  <text x="414" y="296" font-family="'JetBrains Mono',monospace" font-size="9" fill="#888">reward functions score rollout</text>
+  <text x="414" y="310" font-family="'JetBrains Mono',monospace" font-size="9" fill="#888">returns scored trajectory</text>
+
+  <!-- Channel B : Trainer -> vLLM weight sync -->
+  <line x1="128" y1="156" x2="128" y2="216" stroke="#1a1a1a" stroke-width="0.5" marker-end="url(#t1)"/>
+  <circle cx="128" cy="156" r="2" fill="#1a1a1a"/>
+  <text x="136" y="180" font-family="'JetBrains Mono',monospace" font-size="9" fill="#1a1a1a" font-weight="500">B</text>
+  <text x="136" y="192" font-family="'JetBrains Mono',monospace" font-size="7.5" fill="#888">NCCL weight sync</text>
+  <text x="136" y="202" font-family="'JetBrains Mono',monospace" font-size="7" fill="#ccc">step 7</text>
+
+  <!-- Orchestrator -> Verifiers : env.generate -->
+  <line x1="520" y1="142" x2="520" y2="216" stroke="#b33a3a" stroke-width="0.5" marker-end="url(#t3)"/>
+  <circle cx="520" cy="142" r="2" fill="#b33a3a"/>
+  <text x="528" y="174" font-family="'JetBrains Mono',monospace" font-size="7.5" fill="#b33a3a">env.generate()</text>
+  <text x="528" y="184" font-family="'JetBrains Mono',monospace" font-size="7" fill="#ccc">step 1</text>
+
+  <!-- Channel A : Verifiers <-> vLLM -->
+  <line x1="400" y1="276" x2="274" y2="276" stroke="#999" stroke-width="0.5" marker-end="url(#t2)"/>
+  <circle cx="400" cy="276" r="1.5" fill="#999"/>
+  <text x="336" y="270" font-family="'JetBrains Mono',monospace" font-size="7" fill="#aaa" text-anchor="middle">completions</text>
+  <line x1="268" y1="300" x2="394" y2="300" stroke="#999" stroke-width="0.5" stroke-dasharray="3,2" marker-end="url(#t2)"/>
+  <text x="336" y="314" font-family="'JetBrains Mono',monospace" font-size="7" fill="#aaa" text-anchor="middle">tokens + logprobs</text>
+  <text x="274" y="292" font-family="'JetBrains Mono',monospace" font-size="9" fill="#999" font-weight="500">A</text>
+</svg>
+<p class="fig-cap"><strong>Topology</strong></p>
+</div>
+
+<table class="ch-table">
+  <tr>
+    <th>Channel</th>
+    <th>Direction</th>
+    <th>Purpose</th>
+    <th>Protocol</th>
+  </tr>
+  <tr>
+    <td>A</td>
+    <td>Verifiers &rarr; vLLM</td>
+    <td>Generate completions during rollouts</td>
+    <td class="proto">OpenAI HTTP API</td>
+  </tr>
+  <tr>
+    <td>B</td>
+    <td>Trainer &rarr; vLLM</td>
+    <td>Push updated weights between steps</td>
+    <td class="proto">NCCL GPU-to-GPU</td>
+  </tr>
+</table>
+
+<div style="margin-top: 28px; border-top: 1px solid #1a1a1a; padding: 14px 0 0;">
+  <div style="display: flex; gap: 14px; margin-bottom: 12px;">
+    <code style="font-size: 10px; background: none; border: none; padding: 0; color: #999; letter-spacing: 0.5px; white-space: nowrap; min-width: 90px;">vLLM</code>
+    <span style="color: #555;">Hosts the model as an OpenAI-compatible API. Serves completions when asked. Accepts weight updates from the trainer via NCCL.</span>
+  </div>
+  <hr style="border: none; border-top: 0.5px solid #eee; margin: 0;">
+  <div style="display: flex; gap: 14px; margin: 12px 0;">
+    <code style="font-size: 10px; background: none; border: none; padding: 0; color: #999; letter-spacing: 0.5px; white-space: nowrap; min-width: 90px;">VERIFIERS</code>
+    <span style="color: #555;">Calls vLLM to generate completions, manages multi-turn conversation loops, scores rollouts with rubrics, returns rollouts with rewards.</span>
+  </div>
+  <hr style="border: none; border-top: 0.5px solid #eee; margin: 0;">
+  <div style="display: flex; gap: 14px; margin: 12px 0;">
+    <code style="font-size: 10px; background: none; border: none; padding: 0; color: #999; letter-spacing: 0.5px; white-space: nowrap; min-width: 90px;">TRAINER</code>
+    <span style="color: #555;">Receives rollouts and rewards. Computes advantages (GRPO, REINFORCE, whatever it chooses). Computes loss, updates weights, pushes new weights back to vLLM. Never serves completions, never scores anything.</span>
+  </div>
+  <hr style="border: none; border-top: 0.5px solid #eee; margin: 0;">
+  <div style="display: flex; gap: 14px; margin: 12px 0 0;">
+    <code style="font-size: 10px; background: none; border: none; padding: 0; color: #999; letter-spacing: 0.5px; white-space: nowrap; min-width: 90px;">ORCHESTRATOR</code>
+    <span style="color: #555;">Lives inside the trainer. Calls <code>env.generate()</code> with the vLLM client. Processes results into microbatches (token IDs, masks, logprobs, advantages). Feeds microbatches to the training loop.</span>
+  </div>
+</div>
+
+<hr class="sep">
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     II. TRAINING STEP
+     ═══════════════════════════════════════════════════════════ -->
+
+<h2><span class="num">II</span>Training</h2>
+<p class="lede">One full cycle. The orchestrator prepares what the trainer needs: rollouts, advantages, microbatches. The trainer re-evaluates the same tokens under the current policy, computes loss, and updates weights. Then syncs to vLLM so the next batch generates with the new policy.</p>
+
+<div class="fig">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 330" width="700" height="330">
+
+  <!-- ── ORCHESTRATOR ── -->
+  <line x1="0" y1="0" x2="700" y2="0" stroke="#1a1a1a" stroke-width="1.2"/>
+  <text x="0" y="14" font-family="'JetBrains Mono',monospace" font-size="7.5" fill="#999" letter-spacing="1.2">ORCHESTRATOR</text>
+  <line x1="0" y1="20" x2="700" y2="20" stroke="#1a1a1a" stroke-width="0.3"/>
+
+  <!-- 1 -->
+  <text x="0" y="44" font-family="'Palatino Linotype','Book Antiqua',Palatino,serif" font-size="12" fill="#999">1.</text>
+  <text x="22" y="44" font-family="'Palatino Linotype','Book Antiqua',Palatino,serif" font-size="13" fill="#1a1a1a">Roll out</text>
+  <text x="90" y="44" font-family="'JetBrains Mono',monospace" font-size="10" fill="#b33a3a">env.generate()</text>
+  <text x="22" y="60" font-family="'JetBrains Mono',monospace" font-size="8" fill="#bbb">verifiers drives loop · vLLM generates · reward functions score</text>
+
+  <line x1="0" y1="72" x2="700" y2="72" stroke="#eee" stroke-width="0.3"/>
+
+  <!-- 2 -->
+  <text x="0" y="92" font-family="'Palatino Linotype','Book Antiqua',Palatino,serif" font-size="12" fill="#999">2.</text>
+  <text x="22" y="92" font-family="'Palatino Linotype','Book Antiqua',Palatino,serif" font-size="13" fill="#1a1a1a">Compute advantages</text>
+  <text x="200" y="92" font-family="'JetBrains Mono',monospace" font-size="10" fill="#999">A = reward &minus; group_mean</text>
+
+  <line x1="0" y1="104" x2="700" y2="104" stroke="#eee" stroke-width="0.3"/>
+
+  <!-- 3 -->
+  <text x="0" y="124" font-family="'Palatino Linotype','Book Antiqua',Palatino,serif" font-size="12" fill="#999">3.</text>
+  <text x="22" y="124" font-family="'Palatino Linotype','Book Antiqua',Palatino,serif" font-size="13" fill="#1a1a1a">Package microbatches</text>
+  <text x="22" y="140" font-family="'JetBrains Mono',monospace" font-size="8" fill="#bbb">input_ids · loss_mask · logprobs · advantages</text>
+
+  <!-- ── TRAINER ── -->
+  <line x1="0" y1="164" x2="700" y2="164" stroke="#1a1a1a" stroke-width="1.2"/>
+  <text x="0" y="178" font-family="'JetBrains Mono',monospace" font-size="7.5" fill="#999" letter-spacing="1.2">TRAINER</text>
+  <line x1="0" y1="184" x2="700" y2="184" stroke="#1a1a1a" stroke-width="0.3"/>
+
+  <!-- 4 -->
+  <text x="0" y="208" font-family="'Palatino Linotype','Book Antiqua',Palatino,serif" font-size="12" fill="#999">4.</text>
+  <text x="22" y="208" font-family="'Palatino Linotype','Book Antiqua',Palatino,serif" font-size="13" fill="#1a1a1a">Forward pass</text>
+  <text x="122" y="208" font-family="'Palatino Linotype','Book Antiqua',Palatino,serif" font-size="13" fill="#999">&rarr;</text>
+  <text x="140" y="208" font-family="'JetBrains Mono',monospace" font-size="10" fill="#1a1a1a">trainer_logprobs</text>
+  <text x="286" y="208" font-family="'Palatino Linotype','Book Antiqua',Palatino,serif" font-size="12" fill="#bbb">on same token sequences</text>
+
+  <line x1="0" y1="220" x2="700" y2="220" stroke="#eee" stroke-width="0.3"/>
+
+  <!-- 5 -->
+  <text x="0" y="240" font-family="'Palatino Linotype','Book Antiqua',Palatino,serif" font-size="12" fill="#999">5.</text>
+  <text x="22" y="240" font-family="'Palatino Linotype','Book Antiqua',Palatino,serif" font-size="13" fill="#1a1a1a">Loss</text>
+  <text x="56" y="240" font-family="'JetBrains Mono',monospace" font-size="10" fill="#1a1a1a">&minus;ratio &times; advantage</text>
+  <text x="224" y="240" font-family="'Palatino Linotype','Book Antiqua',Palatino,serif" font-size="12" fill="#bbb">masked to completions &rarr; backprop</text>
+
+  <line x1="0" y1="252" x2="700" y2="252" stroke="#eee" stroke-width="0.3"/>
+
+  <!-- 6 -->
+  <text x="0" y="272" font-family="'Palatino Linotype','Book Antiqua',Palatino,serif" font-size="12" fill="#999">6.</text>
+  <text x="22" y="272" font-family="'Palatino Linotype','Book Antiqua',Palatino,serif" font-size="13" fill="#1a1a1a">Update weights</text>
+  <text x="140" y="272" font-family="'Palatino Linotype','Book Antiqua',Palatino,serif" font-size="12" fill="#bbb">optimizer step</text>
+
+  <!-- ── SYNC ── -->
+  <line x1="0" y1="296" x2="700" y2="296" stroke="#1a1a1a" stroke-width="1.2"/>
+  <text x="0" y="310" font-family="'JetBrains Mono',monospace" font-size="7.5" fill="#999" letter-spacing="1.2">SYNC</text>
+  <line x1="0" y1="316" x2="700" y2="316" stroke="#1a1a1a" stroke-width="0.3"/>
+
+  <!-- 7 -->
+  <text x="0" y="330" font-family="'Palatino Linotype','Book Antiqua',Palatino,serif" font-size="12" fill="#999">7.</text>
+  <text x="22" y="330" font-family="'JetBrains Mono',monospace" font-size="10" fill="#b33a3a">NCCL sync</text>
+  <text x="104" y="330" font-family="'Palatino Linotype','Book Antiqua',Palatino,serif" font-size="13" fill="#1a1a1a">weights &rarr; vLLM</text>
+  <text x="262" y="330" font-family="'Palatino Linotype','Book Antiqua',Palatino,serif" font-size="12" fill="#bbb">&rarr; next batch</text>
+</svg>
+<p class="fig-cap"><strong>Steps</strong></p>
+</div>
+
+<p>One step processes one batch. A batch is all your rollouts: say 5 examples from the dataset, 3 rollouts each, so 15 rollouts total. Advantages are computed per group before anything hits the trainer. After that each rollout carries its own advantage and the trainer doesn't need to know which group it came from. Microbatches just split those 15 rollouts into smaller chunks that fit in GPU memory. The trainer processes them one by one, accumulates gradients, then does a single optimizer step at the end.</p>
+
+<hr class="sep">
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     III. MICROBATCH
+     ═══════════════════════════════════════════════════════════ -->
+
+<h2><span class="num">III</span>Microbatch</h2>
+<p class="lede">What the trainer actually receives. Four fields per training example, packaged by the orchestrator.</p>
+
+<h3><span class="sub">a</span>Tokens</h3>
+
+<p>In LLMs, a token is an integer index into a vocabulary table. The tokenizer chops text into subword pieces based on frequency:</p>
+
+<pre><code>"Hello world" → ["Hello", " world"] → [15496, 995]</code></pre>
+
+<p>Built via BPE (Byte Pair Encoding): start with individual bytes, repeatedly merge the most frequent adjacent pair until ~100k vocabulary entries. Common words get one token, rare words get split:</p>
+
+<table class="ch-table">
+  <tr>
+    <th>Text</th>
+    <th>Token IDs</th>
+    <th></th>
+  </tr>
+  <tr>
+    <td class="mono">"John"</td>
+    <td class="mono">[2198]</td>
+    <td style="color: #999; font-size: 13px;">common, one token</td>
+  </tr>
+  <tr>
+    <td class="mono">"Zygmunt"</td>
+    <td class="mono">[31849, 4452, 1628]</td>
+    <td style="color: #999; font-size: 13px;">rare, three tokens</td>
+  </tr>
+</table>
+
+<p>vLLM generates a completion and returns both forms in a single response. Token IDs go to the trainer, text goes to the reward functions. No re-tokenization needed.</p>
+
+<h3><span class="sub">b</span>Fields</h3>
+
+<table class="ch-table">
+  <tr>
+    <th>Field</th>
+    <th>What it is</th>
+  </tr>
+  <tr>
+    <td class="mono">input_ids</td>
+    <td>Full token sequence, prompt + completion concatenated. The trainer needs the full sequence because each token's probability depends on everything before it.</td>
+  </tr>
+  <tr>
+    <td class="mono">loss_mask</td>
+    <td>Same length, binary. 0 = prompt (context only), 1 = completion (train on this). In multi-turn, env responses between turns also get masked to 0.</td>
+  </tr>
+  <tr>
+    <td class="mono">sampling_logprobs</td>
+    <td>The log probability vLLM assigned to each completion token when it generated them. The "old policy" probabilities. Zeros for prompt tokens.</td>
+  </tr>
+  <tr>
+    <td class="mono">advantages</td>
+    <td>A single scalar (reward minus group mean), repeated for every token. Computed by the orchestrator from raw rewards.</td>
+  </tr>
+</table>
+
+<table class="ch-table" style="margin-top: 16px;">
+  <tr>
+    <th></th>
+    <th colspan="3" style="text-align: center; color: #ccc;">PROMPT</th>
+    <th colspan="3" style="text-align: center;">COMPLETION</th>
+  </tr>
+  <tr>
+    <td class="mono">input_ids</td>
+    <td class="mono" style="color: #bbb;">1042</td>
+    <td class="mono" style="color: #bbb;">553</td>
+    <td class="mono" style="color: #bbb;">8821</td>
+    <td class="mono">4417</td>
+    <td class="mono">229</td>
+    <td class="mono">1105</td>
+  </tr>
+  <tr>
+    <td class="mono">loss_mask</td>
+    <td class="mono" style="color: #bbb;">0</td>
+    <td class="mono" style="color: #bbb;">0</td>
+    <td class="mono" style="color: #bbb;">0</td>
+    <td class="mono">1</td>
+    <td class="mono">1</td>
+    <td class="mono">1</td>
+  </tr>
+  <tr>
+    <td class="mono">logprobs</td>
+    <td class="mono" style="color: #bbb;">0.0</td>
+    <td class="mono" style="color: #bbb;">0.0</td>
+    <td class="mono" style="color: #bbb;">0.0</td>
+    <td class="mono">-0.3</td>
+    <td class="mono">-1.2</td>
+    <td class="mono">-0.1</td>
+  </tr>
+  <tr>
+    <td class="mono">advantages</td>
+    <td class="mono" style="color: #bbb;">0.3</td>
+    <td class="mono" style="color: #bbb;">0.3</td>
+    <td class="mono" style="color: #bbb;">0.3</td>
+    <td class="mono">0.3</td>
+    <td class="mono">0.3</td>
+    <td class="mono">0.3</td>
+  </tr>
+</table>
+
+<p>Logprobs are the log of the softmax of the raw logits. Open-weight models on vLLM give full access to logits, so logprobs are computed directly.</p>
+
+<hr class="sep">
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     IV. LOSS
+     ═══════════════════════════════════════════════════════════ -->
+
+<h2><span class="num">IV</span>Loss</h2>
+<p class="lede">The trainer runs one forward pass on <code>input_ids</code>, gets its own logprobs (<code>trainer_logprobs</code>), then computes the policy ratio against the sampling logprobs from generation time.</p>
+
+<pre><code>ratio = exp(trainer_logprob - sampling_logprob)
+loss  = -ratio × advantage</code></pre>
+
+<h3><span class="sub">a</span>Direction</h3>
+
+<table class="ch-table">
+  <tr>
+    <th>Advantage</th>
+    <th>Loss</th>
+    <th>Effect</th>
+  </tr>
+  <tr>
+    <td>positive</td>
+    <td>negative</td>
+    <td>Gradient makes these tokens more probable</td>
+  </tr>
+  <tr>
+    <td>negative</td>
+    <td>positive</td>
+    <td>Gradient makes these tokens less probable</td>
+  </tr>
+</table>
+
+<p>The ratio measures how much the policy has shifted since generation. PPO clipping caps it so updates don't overshoot. The <code>loss_mask</code> ensures backprop only flows through completion tokens.</p>
+
+<h3><span class="sub">b</span>Why the Trainer Needs Prompt IDs</h3>
+
+<p>The full sequence (prompt + completion) goes into the forward pass. The model processes left-to-right: it needs to "read" the prompt tokens to build up the right hidden states before it reaches the completion tokens. Without the prompt context, the logprobs it computes on the completion tokens would be meaningless. No gradients flow through the prompt, the loss mask is 0 for all prompt tokens, but they're essential as input context.</p>
+
+<h3><span class="sub">c</span>Two Copies</h3>
+
+<p>There are two copies of the same weights in GPU memory. The trainer copy (transformers/deepspeed), where gradients flow and weights get updated. The inference copy (vLLM), which generates completions and receives weight syncs. Same architecture, same weights after sync. Two copies because generation and gradient computation have different computational patterns and can't efficiently share a single loaded model. The sync happens every training step via NCCL broadcast, not at checkpoints. Checkpoints are periodic saves to disk for crash recovery.</p>
+
+<hr class="sep">
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     IV. WEIGHT SYNC TIMING
+     ═══════════════════════════════════════════════════════════ -->
+
+<h2><span class="num">V</span>Weight Sync</h2>
+<p class="lede">Generation and weight sync are mutually exclusive. You can't sync while vLLM is generating, that would corrupt in-flight inference. You can't generate during sync, you'd get mixed weights. The trainer enforces: finish generating &rarr; sync &rarr; start generating.</p>
+
+<div class="fig">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 100" width="700" height="100">
+
+  <!-- timeline -->
+  <line x1="10" y1="38" x2="690" y2="38" stroke="#ddd" stroke-width="0.3"/>
+
+  <!-- ticks -->
+  <line x1="10" y1="34" x2="10" y2="42" stroke="#ccc" stroke-width="0.3"/>
+  <line x1="230" y1="34" x2="230" y2="42" stroke="#ccc" stroke-width="0.3"/>
+  <line x1="382" y1="34" x2="382" y2="42" stroke="#ccc" stroke-width="0.3"/>
+  <line x1="424" y1="34" x2="424" y2="42" stroke="#ccc" stroke-width="0.3"/>
+  <line x1="690" y1="34" x2="690" y2="42" stroke="#ccc" stroke-width="0.3"/>
+
+  <!-- generate v1 -->
+  <rect x="10" y="14" width="220" height="24" fill="#fdfcfa" stroke="#1a1a1a" stroke-width="0.5"/>
+  <text x="120" y="30" font-family="'JetBrains Mono',monospace" font-size="9" fill="#1a1a1a" text-anchor="middle">generate (weights v&#x2081;)</text>
+
+  <!-- train -->
+  <rect x="236" y="14" width="140" height="24" fill="#fff" stroke="#ccc" stroke-width="0.5"/>
+  <text x="306" y="30" font-family="'JetBrains Mono',monospace" font-size="9" fill="#aaa" text-anchor="middle">train on rollouts</text>
+
+  <!-- sync -->
+  <rect x="382" y="14" width="36" height="24" fill="#fff" stroke="#b33a3a" stroke-width="0.6"/>
+  <text x="400" y="31" font-family="'JetBrains Mono',monospace" font-size="10" fill="#b33a3a" text-anchor="middle">&#x21bb;</text>
+
+  <!-- generate v2 -->
+  <rect x="424" y="14" width="266" height="24" fill="#fdfcfa" stroke="#1a1a1a" stroke-width="0.5"/>
+  <text x="557" y="30" font-family="'JetBrains Mono',monospace" font-size="9" fill="#1a1a1a" text-anchor="middle">generate (weights v&#x2082;)</text>
+
+  <!-- annotations -->
+  <line x1="230" y1="42" x2="230" y2="58" stroke="#ccc" stroke-width="0.3"/>
+  <text x="230" y="68" font-family="'JetBrains Mono',monospace" font-size="7" fill="#aaa" text-anchor="middle">wait for gen</text>
+  <text x="230" y="78" font-family="'JetBrains Mono',monospace" font-size="7" fill="#aaa" text-anchor="middle">to finish</text>
+
+  <line x1="400" y1="42" x2="400" y2="58" stroke="#b33a3a" stroke-width="0.3"/>
+  <text x="400" y="68" font-family="'JetBrains Mono',monospace" font-size="7" fill="#b33a3a" text-anchor="middle">sync v&#x2082;</text>
+  <text x="400" y="78" font-family="'JetBrains Mono',monospace" font-size="7" fill="#b33a3a" text-anchor="middle">to vLLM</text>
+</svg>
+<p class="fig-cap"><strong>Timeline</strong></p>
+</div>
+
+<p>Weight sync, and doing synchronous RL training in general, has been one of the main things to optimize. The generate-train-sync cycle means the trainer sits idle during generation and vLLM sits idle during training. That's why we see async RL, where generation and training overlap.</p>
+
+<hr class="sep">
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     V. TRAINER-AGNOSTIC
+     ═══════════════════════════════════════════════════════════ -->
+
+<h2><span class="num">VI</span>Trainer-Agnostic</h2>
+<p>Verifiers has no trainer imports. It needs one thing: an OpenAI-compatible endpoint for generation. Any trainer can plug in, it just needs to build an orchestrator that:</p>
+
+<ul>
+  <li>Calls <code>env.generate()</code> with the vLLM client</li>
+  <li>Parses the trajectory structure: token IDs, logprobs, turn boundaries</li>
+  <li>Builds loss masks: model output = 1, prompt/env response = 0</li>
+  <li>Coordinates weight sync around generation</li>
+</ul>
+
+<p>Every trainer that supports verifiers (prime-rl, t2f-trainer, Tinker, SkyRL, rLLM) built this adapter independently. The env and reward functions are portable. The orchestrator glue is not.</p>
+
+<p>t2f-trainer is verifiers-rl, modified: some things added, some things fixed, but in essence it's verifiers-rl. The point stands across trainers. t2f-trainer, prime-rl, SkyRL, rLLM all take the rollouts and rewards from verifiers and compute their own advantages. The trainer just wants rollouts and rewards, nothing more.</p>
+
+<p>As of writing, verifiers-rl was still a little attached to verifiers itself: it took the advantage directly from the rubric. t2f-trainer ignores that and computes its own, just as prime-rl and SkyRL do. This is what makes the design clean. Any trainer can plug in:</p>
+
+<ul>
+  <li>Spin up vLLM (or similar) with the model</li>
+  <li>Point verifiers at it</li>
+  <li>Consume the rollouts and rewards</li>
+  <li>Compute advantages, update weights, sync back to vLLM</li>
+</ul>
+
+<div class="colophon">
+  <p>TRAINER &middot; TOPOLOGY &amp; WORKINGS</p>
+</div>
+
+</body>
+</html>

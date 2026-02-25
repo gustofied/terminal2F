@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Concepts+</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, serif;
+    font-size: 14.5px;
+    line-height: 1.72;
+    color: #2a2a2a;
+    background: #fdfcfa;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 72px 1rem 120px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── Header / Memo ── */
+  .memo-head {
+    border-top: 2.5px solid #1a1a1a;
+    border-bottom: 0.5px solid #1a1a1a;
+    padding: 20px 0 16px;
+    margin-bottom: 40px;
+  }
+  .memo-head h1 {
+    font-size: 1.6rem;
+    font-weight: normal;
+    color: #333;
+    line-height: 1.25;
+    margin: 0;
+  }
+  .memo-sub {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: #999;
+    letter-spacing: 0.8px;
+    margin-top: 8px;
+  }
+  a.back {
+    font-family: 'JetBrains Mono', monospace; font-size: 9.5px;
+    color: #bbb; text-decoration: none; letter-spacing: 0.5px;
+  }
+  a.back:hover { color: #1a1a1a; }
+
+  /* ── Sections ── */
+  h2 {
+    font-size: 1.3rem;
+    font-weight: normal;
+    color: #333;
+    margin: 56px 0 6px;
+  }
+  h2 .num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 400;
+    color: #aaa;
+    letter-spacing: 1px;
+    display: block;
+    margin-bottom: 2px;
+  }
+  h3 {
+    font-size: 1rem;
+    font-weight: normal;
+    color: #333;
+    margin: 32px 0 4px;
+  }
+  h3 .sub {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    font-weight: 400;
+    color: #bbb;
+    letter-spacing: 0.5px;
+    margin-right: 6px;
+  }
+  p { margin: 10px 0; }
+  .lede { font-size: 15px; color: #555; line-height: 1.68; }
+
+  /* ── Inline ── */
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: #1a1a1a;
+    background: #f5f4f0;
+    padding: 1.5px 5px;
+    border-bottom: 1px solid #ddd;
+  }
+  pre {
+    margin: 20px 0;
+    padding: 16px 20px;
+    background: #f5f4f0;
+    border: 0.5px solid #e8e4de;
+    overflow-x: auto;
+    line-height: 1.5;
+  }
+  pre code {
+    background: none;
+    padding: 0;
+    border: none;
+    font-size: 12px;
+  }
+  strong { font-weight: 700; color: #1a1a1a; }
+
+  /* ── Tables ── */
+  .ch-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 20px 0 0;
+    font-size: 13.5px;
+  }
+  .ch-table th {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    font-weight: 400;
+    color: #aaa;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    text-align: left;
+    padding: 6px 16px;
+    border-bottom: 1px solid #1a1a1a;
+  }
+  .ch-table td {
+    padding: 10px 16px;
+    border-bottom: 0.5px solid #eee;
+    vertical-align: top;
+  }
+  .ch-table .mono {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  /* ── Separators ── */
+  .sep {
+    border: none;
+    text-align: center;
+    margin: 56px 0;
+    line-height: 0;
+  }
+  .sep::after {
+    content: '\2022\2009\2009\2022\2009\2009\2022';
+    font-size: 10px;
+    color: #ccc;
+    letter-spacing: 4px;
+  }
+
+  /* ── Footer ── */
+  .colophon {
+    border-top: 0.5px solid #ddd;
+    margin-top: 64px;
+    padding-top: 16px;
+  }
+  .colophon p {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    color: #ccc;
+    letter-spacing: 0.5px;
+  }
+</style>
+</head>
+<body>
+
+<a class="back" href="index.html">&larr; rl / docs</a>
+
+<div class="memo-head">
+  <h1>Concepts+</h1>
+  <div class="memo-sub">TEMPLATES, TOKENS, MASKS</div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     I. CHAT TEMPLATES
+     ═══════════════════════════════════════════════════════════ -->
+
+<h2><span class="num">I</span>Chat Templates</h2>
+<p class="lede">Three representations of the same conversation, each one step closer to what the model actually sees.</p>
+
+<h3><span class="sub">a</span>Message List</h3>
+
+<p>The API format. Structured, readable, model-agnostic. This is what your env writes, what verifiers sends to vLLM.</p>
+
+<pre><code>[
+  {"role": "system", "content": "You are a helpful assistant."},
+  {"role": "user", "content": "What is the capital of France?"},
+  {"role": "assistant", "content": "Paris."},
+  {"role": "user", "content": "And Germany?"},
+  {"role": "assistant", "content": "Berlin."}
+]</code></pre>
+
+<h3><span class="sub">b</span>Template-Rendered String</h3>
+
+<p>The tokenizer applies a Jinja template (stored in <code>tokenizer_config.json</code> on HuggingFace) and produces a raw string. Every model family has a different template. Qwen uses ChatML:</p>
+
+<pre><code>&lt;|im_start|&gt;system
+You are a helpful assistant.&lt;|im_end|&gt;
+&lt;|im_start|&gt;user
+What is the capital of France?&lt;|im_end|&gt;
+&lt;|im_start|&gt;assistant
+Paris.&lt;|im_end|&gt;
+&lt;|im_start|&gt;user
+And Germany?&lt;|im_end|&gt;
+&lt;|im_start|&gt;assistant
+Berlin.&lt;|im_end|&gt;</code></pre>
+
+<p>Same message list, completely different string per model family. Feed a model the wrong template format and it still runs, it just performs worse because the token patterns are unfamiliar.</p>
+
+<h3><span class="sub">c</span>Token IDs</h3>
+
+<p>The rendered string gets tokenized into integer IDs. This is the only thing that enters the model.</p>
+
+<pre><code>[151644, 8948, 198, 2610, 5765, ..., 151645, 198, 151644, 872, 198, ...]</code></pre>
+
+<p>Delimiter strings like <code>&lt;|im_start|&gt;</code> are <strong>single tokens</strong>: <code>&lt;|im_start|&gt;</code> is token <code>151644</code> in Qwen, not a sequence of characters. The tokenizer has them in its vocabulary as special tokens. The model outputs logits over this same vocabulary at each position.</p>
+
+<h3><span class="sub">d</span>Why This Matters for Training</h3>
+
+<p>During <strong>generation</strong>, vLLM handles all three steps internally. You send message lists, it applies the template, tokenizes, generates, returns text.</p>
+
+<p>During <strong>training</strong>, the orchestrator reconstructs the exact same token sequence that vLLM generated. The full multi-turn conversation as one flat array of token IDs. It does this to:</p>
+
+<table class="ch-table">
+  <tr>
+    <th>What</th>
+    <th>Why</th>
+  </tr>
+  <tr>
+    <td class="mono">loss mask</td>
+    <td>0 for prompt/system/user/special tokens, 1 for assistant completion tokens</td>
+  </tr>
+  <tr>
+    <td class="mono">sampling logprobs</td>
+    <td>Align logprobs from vLLM generation time with the correct positions</td>
+  </tr>
+  <tr>
+    <td class="mono">trainer logprobs</td>
+    <td>Compute on the same sequence for the policy ratio</td>
+  </tr>
+</table>
+
+<p>If the trainer's tokenizer applies the template differently from vLLM's, even one extra newline or a missing BOS token, the token IDs shift and the logprobs are misaligned. The loss is computed on wrong positions. No error, just bad gradients.</p>
+
+<p>In practice this doesn't happen: both vLLM and the trainer load the same model from HuggingFace, same <code>tokenizer_config.json</code>, same Jinja template, same tokenization. They agree automatically.</p>
+
+<h3><span class="sub">e</span>Multi-Turn Masking</h3>
+
+<p>For single-turn, the flat sequence is prompt tokens then completion tokens. Simple mask. For multi-turn, the full conversation is one array:</p>
+
+<pre><code>[system] [user: question₁] [assistant: answer₁] [user: question₂] [assistant: answer₂]
+   0           0                    1                   0                    1</code></pre>
+
+<p>All processed left-to-right in one forward pass during training. The orchestrator finds where each assistant turn starts and ends by applying the same template and locating the boundaries. If the boundaries are off by even one token, you're training on user tokens or skipping completion tokens.</p>
+
+<p>During generation it's incremental: vLLM generates turn 1, the env injects the follow-up, vLLM generates turn 2 with the full history. During training, the entire conversation is one sequence in a single forward pass.</p>
+
+<div class="colophon">
+  <p>CONCEPTS+ &middot; TEMPLATES, TOKENS, MASKS</p>
+</div>
+
+</body>
+</html>

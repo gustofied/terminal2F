@@ -1,7 +1,7 @@
 title = "RL"
 
 [[groups]]
-name = "Tutorial"
+name = "Setup"
 docs = [
     { file = "gpu_nodes", title = "GPU Nodes and Shapes" },
     { file = "setup_guide", title = "Setup Guide" },
@@ -12,16 +12,13 @@ docs = [
 [[groups]]
 name = "Concepts"
 docs = [
-    { file = "system_overview", title = "System Overview: Verifiers, Trainer, vLLM", handcrafted = true },
-    { file = "training_architecture", title = "Training Architecture: Who Does What" },
-    { file = "grpo_example", title = "How GRPO Works" },
-    { file = "dr_grpo", title = "Dr.GRPO: What It Fixes" },
-    { file = "multi_turn_envs", title = "Multi-Turn Environments" },
-    { file = "async_execution_flow", title = "Async Execution Flow" },
-    { file = "grpo_training_loop", title = "GRPO Training Loop: What Gets Fed to the Trainer" },
+    { file = "trainer", title = "Trainer", handcrafted = true },
+    { file = "reinforcement_learning", title = "Reinforcement Learning", handcrafted = true },
+
+    { file = "environments", title = "Environments", handcrafted = true },
     { file = "rl_to_grpo", title = "From RL to GRPO: How LLMs Learn from Rewards" },
     { file = "how_advantages_update_weights", title = "How Advantages Update Weights" },
-    { file = "chat_templates", title = "Chat Templates: API → Template → Token IDs" },
+    { file = "concepts_plus", title = "Concepts+", handcrafted = true },
 ]
 
 [[groups]]
@@ -30,7 +27,6 @@ docs = [
     { file = "environments_hub", title = "Environments Hub and Verifiers" },
     { file = "verifiers_integration", title = "Integrating External Systems" },
     { file = "verifiers_tips", title = "Small Learnings" },
-    { file = "verifiers_changelog", title = "Notable Changes" },
 ]
 
 [[groups]]
