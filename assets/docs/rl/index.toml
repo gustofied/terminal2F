@@ -28,6 +28,7 @@ docs = [
 name = "Verifiers"
 docs = [
     { file = "environments_hub", title = "Environments Hub and Verifiers" },
+    { file = "verifiers_integration", title = "Integrating External Systems" },
     { file = "verifiers_tips", title = "Small Learnings" },
     { file = "verifiers_changelog", title = "Notable Changes" },
 ]

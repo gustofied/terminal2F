@@ -230,6 +230,30 @@ easier but more deterministic. If we hide them, the model infers sensitivity/hie
 email prose - harder, more realistic, but noisier. Leaning towards hiding them for now. Revisit     
 based on reward curves.                                                                             
 
+<span class="r2">v2 Discussion and Upgrades</span>                                                                          
+
+<span class="r10">mbox format for realistic email state.</span> Archipelago&#x27;s mail MCP server uses mbox - the standard Unix  
+mailbox format. All emails in a single file, separated by <span class="r8">From </span> lines. Each email is a full RFC 822 
+message with real headers (From, To, Cc, Bcc, Subject, Date, In-Reply-To, References). Python stdlib
+has <span class="r8">mailbox.mbox</span> to read/write it.                                                                  
+
+Instead of passing email content as plain text strings, v2 could store the thread as an mbox file   
+per rollout. The model interacts with actual email structure - threading via In-Reply-To, proper    
+headers, multipart bodies. This makes the task harder and more realistic: the model must parse real 
+email format, not a simplified prompt.                                                              
+
+Archipelago&#x27;s full mail server exposes 7 tools via FastMCP: <span class="r8">list_mails</span>, <span class="r8">read_mail</span>, <span class="r8">search_mail</span>,     
+<span class="r8">send_mail</span>, <span class="r8">reply_mail</span>, <span class="r8">reply_all_mail</span>, <span class="r8">forward_mail</span>. All backed by mbox files (~2,100 lines). Their 
+dual-mode pattern is worth noting - individual tools or a single <span class="r8">mail</span> meta-tool with an action      
+parameter, controlled by env var.                                                                   
+
+<span class="r10">What this means for us:</span> v2 could evolve from &quot;read this email, assign recipients&quot; to &quot;interact with 
+a mail server via MCP tools, manage an inbox.&quot; The model would <span class="r8">read_mail</span> to see the thread, then    
+<span class="r8">reply_mail</span> or <span class="r8">forward_mail</span> with the right recipients. Scoring shifts from JSON extraction to        
+checking the actual sent email&#x27;s headers in the mbox file. This aligns with the Zapier/MCP direction
+- same <span class="r8">env_response</span> pattern, just routing tool calls to a FastMCP mail server instead of returning  
+follow-up strings.                                                                                  
+
 <span class="r2">Knobs (</span><span class="r13">--env-args</span><span class="r2">)</span>                                                                                  
 
 <span class="r7"> • </span><span class="r8">max_turns</span> - 1, 2, or 3. Slices dataset accordingly.                                              

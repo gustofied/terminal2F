@@ -134,6 +134,16 @@ None of these block a first training run. Plan is: train on v1, check reward cur
 
 **Metadata columns.** The generation pipeline samples `scenario_type`, `audience`, `sensitivity`, `hierarchy` but currently drops them from the final dataset. If we expose them to the model, the task gets easier but more deterministic. If we hide them, the model infers sensitivity/hierarchy from the email prose — harder, more realistic, but noisier. Leaning towards hiding them for now. Revisit based on reward curves.
 
+### v2 Discussion and Upgrades
+
+**mbox format for realistic email state.** Archipelago's mail MCP server uses mbox — the standard Unix mailbox format. All emails in a single file, separated by `From ` lines. Each email is a full RFC 822 message with real headers (From, To, Cc, Bcc, Subject, Date, In-Reply-To, References). Python stdlib has `mailbox.mbox` to read/write it.
+
+Instead of passing email content as plain text strings, v2 could store the thread as an mbox file per rollout. The model interacts with actual email structure — threading via In-Reply-To, proper headers, multipart bodies. This makes the task harder and more realistic: the model must parse real email format, not a simplified prompt.
+
+Archipelago's full mail server exposes 7 tools via FastMCP: `list_mails`, `read_mail`, `search_mail`, `send_mail`, `reply_mail`, `reply_all_mail`, `forward_mail`. All backed by mbox files (~2,100 lines). Their dual-mode pattern is worth noting — individual tools or a single `mail` meta-tool with an action parameter, controlled by env var.
+
+**What this means for us:** v2 could evolve from "read this email, assign recipients" to "interact with a mail server via MCP tools, manage an inbox." The model would `read_mail` to see the thread, then `reply_mail` or `forward_mail` with the right recipients. Scoring shifts from JSON extraction to checking the actual sent email's headers in the mbox file. This aligns with the Zapier/MCP direction — same `env_response` pattern, just routing tool calls to a FastMCP mail server instead of returning follow-up strings.
+
 ### Knobs (`--env-args`)
 
 - `max_turns` — 1, 2, or 3. Slices dataset accordingly.
