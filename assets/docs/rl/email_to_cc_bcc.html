@@ -66,6 +66,26 @@
     padding: 1.5px 5px;
     border-bottom: 1px solid #ddd;
   }
+  .code-block {
+    position: relative;
+    margin: 20px 0;
+  }
+  .code-block pre {
+    margin: 0;
+  }
+  .code-lang {
+    position: absolute;
+    top: 0;
+    right: 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8.5px;
+    font-weight: 400;
+    color: #bbb;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    padding: 5px 10px;
+    user-select: none;
+  }
   pre {
     margin: 20px 0;
     padding: 16px 20px;
@@ -138,27 +158,30 @@
 
 <p>The environment assembles the full prompt at runtime:</p>
 
-<pre><code>Available recipients:
-- Sarah Chen &lt;sarah.chen@acme.com&gt; - Project Lead
-- Mike Torres &lt;mike.t@clientcorp.com&gt; - Client PM
-- Lisa Park &lt;lisa.park@acme.com&gt; - VP Engineering
-...
+<div class="code-block"><pre><code><span style="color: #657B83">Available </span><span style="color: #268BD2">recipients</span><span style="color: #657B83">:</span>
+<span style="color: #93A1A1">-</span><span style="color: #657B83"> Sarah Chen </span><span style="color: #93A1A1">&lt;</span><span style="color: #657B83">sarah.chen</span><span style="color: #268BD2">@acme</span><span style="color: #657B83">.com</span><span style="color: #93A1A1">&gt;</span><span style="color: #657B83"> </span><span style="color: #93A1A1">-</span><span style="color: #657B83"> Project Lead</span>
+<span style="color: #93A1A1">-</span><span style="color: #657B83"> Mike Torres </span><span style="color: #93A1A1">&lt;</span><span style="color: #657B83">mike.t</span><span style="color: #268BD2">@clientcorp</span><span style="color: #657B83">.com</span><span style="color: #93A1A1">&gt;</span><span style="color: #657B83"> </span><span style="color: #93A1A1">-</span><span style="color: #657B83"> Client PM</span>
+<span style="color: #93A1A1">-</span><span style="color: #657B83"> Lisa Park </span><span style="color: #93A1A1">&lt;</span><span style="color: #657B83">lisa.park</span><span style="color: #268BD2">@acme</span><span style="color: #657B83">.com</span><span style="color: #93A1A1">&gt;</span><span style="color: #657B83"> </span><span style="color: #93A1A1">-</span><span style="color: #657B83"> VP Engineering</span>
+<span style="color: #657B83">...</span>
 
-Subject: Q3 deadline extension request
+<span style="color: #268BD2">Subject</span><span style="color: #657B83">: Q3 deadline extension request</span>
 
-Hi team, I wanted to flag that we&#x27;re going to need a 2-week extension...
+<span style="color: #657B83">Hi team, I wanted </span><span style="color: #859900">to</span><span style="color: #657B83"> flag that we</span><span style="color: #657B83; background-color: #DC322F">&#39;</span><span style="color: #657B83">re going </span><span style="color: #859900">to</span><span style="color: #657B83"> need a </span><span style="color: #2AA198">2</span><span style="color: #93A1A1">-</span><span style="color: #657B83">week extension...</span>
 
-Assign recipients to To, CC, and BCC.</code></pre>
+<span style="color: #657B83">Assign recipients </span><span style="color: #859900">to</span><span style="color: #657B83"> </span><span style="color: #859900">To</span><span style="color: #657B83">, CC, </span><span style="color: #859900">and</span><span style="color: #657B83"> BCC.</span>
+</code></pre></div>
 
 <p>Answer format - email addresses, JSON:</p>
 
-<pre><code>{&quot;to&quot;: [&quot;sarah.chen@acme.com&quot;], &quot;cc&quot;: [&quot;mike.t@clientcorp.com&quot;], &quot;bcc&quot;: [&quot;lisa.park@acme.com&quot;]}</code></pre>
+<div class="code-block"><span class="code-lang">json</span><pre><code><span style="color: #657B83">{</span><span style="color: #268BD2">&quot;to&quot;</span><span style="color: #657B83">: [</span><span style="color: #2AA198">&quot;sarah.chen@acme.com&quot;</span><span style="color: #657B83">], </span><span style="color: #268BD2">&quot;cc&quot;</span><span style="color: #657B83">: [</span><span style="color: #2AA198">&quot;mike.t@clientcorp.com&quot;</span><span style="color: #657B83">], </span><span style="color: #268BD2">&quot;bcc&quot;</span><span style="color: #657B83">: [</span><span style="color: #2AA198">&quot;lisa.park@acme.com&quot;</span><span style="color: #657B83">]}</span>
+</code></pre></div>
 
 <h3>Dataset</h3>
 
 <p>7 columns, flat. Each row is a full 3-turn scenario:</p>
 
-<pre><code>email_list | question_1 | question_2 | question_3 | answer_1 | answer_2 | answer_3</code></pre>
+<div class="code-block"><pre><code>email_list | question_1 | question_2 | question_3 | answer_1 | answer_2 | answer_3
+</code></pre></div>
 
 <ul>
 <li><code>email_list</code> - all 7 people, always present (<code>name &lt;email&gt; - role</code>)</li>
@@ -170,12 +193,13 @@ Assign recipients to To, CC, and BCC.</code></pre>
 
 <p>In <code>load_environment</code>, flat columns get reshaped into the verifiers format:</p>
 
-<pre><code>&quot;prompt&quot;: [{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: email_list + question_1 + instruction}],
-&quot;info&quot;: {
-    &quot;follow_ups&quot;: [question_2, question_3],
-    &quot;ground_truths&quot;: [answer_1, answer_2, answer_3],
-    &quot;num_turns&quot;: max_turns,
-}</code></pre>
+<div class="code-block"><span class="code-lang">python</span><pre><code><span style="color: #2AA198">&quot;prompt&quot;</span><span style="color: #657B83">:</span> <span style="color: #657B83">[{</span><span style="color: #2AA198">&quot;role&quot;</span><span style="color: #657B83">:</span> <span style="color: #2AA198">&quot;user&quot;</span><span style="color: #657B83">,</span> <span style="color: #2AA198">&quot;content&quot;</span><span style="color: #657B83">:</span> <span style="color: #657B83">email_list</span> <span style="color: #93A1A1">+</span> <span style="color: #657B83">question_1</span> <span style="color: #93A1A1">+</span> <span style="color: #657B83">instruction}],</span>
+<span style="color: #2AA198">&quot;info&quot;</span><span style="color: #657B83">:</span> <span style="color: #657B83">{</span>
+    <span style="color: #2AA198">&quot;follow_ups&quot;</span><span style="color: #657B83">:</span> <span style="color: #657B83">[question_2,</span> <span style="color: #657B83">question_3],</span>
+    <span style="color: #2AA198">&quot;ground_truths&quot;</span><span style="color: #657B83">:</span> <span style="color: #657B83">[answer_1,</span> <span style="color: #657B83">answer_2,</span> <span style="color: #657B83">answer_3],</span>
+    <span style="color: #2AA198">&quot;num_turns&quot;</span><span style="color: #657B83">:</span> <span style="color: #657B83">max_turns,</span>
+<span style="color: #657B83">}</span>
+</code></pre></div>
 
 <h3>Generation Approach</h3>
 
@@ -191,13 +215,15 @@ Assign recipients to To, CC, and BCC.</code></pre>
 
 <p>10k rows. Single-phase <a href="https://nvidia-nemo.github.io/DataDesigner/latest/">DataDesigner</a> pipeline (<code>&gt;=0.5.1</code>).</p>
 
-<pre><code>cd nuggets
-uv venv &amp;&amp; uv pip install &#x27;data-designer&gt;=0.5.1&#x27; faker
-.venv/bin/python email_to_cc_bcc_synthetic_data_generation.py --generate 10000</code></pre>
+<div class="code-block"><span class="code-lang">bash</span><pre><code><span style="color: #268BD2">cd</span><span style="color: #657B83"> </span>nuggets
+uv<span style="color: #657B83"> </span>venv<span style="color: #657B83"> </span><span style="color: #93A1A1">&amp;&amp;</span><span style="color: #657B83"> </span>uv<span style="color: #657B83"> </span>pip<span style="color: #657B83"> </span>install<span style="color: #657B83"> </span><span style="color: #2AA198">&#39;data-designer&gt;=0.5.1&#39;</span><span style="color: #657B83"> </span>faker
+.venv/bin/python<span style="color: #657B83"> </span>email_to_cc_bcc_synthetic_data_generation.py<span style="color: #657B83"> </span>--generate<span style="color: #657B83"> </span><span style="color: #2AA198">10000</span>
+</code></pre></div>
 
 <p>Preview:</p>
 
-<pre><code>.venv/bin/python email_to_cc_bcc_synthetic_data_generation.py --preview 5</code></pre>
+<div class="code-block"><span class="code-lang">bash</span><pre><code>.venv/bin/python<span style="color: #657B83"> </span>email_to_cc_bcc_synthetic_data_generation.py<span style="color: #657B83"> </span>--preview<span style="color: #657B83"> </span><span style="color: #2AA198">5</span>
+</code></pre></div>
 
 <h3>Pipeline Details</h3>
 

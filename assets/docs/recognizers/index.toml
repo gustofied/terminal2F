@@ -1,0 +1,14 @@
+title = "Recognizers"
+
+[[groups]]
+name = "Foundations"
+docs = [
+    { file = "automata", title = "Automata" },
+    { file = "parser_combinators", title = "Parser Combinators" },
+]
+
+[[groups]]
+name = "JSON Parsing"
+docs = [
+    { file = "json_parsing", title = "JSON Parsing - Overview" },
+]

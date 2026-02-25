@@ -19,6 +19,8 @@ docs = [
 name = "Environments"
 docs = [
     { file = "email_to_cc_bcc", title = "Email-to-CC-BCC" },
+    { file = "doltgres_env", title = "Doltgres" },
+    { file = "fastmcp_drawings", title = "FastMCP, Drawings, and More" },
 ]
 
 [[groups]]

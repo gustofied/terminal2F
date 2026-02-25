@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>FastMCP, Drawings, and More</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, serif;
+    font-size: 14.5px;
+    line-height: 1.72;
+    color: #2a2a2a;
+    background: #fdfcfa;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 72px 1rem 120px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a.back {
+    font-family: 'JetBrains Mono', monospace; font-size: 9.5px;
+    color: #bbb; text-decoration: none; letter-spacing: 0.5px;
+  }
+  a.back:hover { color: #1a1a1a; }
+
+  .memo-head {
+    border-top: 2.5px solid #1a1a1a;
+    border-bottom: 0.5px solid #1a1a1a;
+    padding: 20px 0 16px;
+    margin-bottom: 40px;
+  }
+  .memo-head h1 {
+    font-size: 1.6rem;
+    font-weight: normal;
+    color: #333;
+    line-height: 1.25;
+    margin: 0;
+  }
+
+  h2 {
+    font-size: 1.3rem;
+    font-weight: normal;
+    color: #333;
+    margin: 56px 0 6px;
+  }
+  h3 {
+    font-size: 1.1rem;
+    font-weight: normal;
+    color: #333;
+    margin: 36px 0 4px;
+  }
+  p { margin: 10px 0; }
+
+  ul, ol { margin: 12px 0 12px 22px; }
+  li { margin: 5px 0; color: #333; }
+  li::marker { color: #bbb; }
+
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: #1a1a1a;
+    background: #f5f4f0;
+    padding: 1.5px 5px;
+    border-bottom: 1px solid #ddd;
+  }
+  pre {
+    margin: 20px 0;
+    padding: 16px 20px;
+    background: #f5f4f0;
+    border: 0.5px solid #e8e4de;
+    overflow-x: auto;
+    line-height: 1.5;
+  }
+  pre code {
+    background: none;
+    padding: 0;
+    border: none;
+    font-size: 12px;
+  }
+  strong { font-weight: 700; color: #1a1a1a; }
+  em { color: #555; }
+  a { color: #268bd2; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  blockquote {
+    font-size: 13px;
+    color: #888;
+    font-style: italic;
+    margin: 20px 0 20px 28px;
+    padding-left: 16px;
+    border-left: 1.5px solid #ddd;
+    line-height: 1.6;
+  }
+
+  hr {
+    border: none;
+    text-align: center;
+    margin: 56px 0;
+    line-height: 0;
+  }
+  hr::after {
+    content: '\2022\2009\2009\2022\2009\2009\2022';
+    font-size: 10px;
+    color: #ccc;
+    letter-spacing: 4px;
+  }
+
+  .colophon {
+    border-top: 0.5px solid #ddd;
+    margin-top: 64px;
+    padding-top: 16px;
+  }
+  .colophon p {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    color: #ccc;
+    letter-spacing: 0.5px;
+  }
+
+</style>
+</head>
+<body>
+
+<a class="back" href="index.html">&larr; docs</a>
+
+<div class="memo-head">
+  <h1>FastMCP, Drawings, and More</h1>
+</div>
+
+<p>RL environment where a VLM learns to draw. Inspired by <a href="https://www.printingmachines.ai/blog/printing-machines">Printing Machines</a> &mdash; models use drawing tools, see the canvas each turn, and iteratively produce images. Current frontier models fail badly at this. We can train on it.</p>
+
+<h3>Loop</h3>
+
+<p>Multi-turn, vision-in-the-loop. Each turn: model sees target image + current canvas, calls a drawing tool, canvas updates, screenshot fed back.</p>
+
+<pre><code>Turn 1: [target + blank canvas]  &rarr; model calls draw_line(...)   &rarr; screenshot
+Turn 2: [target + canvas]        &rarr; model calls draw_spline(...) &rarr; screenshot
+Turn 3: [target + canvas]        &rarr; model calls draw_curve(...)  &rarr; screenshot
+...
+Turn N: model calls stop() &rarr; score against target</code></pre>
+
+<h3>Tools</h3>
+
+<p>FastMCP server exposes drawing primitives. The model only sees these &mdash; no raw canvas access.</p>
+
+<pre><code>draw_line(x1, y1, x2, y2)
+draw_spline(points[])
+draw_polyline(points[])
+draw_curve(x1, y1, cx1, cy1, cx2, cy2, x2, y2)    # bezier
+undo()
+update_notes(notes)                                  # 20k-token scratchpad
+stop()</code></pre>
+
+<p>Splines and bezier curves are native to HTML Canvas. Reimplementing them in PIL would be fighting the problem &mdash; use a real canvas.</p>
+
+<h3>Stack</h3>
+
+<p>No Docker, no prime sandboxes. <code>env_response</code> manages everything.</p>
+
+<pre><code>Model (VLM)
+  &darr; tool calls
+env_response
+  &darr; stdio
+FastMCP server (drawing tools)
+  &darr; executes on
+HTML Canvas (in WebContainer / headless browser)
+  &darr; screenshot
+Playwright
+  &darr; PNG
+env_response returns image message to VLM</code></pre>
+
+<h3>WebContainers</h3>
+
+<p><a href="https://webcontainers.io/">WebContainers</a> run Node.js in WASM &mdash; millisecond startup, no Docker, per-rollout isolation without heavyweight containers. The FastMCP canvas app is a web app, which is exactly what WebContainers are for.</p>
+
+<p>Each rollout gets its own WebContainer with its own canvas. Starts instantly, dies cleanly, no port conflicts, no shared state.</p>
+
+<h3>Lifecycle</h3>
+
+<pre><code>setup_state:
+    1. Spin up WebContainer (WASM, fast)
+    2. Run FastMCP canvas app inside it
+    3. Connect Playwright for screenshots
+    4. Load target image into state
+
+env_response:
+    1. Parse tool call from model message
+    2. Route to FastMCP over stdio
+    3. Canvas executes the draw command
+    4. Playwright screenshots the canvas
+    5. Return [screenshot + target] as image message
+
+cleanup:
+    Tear down WebContainer + Playwright</code></pre>
+
+<h3>Scoring</h3>
+
+<p>Compare final canvas to target. Options:</p>
+
+<ul>
+<li><strong>SSIM</strong> &mdash; structural similarity, catches shape and layout</li>
+<li><strong>Pixel MSE</strong> &mdash; simple, noisy on small misalignments</li>
+<li><strong>Perceptual</strong> &mdash; LPIPS or similar, matches human judgement better but needs a pretrained net</li>
+<li><strong>Hybrid</strong> &mdash; weighted combination. SSIM for structure, pixel for precision</li>
+</ul>
+
+<p>The Printing Machines benchmark found that "small perceptual or execution mistakes compound over time." A good reward function should give partial credit for progress, not just score the final frame.</p>
+
+<h3>Rerun</h3>
+
+<p>Hook up <a href="https://rerun.io/">Rerun</a> to stream rollouts live. Each rollout logs its canvas state, tool calls, and scores to a Rerun recording. You get a link, open it, and watch the drawing build up stroke by stroke in real time.</p>
+
+<pre><code>env_response:
+    ...
+    4. Playwright screenshots the canvas
+    5. rr.log("canvas", rr.Image(screenshot))
+    6. rr.log("tool_call", rr.TextLog(f"{tool_name}({tool_args})"))
+    7. Return image message to VLM</code></pre>
+
+<p>During training you'd see every rollout's drawing process &mdash; which strokes the model chose, where it went wrong, how it recovered (or didn't). Compare rollouts side by side: the one that scored 0.9 vs the one that scored 0.2. See exactly where they diverge.</p>
+
+<p>Also useful for debugging reward functions &mdash; watch a rollout that scored low and check if the reward is wrong or the model is. Beats staring at JSON logs.</p>
+
+<h3>Open Questions</h3>
+
+<ul>
+<li><strong>VLM training cost</strong> &mdash; vision models are heavier than text-only. vLLM serving a VLM needs more GPU memory.</li>
+<li><strong>Screenshot latency</strong> &mdash; Playwright screenshot per turn adds time. Acceptable if turns are seconds, not milliseconds.</li>
+<li><strong>Task generation</strong> &mdash; need a dataset of target images. Vector drawings, line art, simple shapes to start. Complexity scales with model capability.</li>
+<li><strong>Partial credit</strong> &mdash; per-turn reward vs end-of-rollout? Per-turn is denser signal but harder to compute fairly.</li>
+</ul>
+
+<div class="colophon">
+  <p>FASTMCP, DRAWINGS, AND MORE</p>
+</div>
+
+</body>
+</html>

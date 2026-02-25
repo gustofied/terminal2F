@@ -18,6 +18,14 @@ import sys
 import tomllib
 from pathlib import Path
 
+try:
+    from pygments import highlight as _pygments_highlight
+    from pygments.lexers import get_lexer_by_name, guess_lexer
+    from pygments.formatters import HtmlFormatter
+    HAS_PYGMENTS = True
+except ImportError:
+    HAS_PYGMENTS = False
+
 ASSETS_DIR = Path(__file__).parent
 DOCS_DIR = ASSETS_DIR / "docs"
 
@@ -84,6 +92,26 @@ EDITORIAL_CSS = """\
     padding: 1.5px 5px;
     border-bottom: 1px solid #ddd;
   }
+  .code-block {
+    position: relative;
+    margin: 20px 0;
+  }
+  .code-block pre {
+    margin: 0;
+  }
+  .code-lang {
+    position: absolute;
+    top: 0;
+    right: 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8.5px;
+    font-weight: 400;
+    color: #bbb;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    padding: 5px 10px;
+    user-select: none;
+  }
   pre {
     margin: 20px 0;
     padding: 16px 20px;
@@ -138,6 +166,21 @@ EDITORIAL_CSS = """\
     letter-spacing: 0.5px;
   }
 """
+
+
+def _highlight_code(code: str, lang: str | None) -> str:
+    """Syntax-highlight code. Returns HTML with <span> tags."""
+    if not HAS_PYGMENTS:
+        return html_mod.escape(code)
+    try:
+        if lang:
+            lexer = get_lexer_by_name(lang, stripall=True)
+        else:
+            lexer = guess_lexer(code)
+    except Exception:
+        return html_mod.escape(code)
+    formatter = HtmlFormatter(nowrap=True, noclasses=True, style="solarized-light")
+    return _pygments_highlight(code, lexer, formatter)
 
 
 def clean_text(text: str) -> str:
@@ -211,14 +254,19 @@ def _md_to_html(lines: list[str]) -> str:
 
         # Code block
         if line.startswith("```"):
+            lang = line[3:].strip() or None
             code_lines = []
             i += 1
             while i < len(lines) and not lines[i].startswith("```"):
                 code_lines.append(lines[i])
                 i += 1
             i += 1  # skip closing ```
-            code = html_mod.escape("\n".join(code_lines))
-            out.append(f"<pre><code>{code}</code></pre>")
+            raw = "\n".join(code_lines)
+            highlighted = _highlight_code(raw, lang)
+            lang_label = ""
+            if lang:
+                lang_label = f'<span class="code-lang">{html_mod.escape(lang)}</span>'
+            out.append(f'<div class="code-block">{lang_label}<pre><code>{highlighted}</code></pre></div>')
             continue
 
         # Headings

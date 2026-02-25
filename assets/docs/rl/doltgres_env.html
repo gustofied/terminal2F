@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Doltgres Environment</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, serif;
+    font-size: 14.5px;
+    line-height: 1.72;
+    color: #2a2a2a;
+    background: #fdfcfa;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 72px 1rem 120px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a.back {
+    font-family: 'JetBrains Mono', monospace; font-size: 9.5px;
+    color: #bbb; text-decoration: none; letter-spacing: 0.5px;
+  }
+  a.back:hover { color: #1a1a1a; }
+
+  .memo-head {
+    border-top: 2.5px solid #1a1a1a;
+    border-bottom: 0.5px solid #1a1a1a;
+    padding: 20px 0 16px;
+    margin-bottom: 40px;
+  }
+  .memo-head h1 {
+    font-size: 1.6rem;
+    font-weight: normal;
+    color: #333;
+    line-height: 1.25;
+    margin: 0;
+  }
+
+  h2 {
+    font-size: 1.3rem;
+    font-weight: normal;
+    color: #333;
+    margin: 56px 0 6px;
+  }
+  h3 {
+    font-size: 1.1rem;
+    font-weight: normal;
+    color: #333;
+    margin: 36px 0 4px;
+  }
+  p { margin: 10px 0; }
+
+  ul, ol { margin: 12px 0 12px 22px; }
+  li { margin: 5px 0; color: #333; }
+  li::marker { color: #bbb; }
+
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: #1a1a1a;
+    background: #f5f4f0;
+    padding: 1.5px 5px;
+    border-bottom: 1px solid #ddd;
+  }
+  pre {
+    margin: 20px 0;
+    padding: 16px 20px;
+    background: #f5f4f0;
+    border: 0.5px solid #e8e4de;
+    overflow-x: auto;
+    line-height: 1.5;
+  }
+  pre code {
+    background: none;
+    padding: 0;
+    border: none;
+    font-size: 12px;
+  }
+  strong { font-weight: 700; color: #1a1a1a; }
+  em { color: #555; }
+  a { color: #268bd2; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  blockquote {
+    font-size: 13px;
+    color: #888;
+    font-style: italic;
+    margin: 20px 0 20px 28px;
+    padding-left: 16px;
+    border-left: 1.5px solid #ddd;
+    line-height: 1.6;
+  }
+
+  hr {
+    border: none;
+    text-align: center;
+    margin: 56px 0;
+    line-height: 0;
+  }
+  hr::after {
+    content: '\2022\2009\2009\2022\2009\2009\2022';
+    font-size: 10px;
+    color: #ccc;
+    letter-spacing: 4px;
+  }
+
+  .colophon {
+    border-top: 0.5px solid #ddd;
+    margin-top: 64px;
+    padding-top: 16px;
+  }
+  .colophon p {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    color: #ccc;
+    letter-spacing: 0.5px;
+  }
+
+</style>
+</head>
+<body>
+
+<a class="back" href="index.html">&larr; docs</a>
+
+<div class="memo-head">
+  <h1>Doltgres Environment</h1>
+</div>
+
+<p>Idea for an RL environment backed by <a href="https://www.doltgres.com/">Doltgres</a> &mdash; a Postgres-compatible, version-controlled database. The model interacts with it through FastMCP tools over stdio. No sandbox, no Docker &mdash; just processes.</p>
+
+<h3>Architecture</h3>
+
+<p>The model never touches Doltgres directly. FastMCP is the boundary.</p>
+
+<pre><code>Model &rarr; env_response &rarr; FastMCP tools (stdio) &rarr; Doltgres (localhost)</code></pre>
+
+<p>FastMCP exposes whatever SQL tools you define &mdash; <code>query</code>, <code>insert</code>, <code>create_table</code>, etc. The model can only do what the tools allow. No raw connection string, no escape path.</p>
+
+<h3>Doltgres on Env Start</h3>
+
+<p>Doltgres is a single Go binary. The environment downloads it on first use and caches it. No node setup, no system deps &mdash; anyone who <code>pip install</code>s the environment gets everything.</p>
+
+<pre><code>from pathlib import Path
+from urllib.request import urlretrieve
+
+DOLTGRES_PATH = Path("/tmp/doltgres")
+DOLTGRES_URL = "https://github.com/dolthub/doltgresql/releases/..."
+
+if not DOLTGRES_PATH.exists():
+    urlretrieve(DOLTGRES_URL, str(DOLTGRES_PATH))
+    DOLTGRES_PATH.chmod(0o755)</code></pre>
+
+<p><code>curl</code> works too and is on every Linux box and macOS. The only edge case is a minimal Docker image that stripped it out, but any real GPU node will have it. <code>urllib.request.urlretrieve</code> is the zero-dep alternative &mdash; pure stdlib, works everywhere Python works.</p>
+
+<h3>FastMCP: Shared vs Per-Rollout</h3>
+
+<p>The environment is stateful &mdash; each rollout mutates the database. Two ways to handle isolation with FastMCP:</p>
+
+<p><strong>Shared server + branching.</strong> One Doltgres instance, one FastMCP server, started at environment init. Each rollout gets its own Dolt branch. <code>setup_state</code> creates the branch, <code>cleanup</code> drops it. The FastMCP server manages a connection pool internally, routing each rollout to its branch.</p>
+
+<pre><code>Environment init:
+    Start 1 Doltgres, start 1 FastMCP server
+
+setup_state:
+    CREATE BRANCH 'rollout-{id}' on shared Doltgres
+
+env_response:
+    Route tool calls to shared FastMCP (with branch context)
+
+cleanup:
+    DROP BRANCH 'rollout-{id}'</code></pre>
+
+<p>Fewer processes, Dolt branching handles isolation. The server internals are more complex &mdash; connection pool, branch routing per rollout. Single Doltgres process serves all rollouts.</p>
+
+<p><strong>Per-rollout server.</strong> Each rollout gets its own Doltgres subprocess + its own FastMCP subprocess. Complete process isolation. Each server is simple &mdash; one connection, no routing.</p>
+
+<pre><code>setup_state:
+    1. Download doltgres binary (first rollout only, cached)
+    2. Create data dir: /tmp/dolt-{rollout_id}/
+    3. Start doltgres subprocess on random port
+    4. Start FastMCP subprocess over stdio
+
+env_response:
+    Pass model messages to FastMCP, return tool results
+
+cleanup:
+    Kill both processes, remove data dir</code></pre>
+
+<p>More processes, but each one is trivial. No shared state, no connection pool, no branch coordination. Cleanup is just kill + rm.</p>
+
+<p><strong>Leaning shared.</strong> Doltgres branching exists for exactly this &mdash; cheap, isolated, concurrent branches on one instance. Per-rollout means N Doltgres processes on a GPU node that's already running vLLM. The shared approach trades server complexity for resource efficiency.</p>
+
+<div class="colophon">
+  <p>DOLTGRES ENVIRONMENT</p>
+</div>
+
+</body>
+</html>

@@ -66,6 +66,26 @@
     padding: 1.5px 5px;
     border-bottom: 1px solid #ddd;
   }
+  .code-block {
+    position: relative;
+    margin: 20px 0;
+  }
+  .code-block pre {
+    margin: 0;
+  }
+  .code-lang {
+    position: absolute;
+    top: 0;
+    right: 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8.5px;
+    font-weight: 400;
+    color: #bbb;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    padding: 5px 10px;
+    user-select: none;
+  }
   pre {
     margin: 20px 0;
     padding: 16px 20px;
@@ -144,16 +164,17 @@
 
 <p>Log from inside the multi-turn loop via an optional callback on the environment. No Rerun dependency in the environment itself - keep it portable for the hub:</p>
 
-<pre><code>class MyEnv(vf.MultiTurnEnv):
-    def __init__(self, on_step=None, **kwargs):
-        self.on_step = on_step
-        super().__init__(**kwargs)
+<div class="code-block"><span class="code-lang">python</span><pre><code><span style="color: #859900">class</span><span style="color: #657B83"> </span><span style="color: #268BD2">MyEnv</span><span style="color: #657B83">(vf</span><span style="color: #93A1A1">.</span><span style="color: #657B83">MultiTurnEnv):</span>
+    <span style="color: #859900">def</span><span style="color: #657B83"> </span><span style="color: #268BD2">__init__</span><span style="color: #657B83">(</span><span style="color: #268BD2">self</span><span style="color: #657B83">,</span> <span style="color: #657B83">on_step</span><span style="color: #93A1A1">=</span><span style="color: #2AA198">None</span><span style="color: #657B83">,</span> <span style="color: #93A1A1">**</span><span style="color: #657B83">kwargs):</span>
+        <span style="color: #268BD2">self</span><span style="color: #93A1A1">.</span><span style="color: #657B83">on_step</span> <span style="color: #93A1A1">=</span> <span style="color: #657B83">on_step</span>
+        <span style="color: #268BD2">super</span><span style="color: #657B83">()</span><span style="color: #93A1A1">.</span><span style="color: #268BD2">__init__</span><span style="color: #657B83">(</span><span style="color: #93A1A1">**</span><span style="color: #657B83">kwargs)</span>
 
-    async def env_response(self, messages, state):
-        result = do_stuff(messages)
-        if self.on_step:
-            self.on_step(messages, state, result)
-        return result</code></pre>
+    <span style="color: #859900">async</span> <span style="color: #859900">def</span><span style="color: #657B83"> </span><span style="color: #268BD2">env_response</span><span style="color: #657B83">(</span><span style="color: #268BD2">self</span><span style="color: #657B83">,</span> <span style="color: #657B83">messages,</span> <span style="color: #657B83">state):</span>
+        <span style="color: #657B83">result</span> <span style="color: #93A1A1">=</span> <span style="color: #657B83">do_stuff(messages)</span>
+        <span style="color: #859900">if</span> <span style="color: #268BD2">self</span><span style="color: #93A1A1">.</span><span style="color: #657B83">on_step:</span>
+            <span style="color: #268BD2">self</span><span style="color: #93A1A1">.</span><span style="color: #657B83">on_step(messages,</span> <span style="color: #657B83">state,</span> <span style="color: #657B83">result)</span>
+        <span style="color: #859900">return</span> <span style="color: #657B83">result</span>
+</code></pre></div>
 
 <p>This gives you per-turn data in real time: model actions, observations, trajectory, turn count, info. Scores are 1 step behind (computed after the full rollout), but everything else is live.</p>
 
