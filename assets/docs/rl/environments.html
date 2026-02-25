@@ -123,6 +123,37 @@
   }
   strong { font-weight: 700; color: #1a1a1a; }
 
+  /* ── Labeled blocks ── */
+  .block {
+    background: #faf9f7;
+    border-top: 1px solid #1a1a1a;
+    border-bottom: 0.5px solid #e8e4de;
+    padding: 14px 20px 16px;
+    margin: 20px 0;
+  }
+  .block .label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8px;
+    color: #aaa;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    display: block;
+    margin-bottom: 10px;
+  }
+  .block pre {
+    margin: 0;
+    padding: 0;
+    background: none;
+    border: none;
+  }
+  .block code {
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: 12.5px;
+    line-height: 1.65;
+  }
+
   /* ── Tables ── */
   .ch-table {
     width: 100%;
@@ -320,6 +351,131 @@ async def env_response(self, messages, state):
         └── CliAgentEnv (terminal/CLI agent in sandbox)</code></pre>
 
 <p>The pattern is always the same: parse the model's last message, execute the action, return the observation as messages. The model never talks to the real system directly. <code>env_response</code> is always the bridge.</p>
+
+<h3><span class="sub">e</span>Hooks</h3>
+
+<p>Verifiers provides a lifecycle. You hook into it, do whatever you want behind the hooks, and return messages.</p>
+
+<div class="block">
+<span class="label">setup_state(state) &rarr; State</span>
+<pre><code>async def setup_state(self, state: vf.State) -&gt; vf.State:
+    db = create_world(seed=state["info"]["seed"])
+    server = start_mcp_server(db)
+    state["db"] = db
+    state["server"] = server
+    return state</code></pre>
+</div>
+
+<p>Called once at the start of each rollout. Spin up your external system and store handles in state.</p>
+
+<div class="block">
+<span class="label">env_response(messages, state) &rarr; Messages</span>
+<pre><code>async def env_response(self, messages, state, **kwargs):
+    last_msg = messages[-1]
+    tool_calls = parse_tool_calls(last_msg)
+    results = []
+    for call in tool_calls:
+        result = await state["server"].call_tool(call.name, call.args)
+        results.append({"role": "tool", "content": result, "tool_call_id": call.id})
+    return results</code></pre>
+</div>
+
+<p>Called after every model turn. Receive the conversation so far, do your thing (execute tool calls, query a database, call an API), return the next messages. This is the main integration point. Verifiers doesn't know or care what happens inside.</p>
+
+<div class="block">
+<span class="label">@vf.stop</span>
+<pre><code>@vf.stop
+async def workflow_complete(self, state: vf.State) -&gt; bool:
+    return state.get("done", False)</code></pre>
+</div>
+
+<p>Custom stop conditions. Checked after every turn. Return <code>True</code> to end the rollout. The built-in <code>max_turns_reached</code> is always available.</p>
+
+<div class="block">
+<span class="label">@vf.cleanup</span>
+<pre><code>@vf.cleanup
+async def cleanup(self, state: vf.State) -&gt; None:
+    server = state.pop("server", None)
+    if server:
+        await server.stop()</code></pre>
+</div>
+
+<p>Called after each rollout completes. Tear down per-rollout resources.</p>
+
+<div class="block">
+<span class="label">@vf.teardown</span>
+<pre><code>@vf.teardown
+async def teardown(self) -&gt; None:
+    # clean up anything shared across rollouts
+    pass</code></pre>
+</div>
+
+<p>Called once when the entire environment shuts down. Clean up global resources.</p>
+
+<h3><span class="sub">f</span>State</h3>
+<p><code>state</code> is the glue. It persists across turns within a rollout and is accessible everywhere &ndash; in <code>env_response</code>, stop conditions, cleanup, and rubric scoring functions.</p>
+
+<table class="ch-table">
+  <tr>
+    <th>Field</th>
+    <th>Managed by</th>
+    <th></th>
+  </tr>
+  <tr>
+    <td class="mono">state["prompt"]</td>
+    <td>verifiers</td>
+    <td>initial prompt messages</td>
+  </tr>
+  <tr>
+    <td class="mono">state["completion"]</td>
+    <td>verifiers</td>
+    <td>final computed completion</td>
+  </tr>
+  <tr>
+    <td class="mono">state["trajectory"]</td>
+    <td>verifiers</td>
+    <td>list of {prompt, completion, reward, ...} per turn</td>
+  </tr>
+  <tr>
+    <td class="mono">state["info"]</td>
+    <td>verifiers</td>
+    <td>per-example data from dataset (ground truths, seeds, config)</td>
+  </tr>
+  <tr>
+    <td class="mono">state["error"]</td>
+    <td>verifiers</td>
+    <td>any error that occurred</td>
+  </tr>
+  <tr style="border-top: 1.5px solid #ddd;">
+    <td class="mono">state["db"]</td>
+    <td>you</td>
+    <td>database connection</td>
+  </tr>
+  <tr>
+    <td class="mono">state["server"]</td>
+    <td>you</td>
+    <td>MCP server handle</td>
+  </tr>
+  <tr>
+    <td class="mono">state["done"]</td>
+    <td>you</td>
+    <td>custom done flag</td>
+  </tr>
+</table>
+
+<h3><span class="sub">g</span>Scoring</h3>
+
+<p>Rubric functions receive <code>completion</code> and <code>state</code>. Use state to access ground truths, database state, or anything else you stored during the rollout.</p>
+
+<div class="block">
+<span class="label">Rubric</span>
+<pre><code>async def score(completion, state, **kwargs):
+    expected = state["info"]["ground_truths"]
+    actual = query_final_state(state["db"])
+    return compute_score(actual, expected)
+
+rubric = vf.Rubric(funcs=[score], weights=[1.0])</code></pre>
+</div>
 
 <hr class="sep">
 

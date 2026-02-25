@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <title>Trainer</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
 <style>
   @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&display=swap');
 
@@ -127,6 +128,37 @@
     font-size: 12px;
   }
   strong { font-weight: 700; color: #1a1a1a; }
+
+  /* ── Labeled blocks ── */
+  .block {
+    background: #faf9f7;
+    border-top: 1px solid #1a1a1a;
+    border-bottom: 0.5px solid #e8e4de;
+    padding: 14px 20px 16px;
+    margin: 20px 0;
+  }
+  .block .label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8px;
+    color: #aaa;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    display: block;
+    margin-bottom: 10px;
+  }
+  .block pre {
+    margin: 0;
+    padding: 0;
+    background: none;
+    border: none;
+  }
+  .block code {
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: 12.5px;
+    line-height: 1.65;
+  }
 
   /* ── Channel table ── */
   .ch-table {
@@ -453,7 +485,15 @@
   </tr>
 </table>
 
-<p>vLLM generates a completion and returns both forms in a single response. Token IDs go to the trainer, text goes to the reward functions. No re-tokenization needed.</p>
+<p>vLLM generates a completion and returns both forms in a single response. No re-tokenization needed. Token IDs go to the trainer, text goes to the reward functions.</p>
+
+<div class="block">
+<span class="label">vLLM RESPONSE</span>
+<pre><code>prompt_ids     = response.prompt_token_ids       # [1042, 553, 8821]
+completion_ids = response.choices[0].token_ids    # [4417, 229, 1105]
+logprobs       = [t.logprob for t in content]     # [-0.3, -1.2, -0.1]
+text           = response.choices[0].message.content</code></pre>
+</div>
 
 <h3><span class="sub">b</span>Fields</h3>
 
@@ -526,6 +566,25 @@
 
 <p>Logprobs are the log of the softmax of the raw logits. Open-weight models on vLLM give full access to logits, so logprobs are computed directly.</p>
 
+<div class="block">
+<span class="label">LOGITS → LOGPROBS</span>
+<pre><code>logits:   [2.1, 0.5, -1.3, ...]      raw scores for every vocab token
+              ↓ softmax
+probs:    [0.74, 0.15, 0.02, ...]     probabilities (sum to 1)
+              ↓ log
+logprobs: [-0.3, -1.9, -3.9, ...]     stored for the sampled token</code></pre>
+</div>
+
+<p>Advantages are computed in the orchestrator from raw rewards:</p>
+
+<div class="block">
+<span class="label">ADVANTAGE COMPUTATION</span>
+<pre><code>for g in range(0, len(raw_rewards), rollouts_per_example):
+    group      = raw_rewards[g : g + rollouts_per_example]
+    group_mean = sum(group) / len(group)
+    advantages.extend(r - group_mean for r in group)</code></pre>
+</div>
+
 <hr class="sep">
 
 
@@ -534,10 +593,15 @@
      ═══════════════════════════════════════════════════════════ -->
 
 <h2><span class="num">IV</span>Loss</h2>
-<p class="lede">The trainer runs one forward pass on <code>input_ids</code>, gets its own logprobs (<code>trainer_logprobs</code>), then computes the policy ratio against the sampling logprobs from generation time.</p>
+<p class="lede">The trainer runs one forward pass on <code>input_ids</code>, gets its own logprobs, then computes the policy ratio against the sampling logprobs from generation time.</p>
 
+<div class="block">
+<span class="label">Policy Ratio &amp; Loss</span>
 <pre><code>ratio = exp(trainer_logprob - sampling_logprob)
-loss  = -ratio × advantage</code></pre>
+loss  = -ratio &times; advantage</code></pre>
+</div>
+
+<p>$\pi_\theta$ is the trainer's current policy. $\pi_{\text{old}}$ is the policy that generated the completion (vLLM at sampling time). The ratio measures how much the policy has shifted since generation. The <code>loss_mask</code> ensures only completion tokens contribute.</p>
 
 <h3><span class="sub">a</span>Direction</h3>
 
@@ -550,23 +614,78 @@ loss  = -ratio × advantage</code></pre>
   <tr>
     <td>positive</td>
     <td>negative</td>
-    <td>Gradient makes these tokens more probable</td>
+    <td>gradient descent <strong>increases</strong> $\log\pi$ &ndash; token becomes more probable</td>
   </tr>
   <tr>
     <td>negative</td>
     <td>positive</td>
-    <td>Gradient makes these tokens less probable</td>
+    <td>gradient descent <strong>decreases</strong> $\log\pi$ &ndash; token becomes less probable</td>
   </tr>
 </table>
 
-<p>The ratio measures how much the policy has shifted since generation. PPO clipping caps it so updates don't overshoot. The <code>loss_mask</code> ensures backprop only flows through completion tokens.</p>
+<h3><span class="sub">b</span>Worked Example</h3>
 
-<h3><span class="sub">b</span>Why the Trainer Needs Prompt IDs</h3>
+<p>Two tokens from two completions of the same prompt. Same formula, opposite outcomes.</p>
+
+<table class="ch-table">
+  <tr>
+    <th></th>
+    <th style="color: #2a7a2a;">Good &ndash; "alice"</th>
+    <th style="color: #b33a3a;">Bad &ndash; "bob"</th>
+  </tr>
+  <tr>
+    <td>$\log\pi_{\text{old}}$</td>
+    <td class="mono">-0.30 <span style="color:#aaa; font-size:11px;">&ensp;$p \approx 0.74$</span></td>
+    <td class="mono">-1.20 <span style="color:#aaa; font-size:11px;">&ensp;$p \approx 0.30$</span></td>
+  </tr>
+  <tr>
+    <td>$\log\pi_\theta$</td>
+    <td class="mono">-0.35 <span style="color:#aaa; font-size:11px;">&ensp;$p \approx 0.70$</span></td>
+    <td class="mono">-1.10 <span style="color:#aaa; font-size:11px;">&ensp;$p \approx 0.33$</span></td>
+  </tr>
+  <tr>
+    <td>advantage</td>
+    <td class="mono" style="color: #2a7a2a;">+0.40</td>
+    <td class="mono" style="color: #b33a3a;">-0.40</td>
+  </tr>
+  <tr style="border-top: 1.5px solid #ddd;">
+    <td>ratio</td>
+    <td class="mono">0.95 <span style="color:#aaa; font-size:11px;">&ensp;$e^{-0.05}$</span></td>
+    <td class="mono">1.10 <span style="color:#aaa; font-size:11px;">&ensp;$e^{+0.10}$</span></td>
+  </tr>
+  <tr>
+    <td>loss</td>
+    <td class="mono" style="color: #2a7a2a;"><strong>-0.38</strong> <span style="color:#aaa; font-size:11px;">&ensp;push up</span></td>
+    <td class="mono" style="color: #b33a3a;"><strong>+0.44</strong> <span style="color:#aaa; font-size:11px;">&ensp;push down</span></td>
+  </tr>
+</table>
+
+<p>The gradient on each completion token: $\frac{\partial \mathcal{L}}{\partial \log\pi} = -A \cdot r$. The advantage controls direction and magnitude. The ratio corrects for policy drift since generation.</p>
+
+<h3><span class="sub">c</span>Clipping</h3>
+
+<p>The ratio can get extreme if the policy has shifted a lot since generation. PPO clipping caps it:</p>
+
+<div class="block">
+<span class="label">PPO Clip &ensp;($\varepsilon = 0.2$)</span>
+<pre><code>clipped = clip(ratio, 1-&epsilon;, 1+&epsilon;)
+loss    = -min(ratio &times; A, clipped &times; A)</code></pre>
+</div>
+
+<p>This prevents any single update from moving weights too aggressively. For positive advantages, it caps large probability increases. For negative advantages, it caps large decreases. The model can only move so far per step.</p>
+
+<h3><span class="sub">d</span>Credit Assignment</h3>
+<p>Every token in a completion gets the same advantage value. If the completion scored well, <em>all</em> its tokens get reinforced &ndash; even punctuation, formatting, filler words. The model can't tell which specific tokens were responsible for the score.</p>
+
+<p>This is coarse: sequence-level reward applied uniformly to all tokens. But it works. Over many training steps and many examples, the signal averages out. Tokens that consistently appear in good completions get reinforced. Tokens that consistently appear in bad ones get suppressed. The diversity within each group (some rollouts good, some bad for the same prompt) is what makes the signal informative.</p>
+
+<p>This is also why GRPO needs reward diversity. If all K rollouts for a prompt get the same reward, all advantages are zero, and no learning happens for that group.</p>
+
+<h3><span class="sub">e</span>Why the Trainer Needs Prompt IDs</h3>
 
 <p>The full sequence (prompt + completion) goes into the forward pass. The model processes left-to-right: it needs to "read" the prompt tokens to build up the right hidden states before it reaches the completion tokens. Without the prompt context, the logprobs it computes on the completion tokens would be meaningless. No gradients flow through the prompt, the loss mask is 0 for all prompt tokens, but they're essential as input context.</p>
 
-<h3><span class="sub">c</span>Two Copies</h3>
-
+<h3><span class="sub">f</span>Two Copies</h3>
 <p>There are two copies of the same weights in GPU memory. The trainer copy (transformers/deepspeed), where gradients flow and weights get updated. The inference copy (vLLM), which generates completions and receives weight syncs. Same architecture, same weights after sync. Two copies because generation and gradient computation have different computational patterns and can't efficiently share a single loaded model. The sync happens every training step via NCCL broadcast, not at checkpoints. Checkpoints are periodic saves to disk for crash recovery.</p>
 
 <hr class="sep">
@@ -656,5 +775,14 @@ loss  = -ratio × advantage</code></pre>
   <p>TRAINER &middot; TOPOLOGY &amp; WORKINGS</p>
 </div>
 
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+  onload="renderMathInElement(document.body, {
+    delimiters: [
+      {left: '$$', right: '$$', display: true},
+      {left: '$', right: '$', display: false}
+    ],
+    throwOnError: false
+  });"></script>
 </body>
 </html>

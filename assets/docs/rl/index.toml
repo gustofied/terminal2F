@@ -3,30 +3,16 @@ title = "RL"
 [[groups]]
 name = "Setup"
 docs = [
-    { file = "gpu_nodes", title = "GPU Nodes and Shapes" },
-    { file = "setup_guide", title = "Setup Guide" },
-    { file = "training_script", title = "Training Script (Legacy vs Corrected)" },
-    { file = "environment_workflow", title = "Environment Workflow" },
+    { file = "end_to_end", title = "End-to-End" },
 ]
 
 [[groups]]
 name = "Concepts"
 docs = [
-    { file = "trainer", title = "Trainer", handcrafted = true },
-    { file = "reinforcement_learning", title = "Reinforcement Learning", handcrafted = true },
-
-    { file = "environments", title = "Environments", handcrafted = true },
-    { file = "rl_to_grpo", title = "From RL to GRPO: How LLMs Learn from Rewards" },
-    { file = "how_advantages_update_weights", title = "How Advantages Update Weights" },
-    { file = "concepts_plus", title = "Concepts+", handcrafted = true },
-]
-
-[[groups]]
-name = "Verifiers"
-docs = [
-    { file = "environments_hub", title = "Environments Hub and Verifiers" },
-    { file = "verifiers_integration", title = "Integrating External Systems" },
-    { file = "verifiers_tips", title = "Small Learnings" },
+    { file = "trainer", title = "Trainer" },
+    { file = "reinforcement_learning", title = "Reinforcement Learning" },
+    { file = "environments", title = "Environments" },
+    { file = "concepts_plus", title = "Concepts+" },
 ]
 
 [[groups]]
