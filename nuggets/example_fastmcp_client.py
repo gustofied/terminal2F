@@ -2,7 +2,7 @@ import asyncio
 from fastmcp import Client
 import json
 
-client = Client("https://mcp-docs.ainm.no/mcp")
+client = Client("example_fastmcp_server.py")
 
 async def main():
     async with client:
@@ -17,9 +17,6 @@ async def main():
         }
 
         print(json.dumps(data, indent=2, default=str))
-
-
-        result = await client.call_tool("search_docs", {"query":"WebSocket"})                                                    
-        print(json.dumps([c.model_dump() for c in result.content], indent=2, default=str))                                   
+                       
                             
 asyncio.run(main())

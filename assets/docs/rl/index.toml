@@ -13,6 +13,7 @@ docs = [
     { file = "reinforcement_learning", title = "Reinforcement Learning" },
     { file = "environments", title = "Environments" },
     { file = "concepts_plus", title = "Concepts+" },
+    { file = "sandboxes", title = "Sandboxes" },
 ]
 
 [[groups]]

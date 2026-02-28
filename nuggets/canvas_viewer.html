@@ -1,0 +1,8 @@
+<!DOCTYPE html>
+<html>
+<head><title>Canvas</title></head>
+<body style="margin:0; display:flex; justify-content:center; align-items:center; height:100vh; background:#111;">
+  <img id="canvas" src="house.png" style="border:1px solid #333;" />
+  <script>setInterval(() => { document.getElementById('canvas').src = 'house.png?' + Date.now(); }, 300);</script>
+</body>
+</html>
