@@ -214,7 +214,7 @@
   <li><strong><a href="https://github.com/pydantic/monty">Monty</a></strong> (Pydantic) &mdash; minimal Python interpreter in Rust. Born from the failure of mcp-run-python: pyodide isn&rsquo;t safe &mdash; Python in WASM can run arbitrary JS, taint the runtime, and OOM the machine. Monty is purpose-built with security as a constraint.</li>
 </ul>
 
-<p><strong>For us:</strong> Canvas-based drawing environments, PGLite. The WebContainer is the sandbox, the renderer, and (via FastMCP Apps) the live viewer for humans watching rollouts. The browser itself has 30 years of security infrastructure for running untrusted code &mdash; CSP, same-origin, sandboxed iframes, WASM in isolated workers.</p>
+<p><strong>Note:</strong> WebContainers specifically is browser-only (it needs Service Workers, SharedArrayBuffer). It works for in-browser dev tools (StackBlitz, CodeSandbox) but not on headless GPU servers. For headless WASM sandboxes, look at Wasmer, Wasmtime, or WasmEdge &mdash; but those don&rsquo;t have Canvas. PGLite (Postgres compiled to WASM) is the strongest RL use case for WASM today &mdash; it runs headlessly via any WASM runtime.</p>
 
 <p>Note on safety: the pyodide problem matters if you give agents a <code>run_code</code> tool. Our envs use predefined tools with typed inputs &mdash; the model can&rsquo;t inject arbitrary code.</p>
 
@@ -252,7 +252,7 @@
 
 <table>
   <tr><th>Use case</th><th>Approach</th><th>Option</th></tr>
-  <tr><td>Capability-scoped tools (our envs)</td><td>Simulated / subprocess</td><td>WebContainers, FastMCP over stdio</td></tr>
+  <tr><td>Capability-scoped tools (our envs)</td><td>Subprocess / browser / WASM</td><td>FastMCP over stdio + Playwright or PGLite</td></tr>
   <tr><td>Batch/RL workloads</td><td>Containers or microVMs</td><td>Modal, Firecracker with snapshots</td></tr>
   <tr><td>Agent runs arbitrary code</td><td>MicroVM</td><td>Firecracker, E2B, Daytona</td></tr>
   <tr><td>Text/file manipulation only</td><td>Simulated</td><td>just-bash</td></tr>
@@ -266,12 +266,20 @@
 
 <table>
   <tr><th>Env</th><th>Boundary</th><th>Policy</th><th>Lifecycle</th></tr>
-  <tr><td>Drawing (Canvas)</td><td>WASM (WebContainer)</td><td>FastMCP tools: draw_line, draw_circle, screenshot</td><td>Fresh per rollout</td></tr>
+  <tr><td>Drawing (Canvas)</td><td>Playwright (headless browser)</td><td>FastMCP tools: draw_line, draw_circle, screenshot</td><td>Fresh per rollout</td></tr>
+  <tr><td>PGLite (SQL)</td><td>WASM (Postgres in WASM)</td><td>FastMCP tools: query, insert, create_table</td><td>Fresh or snapshot</td></tr>
   <tr><td>Doltgres (SQL)</td><td>Subprocess (Go binary)</td><td>FastMCP tools: query, insert, create_table</td><td>Snapshot/restore via branching</td></tr>
   <tr><td>Email-to-CC-BCC</td><td>In-process</td><td>Python function (MultiTurnEnv)</td><td>Fresh per rollout</td></tr>
 </table>
 
-<p>No containers, no VMs. The model talks through FastMCP tools &mdash; that&rsquo;s the policy. The sandbox is whatever sits behind those tools: a WebContainer, a subprocess, or just Python in the same process. Pick the lightest thing that works.</p>
+<p>No containers, no VMs. The model talks through FastMCP tools &mdash; that&rsquo;s the policy. Each env picks the lightest boundary that works:</p>
+
+<ul>
+  <li><strong>Drawing</strong> &mdash; needs real Canvas, so Playwright provides a headless browser. The FastMCP App (<code>ui://</code> resource) serves the same Canvas HTML for both training (Playwright renders it headlessly, returns screenshots) and visualization (human opens it in a browser, watches live).</li>
+  <li><strong>PGLite</strong> &mdash; Postgres compiled to WASM. Runs headlessly via any WASM runtime (Wasmer, Wasmtime). No binary to download, no process to manage. This is where WASM shines for RL &mdash; instant startup, strong isolation, real SQL.</li>
+  <li><strong>Doltgres</strong> &mdash; real Go binary as a subprocess. No sandbox needed &mdash; FastMCP tools are the boundary. Branching handles per-rollout isolation at the data level.</li>
+  <li><strong>Email-to-CC-BCC</strong> &mdash; pure Python, in-process. No sandbox at all.</li>
+</ul>
 
 <h2>At Scale: Remote Sandboxes</h2>
 
