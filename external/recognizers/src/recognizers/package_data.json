@@ -4,13 +4,13 @@
     "desc": "Any-to-PostScript filter",
     "analytics": {
       "30d": {
-        "a2ps": 237
+        "a2ps": 242
       },
       "60d": {
-        "a2ps": 590
+        "a2ps": 606
       },
       "365d": {
-        "a2ps": 1335
+        "a2ps": 1353
       }
     }
   },
@@ -19,7 +19,7 @@
     "desc": "Library for decoding ATSC A/52 streams (AKA 'AC-3')",
     "analytics": {
       "30d": {
-        "a52dec": 18
+        "a52dec": 20
       },
       "60d": {
         "a52dec": 47
@@ -34,10 +34,10 @@
     "desc": "Portable ASCII art graphics library",
     "analytics": {
       "30d": {
-        "aalib": 40
+        "aalib": 41
       },
       "60d": {
-        "aalib": 130
+        "aalib": 127
       },
       "365d": {
         "aalib": 644
@@ -49,13 +49,13 @@
     "desc": "Renders mathematical expressions as ASCII art",
     "analytics": {
       "30d": {
-        "aamath": 7
+        "aamath": 8
       },
       "60d": {
         "aamath": 30
       },
       "365d": {
-        "aamath": 123
+        "aamath": 124
       }
     }
   },
@@ -64,13 +64,13 @@
     "desc": "GNU Binutils for aarch64-elf cross development",
     "analytics": {
       "30d": {
-        "aarch64-elf-binutils": 292
+        "aarch64-elf-binutils": 267
       },
       "60d": {
-        "aarch64-elf-binutils": 534
+        "aarch64-elf-binutils": 541
       },
       "365d": {
-        "aarch64-elf-binutils": 2891,
+        "aarch64-elf-binutils": 2872,
         "aarch64-elf-binutils --HEAD": 4
       }
     }
@@ -80,14 +80,14 @@
     "desc": "GNU compiler collection for aarch64-elf",
     "analytics": {
       "30d": {
-        "aarch64-elf-gcc": 180
+        "aarch64-elf-gcc": 193
       },
       "60d": {
-        "aarch64-elf-gcc": 501,
+        "aarch64-elf-gcc": 507,
         "aarch64-elf-gcc --HEAD": 1
       },
       "365d": {
-        "aarch64-elf-gcc": 2499,
+        "aarch64-elf-gcc": 2511,
         "aarch64-elf-gcc --HEAD": 5
       }
     }
@@ -97,13 +97,13 @@
     "desc": "GNU debugger for aarch64-elf cross development",
     "analytics": {
       "30d": {
-        "aarch64-elf-gdb": 77
+        "aarch64-elf-gdb": 74
       },
       "60d": {
-        "aarch64-elf-gdb": 293
+        "aarch64-elf-gdb": 287
       },
       "365d": {
-        "aarch64-elf-gdb": 1117,
+        "aarch64-elf-gdb": 1101,
         "aarch64-elf-gdb --HEAD": 2
       }
     }
@@ -121,7 +121,7 @@
         "ab-av1 --HEAD": 2
       },
       "365d": {
-        "ab-av1": 1076,
+        "ab-av1": 1082,
         "ab-av1 --HEAD": 4
       }
     }
@@ -131,14 +131,14 @@
     "desc": "Better CD Encoder",
     "analytics": {
       "30d": {
-        "abcde": 51
+        "abcde": 46
       },
       "60d": {
-        "abcde": 157,
+        "abcde": 154,
         "abcde --HEAD": 2
       },
       "365d": {
-        "abcde": 591,
+        "abcde": 588,
         "abcde --HEAD": 2
       }
     }
@@ -148,13 +148,13 @@
     "desc": "Armed Bear Common Lisp: a full implementation of Common Lisp",
     "analytics": {
       "30d": {
-        "abcl": 10
+        "abcl": 13
       },
       "60d": {
-        "abcl": 65
+        "abcl": 64
       },
       "365d": {
-        "abcl": 341
+        "abcl": 340
       }
     }
   }

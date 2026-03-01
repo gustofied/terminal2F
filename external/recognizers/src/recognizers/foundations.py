@@ -1,45 +1,231 @@
+from __future__ import annotations
+from typing import Self, Generator
 from enum import Enum, StrEnum, auto
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from functools import partial
 
-# FSM using Enum and Match
-# Enums for fixed states/actions, match for transitions, function returns the next state
+# ──────────────────────────────────────────
+# I. State Design Pattern
+# ──────────────────────────────────────────
 
-class State(Enum):
-    LOCKED = 1
-    UNLOCKED = 2
-    ALARM = 3
+# 1. Match dispatch
+# Match on current state, caller picks the state
+
+class Bucket(Enum):
+    RED = auto()
+    GREEN = auto()
+    BLUE = auto()
+
+class Palette:
+    def __init__(self):
+        self.r, self.g, self.b = 0, 0, 0
+        self.bucket = Bucket.RED
+
+    def switch(self, bucket: Bucket) -> Self:
+        self.bucket = bucket
+        return self
+
+    def add(self, amount: int = 25) -> Self:
+        match self.bucket:
+            case Bucket.RED:   self.r = min(255, self.r + amount)
+            case Bucket.GREEN: self.g = min(255, self.g + amount)
+            case Bucket.BLUE:  self.b = min(255, self.b + amount)
+        return self
+
+    def __repr__(self):
+        return f"rgb({self.r}, {self.g}, {self.b})"
+
+
+p = Palette()
+print(p.switch(Bucket.RED).add().add().switch(Bucket.BLUE).add())
+print(p.switch(Bucket.GREEN).add(100))
+
+
+# 2. Match on (state, action) tuples
+# Single method. Behavior depends on both state AND action.
+
+class Color(Enum):
+    RED = auto()
+    BLUE = auto()
 
 class Action(Enum):
-    PUSH = 1
-    COIN = 2
-    RESET = 3
+    ADD = auto()
+    SWITCH = auto()
 
-def handle_action(state: State, action: Action) -> State:
-    match state:
-        case State.LOCKED:
-            if action == Action.COIN:
-                return State.UNLOCKED
-            if action == Action.PUSH:
-                print("door is locked, needs coin")
+class ColorMixer:
+    def __init__(self):
+        self.state = Color.RED
+        self.r, self.b = 0, 0
 
-        case State.UNLOCKED:
-            if action == Action.PUSH:
-                print("door opens, then locks")
-                return State.LOCKED
-            if action == Action.RESET:
-                return State.LOCKED
+    def do(self, action: Action, amount: int = 25) -> Self:
+        match (self.state, action):
+            case (Color.RED,  Action.ADD):    self.r = min(255, self.r + amount)
+            case (Color.BLUE, Action.ADD):    self.b = min(255, self.b + amount)
+            case (Color.RED,  Action.SWITCH): self.state = Color.BLUE
+            case (Color.BLUE, Action.SWITCH): self.state = Color.RED
+        return self
 
-        case State.ALARM:
-            if action == Action.RESET:
-                return State.LOCKED
-    return state
+    def __repr__(self):
+        return f"[{self.state.name}] r={self.r} b={self.b}"
 
-handle_action(state=State.LOCKED, action=Action.PUSH)
 
-door = State.LOCKED
-door = handle_action(door, Action.COIN)
-print(door)
+cm = ColorMixer()
+print(cm.do(Action.ADD).do(Action.ADD))
+print(cm.do(Action.SWITCH).do(Action.ADD))
+print(cm.do(Action.ADD).do(Action.SWITCH).do(Action.ADD))
 
+
+# 3. Dispatch table
+# Same machine as 2, but transitions are data in a dict
+# Pure function: all state in, all state out
+
+transitions = {
+    (Color.RED,  Action.ADD):    Color.RED,
+    (Color.RED,  Action.SWITCH): Color.BLUE,
+    (Color.BLUE, Action.ADD):    Color.BLUE,
+    (Color.BLUE, Action.SWITCH): Color.RED,
+}
+
+def step(state: Color, r: int, b: int, action: Action, amount: int = 25):
+    next_state = transitions[(state, action)]
+    if action == Action.ADD:
+        if state == Color.RED:
+            r = min(255, r + amount)
+        else:
+            b = min(255, b + amount)
+    return next_state, r, b
+
+state, r, b = Color.RED, 0, 0
+state, r, b = step(state, r, b, Action.ADD)
+state, r, b = step(state, r, b, Action.ADD)
+state, r, b = step(state, r, b, Action.SWITCH)
+state, r, b = step(state, r, b, Action.ADD)
+print(f"[{state.name}] r={r} b={b}")
+
+
+# 4. OO State Pattern
+# No match anywhere. Each state class defines its own behavior.
+# Adding a new state = adding a new class, existing code untouched.
+
+class BucketState(ABC):
+    name: str
+
+    @abstractmethod
+    def add(self, ctx: OOPalette, amount: int) -> None: ...
+
+@dataclass(frozen=True)
+class Red(BucketState):
+    name: str = "RED"
+    def add(self, ctx: OOPalette, amount: int) -> None:
+        ctx.r = min(255, ctx.r + amount)
+
+@dataclass(frozen=True)
+class Green(BucketState):
+    name: str = "GREEN"
+    def add(self, ctx: OOPalette, amount: int) -> None:
+        ctx.g = min(255, ctx.g + amount)
+
+@dataclass(frozen=True)
+class BlueBucket(BucketState):
+    name: str = "BLUE"
+    def add(self, ctx: OOPalette, amount: int) -> None:
+        ctx.b = min(255, ctx.b + amount)
+
+STATE_BY_NAME = {"RED": Red(), "GREEN": Green(), "BLUE": BlueBucket()}
+
+class OOPalette:
+    def __init__(self):
+        self.r = self.g = self.b = 0
+        self.state: BucketState = Red()
+
+    def switch(self, name: str) -> Self:
+        self.state = STATE_BY_NAME[name.upper()]
+        return self
+
+    def add(self, amount: int = 25) -> Self:
+        self.state.add(self, amount)
+        return self
+
+    def __repr__(self) -> str:
+        return f"[{self.state.name}] rgb({self.r}, {self.g}, {self.b})"
+
+oop = OOPalette()
+print(oop.add().add().switch("BLUE").add())
+print(oop.switch("GREEN").add(100))
+
+
+# 5. Coroutine — where the code is paused IS the state
+# Structure enforces ordering (red → green → blue), can't go back
+# But each phase loops: send values to add, send 0 to advance
+
+def mix_protocol() -> Generator:
+    r = g = b = 0
+    val = yield "phase: RED"
+    while val:
+        r = min(255, r + val)
+        val = yield f"[RED] rgb({r},{g},{b})"
+    val = yield "phase: GREEN"
+    while val:
+        g = min(255, g + val)
+        val = yield f"[GREEN] rgb({r},{g},{b})"
+    val = yield "phase: BLUE"
+    while val:
+        b = min(255, b + val)
+        val = yield f"[BLUE] rgb({r},{g},{b})"
+    yield f"done: rgb({r},{g},{b})"
+
+m = mix_protocol()
+print(next(m))          # phase: RED
+print(m.send(50))       # [RED] rgb(50,0,0)
+print(m.send(25))       # [RED] rgb(75,0,0)
+print(m.send(0))        # phase: GREEN
+print(m.send(100))      # [GREEN] rgb(75,100,0)
+print(m.send(0))        # phase: BLUE
+print(m.send(30))       # [BLUE] rgb(75,100,30)
+print(m.send(0))        # done: rgb(75,100,30)
+
+
+# ──────────────────────────────────────────
+# From pattern to machine
+# ──────────────────────────────────────────
+# A machine: states, alphabet, δ (transition function), start, accept
+# Key shift: the machine reads an input stream and decides acceptance.
+# δ(current_state, input_symbol) → next_state. No one calls switch().
+
+# DFA: accept binary strings ending with "01"
+
+class Q(Enum):
+    S = auto()   # start
+    Z = auto()   # last symbol was 0
+    A = auto()   # accept, last two were 01
+
+def delta(state: Q, bit: str) -> Q:
+    match (state, bit):
+        case (Q.S, "0"): return Q.Z
+        case (Q.S, "1"): return Q.S
+        case (Q.Z, "0"): return Q.Z
+        case (Q.Z, "1"): return Q.A
+        case (Q.A, "0"): return Q.Z
+        case (Q.A, "1"): return Q.S
+    raise ValueError(f"unexpected: {bit}")
+
+def accepts(s: str) -> bool:
+    state = Q.S
+    for ch in s:
+        state = delta(state, ch)
+    return state == Q.A
+
+print(accepts("01"))      # True
+print(accepts("101"))     # True
+print(accepts("011"))     # False
+print(accepts("1101"))    # True
+print(accepts("1110"))    # False
+
+
+# ──────────────────────────────────────────
+# Old notes and experiments
+# ──────────────────────────────────────────
 
 # An FSM Class
 
@@ -69,7 +255,7 @@ class FSM:
     def process_list(self, input_symbols):
         pass
 
-# a gennie 
+# a gennie
 
 def generator():
     yield 1
@@ -99,16 +285,16 @@ def fsm_coroutine(transitions, state):
         action = yield state
         state = transitions.get((state, action), state)
 
-transitions = {
-    (State.LOCKED, Action.COIN): State.UNLOCKED,
-    (State.UNLOCKED, Action.PUSH): State.LOCKED,
-    (State.ALARM, Action.RESET): State.LOCKED,
-}
+# transitions = {
+#     (State.LOCKED, Action.COIN): State.UNLOCKED,
+#     (State.UNLOCKED, Action.PUSH): State.LOCKED,
+#     (State.ALARM, Action.RESET): State.LOCKED,
+# }
 
-machine = fsm_coroutine(transitions, State.LOCKED)
-next(machine)
-print(machine.send(Action.COIN))
-print(machine.send(Action.PUSH))
+# machine = fsm_coroutine(transitions, State.LOCKED)
+# next(machine)
+# print(machine.send(Action.COIN))
+# print(machine.send(Action.PUSH))
 
 
 # Stacks
@@ -137,7 +323,7 @@ print("- - - - - - - - - - - - -")
 class Examply:
     def __init__(self, name):
         self.name = name
-    
+
     def __repr__(self):
         return self.name
 
@@ -303,7 +489,7 @@ class DFAStates(StrEnum):
     END = auto()
 
 class DeterministicFiniteAutomaton:
-    
+
     def __init__(self, internal=DFAStates.START, halted=False, recognized=False):
         self.internal = internal
         self.halted = halted
@@ -316,12 +502,12 @@ class DeterministicFiniteAutomaton:
     def recognize(self):
         self.recognized = True
         return self
-    
+
     def halt(self):
         self.halted = True
         return self
 
-    def consume(self, token):         
+    def consume(self, token):
         return getattr(self, self.internal)(token)
 
 
