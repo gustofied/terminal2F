@@ -5,176 +5,173 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from functools import partial
 
-# State Design Pattern
+# Coding Things Like States
 
-# meh example, match very much if-else esque
+# meh example, match very much if-else esque, then we look at dispatch also, a little cleaner
 
-class Bucket(Enum):
+class Color(Enum):
+    RED = auto()
+    BLUE = auto()
+
+# match (enum) basically if/elif on state, just cleaner syntax
+
+class Mixer:
+    def __init__(self):
+        self.state = Color.RED
+        self.red = 0
+        self.blue = 0
+
+    def add(self, amount: int = 25) -> Self:
+        match self.state:
+            case Color.RED:  
+                self.red  = min(255, self.red + amount)
+            case Color.BLUE: 
+                self.blue = min(255, self.blue + amount)
+        return self # so we can chain
+
+    def switch(self) -> Self:
+        self.state = Color.BLUE if self.state == Color.RED else Color.RED # Tenary
+        return self
+
+    def reset(self) -> Self:
+        self.state = Color.RED
+        self.red = 0
+        self.blue = 0
+        
+        return self
+
+    def __repr__(self):
+        return f"[{self.state.name}] r={self.red} b={self.blue}"
+
+m = Mixer()
+print(m.add().add().switch().add()) # this should give us that we are at blue state, and the colors are at values r=50 and blue=25
+
+# match (class)
+
+# now could be debated if its needed at all to use match cases, when often just if else do work, so we use this example how you could "complicate"
+# I mean in this case, but make it more powerful for other cases when it is needed
+# needs more work but very much interesting
+# PyBeach 2025 - Brett Slatkin - Patterns and Anti-Patterns in Python's Structural Pattern Matching
+
+@dataclass
+class Red:
+    value: int = 0
+
+@dataclass
+class Blue:
+    value: int = 0
+
+class Mixer2:
+    def __init__(self):
+        self.state = Red()
+
+    def add(self, amount: int = 25) -> Self:
+        match self.state:
+            case Red(value=value) if value + amount > 255:
+                self.state = Red(255)
+            case Red(value=value):
+                self.state = Red(value+ amount)
+            case Blue(value=value) if value + amount > 255:
+                self.state = Blue(255)
+            case Blue(value=value):
+                self.state = Blue(value+ amount)
+        return self
+
+    def switch(self) -> Self:
+        match self.state:
+            case Red():  self.state = Blue()
+            case Blue(): self.state = Red()
+        return self
+
+    def reset(self) -> Self:
+        self.state = Red()
+        return self
+
+    def __repr__(self):
+        match self.state:
+            case Red(value=value):  return f"[RED] r={value}"
+            case Blue(value=value): return f"[BLUE] b={value}"
+
+m2 = Mixer2()
+print(m2.add().add().switch().add())
+
+# transition table — fully table driven, no match anywhere
+# 3 states cycling. adding a state = adding a row to each dict
+
+class Phase(Enum):
     RED = auto()
     GREEN = auto()
     BLUE = auto()
 
-class Palette:
-    def __init__(self):
-        self.r, self.g, self.b = 0, 0, 0
-        self.bucket = Bucket.RED
+phase_next = {
+    Phase.RED:   Phase.GREEN,
+    Phase.GREEN: Phase.BLUE,
+    Phase.BLUE:  Phase.RED,
+}
 
-    def switch(self, bucket: Bucket) -> Self:
-        self.bucket = bucket
-        return self
+phase_attr = {
+    Phase.RED:   "red",
+    Phase.GREEN: "green",
+    Phase.BLUE:  "blue",
+}
+
+class Mixer3:
+    def __init__(self):
+        self.phase = Phase.RED
+        self.red = self.green = self.blue = 0
 
     def add(self, amount: int = 25) -> Self:
-        match self.bucket:
-            case Bucket.RED:  
-                 self.r = min(255, self.r + amount)
-            case Bucket.GREEN: 
-                self.g = min(255, self.g + amount)
-            case Bucket.BLUE:  
-                self.b = min(255, self.b + amount)
+        attr = phase_attr[self.phase]
+        setattr(self, attr, min(255, getattr(self, attr) + amount))
+        return self
+
+    def next(self) -> Self:
+        self.phase = phase_next[self.phase]
+        return self
+
+    def reset(self) -> Self:
+        self.phase = Phase.RED
+        self.red = self.green = self.blue = 0
         return self
 
     def __repr__(self):
-        return f"Palette(r={self.r}, g={self.g}, b={self.b}, bucket={self.bucket.name})"
+        return f"[{self.phase.name}] rgb({self.red},{self.green},{self.blue})"
 
-    def __str__(self):
-        return f"We got red {self.r}, green {self.g}, blue {self.b}"
-
-p = Palette()
-print(p.switch(Bucket.RED).add().add().switch(Bucket.BLUE).add())
-print(p.switch(Bucket.GREEN).add(100))
-
-
-def add_red(amount):
-    return amount
-
-def add_blue(amount):
-    return amount +2
-tableu = {
-    Bucket.RED: add_red,
-     Bucket.BLUE: add_blue,
-
-}
-
-print(tableu[Bucket.BLUE](2))
+tm = Mixer3()
+print(tm.add().add().next().add().next().add())  # [BLUE] rgb(50,25,25)
 
 
 
+# OO State Design Pattern
+
+class Off:
+    def flip(self, p): p.state = Red()
+    def cycle(self, p): pass
+
+class Red:
+    def flip(self, p): p.state = Off()
+    def cycle(self, p): p.state = Green()
+
+class Green:
+    def flip(self, p): p.state = Off()
+    def cycle(self, p): p.state = Blue()
+
+class Blue:
+    def flip(self, p): p.state = Off()
+    def cycle(self, p): p.state = Red()
+
+class Pixel:
+    def __init__(self): self.state = Off()
+    def flip(self): self.state.flip(self)
+    def cycle(self): self.state.cycle(self)
+
+p = Pixel(); p.cycle(); print(type(p.state).__name__)  # Off
+p.flip(); p.cycle(); print(type(p.state).__name__)     # Green
 
 
-print("- - - - -")
+# coroutine
 
 
-
-
-
-# # 3. Dispatch table
-# # Same machine as 2, but transitions are data in a dict
-# # Pure function: all state in, all state out
-
-# transitions = {
-#     (Color.RED,  Action.ADD):    Color.RED,
-#     (Color.RED,  Action.SWITCH): Color.BLUE,
-#     (Color.BLUE, Action.ADD):    Color.BLUE,
-#     (Color.BLUE, Action.SWITCH): Color.RED,
-# }
-
-# def step(state: Color, r: int, b: int, action: Action, amount: int = 25):
-#     next_state = transitions[(state, action)]
-#     if action == Action.ADD:
-#         if state == Color.RED:
-#             r = min(255, r + amount)
-#         else:
-#             b = min(255, b + amount)
-#     return next_state, r, b
-
-# state, r, b = Color.RED, 0, 0
-# state, r, b = step(state, r, b, Action.ADD)
-# state, r, b = step(state, r, b, Action.ADD)
-# state, r, b = step(state, r, b, Action.SWITCH)
-# state, r, b = step(state, r, b, Action.ADD)
-# print(f"[{state.name}] r={r} b={b}")
-
-
-# 4. OO State Pattern
-# No match anywhere. Each state class defines its own behavior.
-# Adding a new state = adding a new class, existing code untouched.
-
-class BucketState(ABC):
-    name: str
-
-    @abstractmethod
-    def add(self, ctx: OOPalette, amount: int) -> None: ...
-
-@dataclass(frozen=True)
-class Red(BucketState):
-    name: str = "RED"
-    def add(self, ctx: OOPalette, amount: int) -> None:
-        ctx.r = min(255, ctx.r + amount)
-
-@dataclass(frozen=True)
-class Green(BucketState):
-    name: str = "GREEN"
-    def add(self, ctx: OOPalette, amount: int) -> None:
-        ctx.g = min(255, ctx.g + amount)
-
-@dataclass(frozen=True)
-class BlueBucket(BucketState):
-    name: str = "BLUE"
-    def add(self, ctx: OOPalette, amount: int) -> None:
-        ctx.b = min(255, ctx.b + amount)
-
-STATE_BY_NAME = {"RED": Red(), "GREEN": Green(), "BLUE": BlueBucket()}
-
-class OOPalette:
-    def __init__(self):
-        self.r = self.g = self.b = 0
-        self.state: BucketState = Red()
-
-    def switch(self, name: str) -> Self:
-        self.state = STATE_BY_NAME[name.upper()]
-        return self
-
-    def add(self, amount: int = 25) -> Self:
-        self.state.add(self, amount)
-        return self
-
-    def __repr__(self) -> str:
-        return f"[{self.state.name}] rgb({self.r}, {self.g}, {self.b})"
-
-oop = OOPalette()
-print(oop.add().add().switch("BLUE").add())
-print(oop.switch("GREEN").add(100))
-
-
-# 5. Coroutine — where the code is paused IS the state
-# Structure enforces ordering (red → green → blue), can't go back
-# But each phase loops: send values to add, send 0 to advance
-
-def mix_protocol() -> Generator:
-    r = g = b = 0
-    val = yield "phase: RED"
-    while val:
-        r = min(255, r + val)
-        val = yield f"[RED] rgb({r},{g},{b})"
-    val = yield "phase: GREEN"
-    while val:
-        g = min(255, g + val)
-        val = yield f"[GREEN] rgb({r},{g},{b})"
-    val = yield "phase: BLUE"
-    while val:
-        b = min(255, b + val)
-        val = yield f"[BLUE] rgb({r},{g},{b})"
-    yield f"done: rgb({r},{g},{b})"
-
-m = mix_protocol()
-print(next(m))          # phase: RED
-print(m.send(50))       # [RED] rgb(50,0,0)
-print(m.send(25))       # [RED] rgb(75,0,0)
-print(m.send(0))        # phase: GREEN
-print(m.send(100))      # [GREEN] rgb(75,100,0)
-print(m.send(0))        # phase: BLUE
-print(m.send(30))       # [BLUE] rgb(75,100,30)
-print(m.send(0))        # done: rgb(75,100,30)
 
 
 # ──────────────────────────────────────────
@@ -269,23 +266,6 @@ next(con)
 for x in range(10):
     con.send(x)
 
-# coroutine FSM (dispatch table + coroutine)
-
-def fsm_coroutine(transitions, state):
-    while True:
-        action = yield state
-        state = transitions.get((state, action), state)
-
-# transitions = {
-#     (State.LOCKED, Action.COIN): State.UNLOCKED,
-#     (State.UNLOCKED, Action.PUSH): State.LOCKED,
-#     (State.ALARM, Action.RESET): State.LOCKED,
-# }
-
-# machine = fsm_coroutine(transitions, State.LOCKED)
-# next(machine)
-# print(machine.send(Action.COIN))
-# print(machine.send(Action.PUSH))
 
 
 # Stacks
