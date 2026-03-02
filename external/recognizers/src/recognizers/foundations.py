@@ -44,6 +44,7 @@ class Mixer:
         return f"[{self.state.name}] r={self.red} b={self.blue}"
 
 m = Mixer()
+print("recognizers-- match case --recognizers")
 print(m.add().add().switch().add()) # this should give us that we are at blue state, and the colors are at values r=50 and blue=25
 
 # match (class), not in article
@@ -138,6 +139,7 @@ class Mixer3:
         return f"[{self.phase.name}] rgb({self.red},{self.green},{self.blue})"
 
 tm = Mixer3()
+print("recognizers-- dispatch table --recognizers")
 print(tm.add().add().next().add().next().add())
 
 
@@ -165,6 +167,7 @@ class Palette:
     def blue(self, a=25): self.state.blue(self, a); return self
 
 p = Palette().red(50).red(20).green(30).blue(10)
+print("recognizers-- state design pattern --recognizers")
 print(p.r, p.g, p.b)
 
 
@@ -194,6 +197,8 @@ def mix_protocol() -> Generator[str, int, None]:
     yield f"done: rgb({red},{green},{blue})"
 
 protocol = mix_protocol()
+
+print("recognizers-- coroutines --recognizers")
 next(protocol)
 
 print(protocol.send(50)) 
@@ -262,6 +267,8 @@ def is_balanced(text: str) -> bool:
     return depth == 0
 
 
+
+
 def literal(target: str, text: str) -> str | bool:
     """Match an exact string at the start of text."""
     return target if text.startswith(target) else False
@@ -296,28 +303,28 @@ def longest(*matchers):
     return match
 
 
-print("-- literal --")
+print("recognizers--  literal --recognizers")
 match_parens = partial(literal, "()")
 print(match_parens(text="())"))  # "()"
 
-print("-- sequence --")
+print("recognizers-- sequence --recognizers")
 match_fubarfu = sequence(
     partial(literal, "fu"),
     partial(literal, "bar"),
     partial(literal, "fu"),
 )
-print(match_fubarfu(text="foobar"))     # False
-print(match_fubarfu(text="fubar'd"))    # False
-print(match_fubarfu(text="fubarfu'd"))  # "fubarfu"
+print(match_fubarfu(text="foobar"))    
+print(match_fubarfu(text="fubar'd"))   
+print(match_fubarfu(text="fubarfu'd"))  
 
-print("-- longest --")
+print("recognizers-- longest --recognizers")
 match_bad_news = longest(
     partial(literal, "fubar"),
     partial(literal, "snafu"),
 )
-print(match_bad_news("snafu'd"))  # "snafu"
-print(match_bad_news("fubar'd"))  # "fubar"
-print(match_bad_news("hello"))    # False
+print(match_bad_news("snafu'd")) 
+print(match_bad_news("fubar'd")) 
+print(match_bad_news("hello"))    
 
 
 def balanced(text: str):
@@ -328,19 +335,16 @@ def balanced(text: str):
         sequence(partial(literal, "("), balanced, partial(literal, ")"), balanced),
     )(text)
 
-print("-- balanced --")
+print("recognizers-- balanced --recognizers")
 print(balanced("(())("))   
 print(balanced("(()())()"))  
 print(balanced("())"))    
 print(balanced("xyz"))       
 
-
 # inspo from
 # A brutal look at balanced parntheses, computing machines and pushdown automata 
 # https://raganwald.com/2019/02/14/i-love-programming-and-programmers.html
-
-
-# DFA Deterministic Finite Automaton
+# DFA Deterministic Finite Automaton, in article — the core machine
 
 class DFAStates(StrEnum):
     START = auto()
@@ -423,7 +427,7 @@ def test(recognizer, examples):
     for example in examples:
         print(f"'{example}' => {recognizer.evaluate(example)}")
 
-print("-- -- ")
+print("recognizers-- Raginald DFA --recognizers")
 test(Raginald, ["Reg", "Reggie", "Re", "Hello"])
 
 class Binary(DeterministicFiniteAutomaton):
@@ -446,7 +450,7 @@ class Binary(DeterministicFiniteAutomaton):
             return self.recognize()
 
 
-print("-- -- ")
+print("recognizers-- Binary DFA --recognizers")
 test(Binary, [
     '', '0', '1', '00', '01', '10', '11',
     '000', '001', '010', '011', '100',
@@ -528,7 +532,7 @@ class BalancedParentheses(DeterministicPushdownAutomaton):
             return self.recognize()
 
 
-print("-- -- ")
+print("recognizers-- BalancedParentheses DPDA --recognizers")
 test(BalancedParentheses, [
     '', '(', '()', '()()', '{()}',
     '([()()]())', '([()())())',
