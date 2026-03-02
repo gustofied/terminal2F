@@ -5,12 +5,9 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from functools import partial
 
-# ──────────────────────────────────────────
-# I. State Design Pattern
-# ──────────────────────────────────────────
+# State Design Pattern
 
-# 1. Match dispatch
-# Match on current state, caller picks the state
+# not really a machine, but let's have it
 
 class Bucket(Enum):
     RED = auto()
@@ -34,15 +31,17 @@ class Palette:
         return self
 
     def __repr__(self):
-        return f"rgb({self.r}, {self.g}, {self.b})"
+        return f"Palette(r={self.r}, g={self.g}, b={self.b}, bucket={self.bucket.name})"
 
+    def __str__(self):
+        return f"We got red {self.r}, green {self.g}, blue {self.b}"
 
 p = Palette()
 print(p.switch(Bucket.RED).add().add().switch(Bucket.BLUE).add())
 print(p.switch(Bucket.GREEN).add(100))
 
 
-# 2. Match on (state, action) tuples
+# 1. Match on (state, action) tuples
 # Single method. Behavior depends on both state AND action.
 
 class Color(Enum):
@@ -74,6 +73,10 @@ cm = ColorMixer()
 print(cm.do(Action.ADD).do(Action.ADD))
 print(cm.do(Action.SWITCH).do(Action.ADD))
 print(cm.do(Action.ADD).do(Action.SWITCH).do(Action.ADD))
+
+
+print("- - - - -")
+
 
 
 # 3. Dispatch table
