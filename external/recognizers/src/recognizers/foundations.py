@@ -13,7 +13,7 @@ class Color(Enum):
     RED = auto()
     BLUE = auto()
 
-# match (enum) basically if/elif on state, just cleaner syntax
+# match (enum), in article
 
 class Mixer:
     def __init__(self):
@@ -46,57 +46,57 @@ class Mixer:
 m = Mixer()
 print(m.add().add().switch().add()) # this should give us that we are at blue state, and the colors are at values r=50 and blue=25
 
-# match (class)
+# match (class), not in article
 
 # now could be debated if its needed at all to use match cases, when often just if else do work, so we use this example how you could "complicate"
 # I mean in this case, but make it more powerful for other cases when it is needed
 # needs more work but very much interesting
 # PyBeach 2025 - Brett Slatkin - Patterns and Anti-Patterns in Python's Structural Pattern Matching
 
-@dataclass
-class Red:
-    value: int = 0
+# @dataclass
+# class Red:
+#     value: int = 0
 
-@dataclass
-class Blue:
-    value: int = 0
+# @dataclass
+# class Blue:
+#     value: int = 0
 
-class Mixer2:
-    def __init__(self):
-        self.state = Red()
+# class Mixer2:
+#     def __init__(self):
+#         self.state = Red()
 
-    def add(self, amount: int = 25) -> Self:
-        match self.state:
-            case Red(value=value) if value + amount > 255:
-                self.state = Red(255)
-            case Red(value=value):
-                self.state = Red(value+ amount)
-            case Blue(value=value) if value + amount > 255:
-                self.state = Blue(255)
-            case Blue(value=value):
-                self.state = Blue(value+ amount)
-        return self
+#     def add(self, amount: int = 25) -> Self:
+#         match self.state:
+#             case Red(value=value) if value + amount > 255:
+#                 self.state = Red(255)
+#             case Red(value=value):
+#                 self.state = Red(value+ amount)
+#             case Blue(value=value) if value + amount > 255:
+#                 self.state = Blue(255)
+#             case Blue(value=value):
+#                 self.state = Blue(value+ amount)
+#         return self
 
-    def switch(self) -> Self:
-        match self.state:
-            case Red():  self.state = Blue()
-            case Blue(): self.state = Red()
-        return self
+#     def switch(self) -> Self:
+#         match self.state:
+#             case Red():  self.state = Blue()
+#             case Blue(): self.state = Red()
+#         return self
 
-    def reset(self) -> Self:
-        self.state = Red()
-        return self
+#     def reset(self) -> Self:
+#         self.state = Red()
+#         return self
 
-    def __repr__(self):
-        match self.state:
-            case Red(value=value):  return f"[RED] r={value}"
-            case Blue(value=value): return f"[BLUE] b={value}"
+#     def __repr__(self):
+#         match self.state:
+#             case Red(value=value):  return f"[RED] r={value}"
+#             case Blue(value=value): return f"[BLUE] b={value}"
 
-m2 = Mixer2()
-print(m2.add().add().switch().add())
+# m2 = Mixer2()
+# print(m2.add().add().switch().add())
 
-# transition table — fully table driven, no match anywhere
-# 3 states cycling. adding a state = adding a row to each dict
+
+# transition table, in article
 
 class Phase(Enum):
     RED = auto()
@@ -138,84 +138,85 @@ class Mixer3:
         return f"[{self.phase.name}] rgb({self.red},{self.green},{self.blue})"
 
 tm = Mixer3()
-print(tm.add().add().next().add().next().add())  # [BLUE] rgb(50,25,25)
-
+print(tm.add().add().next().add().next().add())
 
 
 # OO State Design Pattern
 
-class Off:
-    def flip(self, p): p.state = Red()
-    def cycle(self, p): pass
-
 class Red:
-    def flip(self, p): p.state = Off()
-    def cycle(self, p): p.state = Green()
+    def red(self, p, a):   p.r = min(255, p.r + a)
+    def green(self, p, a): p.g = min(255, p.g + a); p.state = Green()
+    def blue(self, p, a):  raise ValueError("add green first")
 
 class Green:
-    def flip(self, p): p.state = Off()
-    def cycle(self, p): p.state = Blue()
+    def red(self, p, a):   raise ValueError("red phase done")
+    def green(self, p, a): p.g = min(255, p.g + a)
+    def blue(self, p, a):  p.b = min(255, p.b + a); p.state = Blue()
 
 class Blue:
-    def flip(self, p): p.state = Off()
-    def cycle(self, p): p.state = Red()
+    def red(self, p, a):   raise ValueError("red phase done")
+    def green(self, p, a): raise ValueError("green phase done")
+    def blue(self, p, a):  p.b = min(255, p.b + a)
 
-class Pixel:
-    def __init__(self): self.state = Off()
-    def flip(self): self.state.flip(self)
-    def cycle(self): self.state.cycle(self)
+class Palette:
+    def __init__(self): self.r = self.g = self.b = 0; self.state = Red()
+    def red(self, a=25): self.state.red(self, a); return self
+    def green(self, a=25): self.state.green(self, a); return self
+    def blue(self, a=25): self.state.blue(self, a); return self
 
-p = Pixel(); p.cycle(); print(type(p.state).__name__)  # Off
-p.flip(); p.cycle(); print(type(p.state).__name__)     # Green
-
-
-# coroutine
-
+p = Palette().red(50).red(20).green(30).blue(10)
+print(p.r, p.g, p.b)
 
 
+# coroutine, in the article
 
-# ──────────────────────────────────────────
-# From pattern to machine
-# ──────────────────────────────────────────
-# A machine: states, alphabet, δ (transition function), start, accept
-# Key shift: the machine reads an input stream and decides acceptance.
-# δ(current_state, input_symbol) → next_state. No one calls switch().
+def mix_protocol() -> Generator[str, int, None]:
+    red = green = blue = 0
 
-# DFA: accept binary strings ending with "01"
+    amount = yield "phase: RED"
+    while True:
+        if amount == 0: break
+        red = min(255, red + amount)
+        amount = yield f"[RED] rgb({red},{green},{blue})"
 
-class Q(Enum):
-    S = auto()   # start
-    Z = auto()   # last symbol was 0
-    A = auto()   # accept, last two were 01
+    amount = yield "phase: GREEN"
+    while True:
+        if amount == 0: break
+        green = min(255, green + amount)
+        amount = yield f"[GREEN] rgb({red},{green},{blue})"
 
-def delta(state: Q, bit: str) -> Q:
-    match (state, bit):
-        case (Q.S, "0"): return Q.Z
-        case (Q.S, "1"): return Q.S
-        case (Q.Z, "0"): return Q.Z
-        case (Q.Z, "1"): return Q.A
-        case (Q.A, "0"): return Q.Z
-        case (Q.A, "1"): return Q.S
-    raise ValueError(f"unexpected: {bit}")
+    amount = yield "phase: BLUE"
+    while True:
+        if amount == 0: break
+        blue = min(255, blue + amount)
+        amount = yield f"[BLUE] rgb({red},{green},{blue})"
 
-def accepts(s: str) -> bool:
-    state = Q.S
-    for ch in s:
-        state = delta(state, ch)
-    return state == Q.A
+    yield f"done: rgb({red},{green},{blue})"
 
-print(accepts("01"))      # True
-print(accepts("101"))     # True
-print(accepts("011"))     # False
-print(accepts("1101"))    # True
-print(accepts("1110"))    # False
+protocol = mix_protocol()
+next(protocol)
+
+print(protocol.send(50)) 
+print(protocol.send(25))   
+print(protocol.send(0))   
+print(protocol.send(100))  
+print(protocol.send(0))  
+print(protocol.send(30))    
+print(protocol.send(0)) 
+
+def pour_stream(amounts: list[int]) -> str:
+    protocol = mix_protocol()
+    next(protocol)
+    result = ""
+    for amount in amounts:
+        result = protocol.send(amount)
+    return result
+
+print(pour_stream([50, 25, 0, 100, 0, 30, 0]))
+print(pour_stream([10, 20, 30, 0, 50, 0, 80, 0]))
 
 
-# ──────────────────────────────────────────
-# Old notes and experiments
-# ──────────────────────────────────────────
-
-# An FSM Class
+# An FSM Class, not in article
 
 class FSM:
     """This is a Finite State Machine (FSM)"""
@@ -243,112 +244,10 @@ class FSM:
     def process_list(self, input_symbols):
         pass
 
-# a gennie
 
-def generator():
-    yield 1
-    yield 2
-    yield "Hello World"
-
-gen = generator()
-
-# print((next(gen)))
-
-# connie
-
-def corutine():
-      while True:
-          value = yield
-          print(f"given value {value}")
-
-con = corutine()
-next(con)
-for x in range(10):
-    con.send(x)
-
-
-
-# Stacks
-# Last In - First Out
-browsing_session = []
-browsing_session.append(1)
-browsing_session.append(2)
-browsing_session.append(3)
-print(browsing_session)
-browsing_session.pop(1)
-print(browsing_session)
-
-
-# class FSM:
-#     class State():
-#         class Readeing(Enum):
-#             FAST = auto()
-#             SLOW = auto()
-#         class Speaking(Enum):
-#             FAST = auto()
-#             SLOW = auto()
-
-
-print("- - - - - - - - - - - - -")
-
-class Examply:
-    def __init__(self, name):
-        self.name = name
-
-    def __repr__(self):
-        return self.name
-
-Adam = Examply("Adam")
-
-print(Adam)
-
-class Examply(Examply):
-    def __init__(self, name):
-        super().__init__(name)
-        self.namen = self.name + " Sioud"
-
-    def __repr__(self):
-        return self.namen
-
-AdamSioud = Examply("Adam")
-
-print(AdamSioud)
-
-
-print("- - - - - - - - - - - - -")
-
-
-print((lambda x, y:  x + y)(2, 3))
-
-print("- - - - - - - - - - - - -")
-
-
-dispatch = {
-    "add": lambda a,b: a+b,
-    "mul": lambda a,b: a*b,
-}
-
-result = dispatch["mul"](2, 3)  # 6
-print(result)
-
-print("- - - - - - - - - - - - -")
-
-
-
-function_dispatched = {
-    "timer": lambda c,d : c*d,
-    "timy": lambda c,d : c*d,
-}
-
-print(function_dispatched["timer"](1,2))
-
-
-print("- - - - - - - - - - - - -")
-
+# insporation inspir;)
 # Pattern Matching and Recursion
 # https://raganwald.com/2018/10/17/recursive-pattern-matching.html
-
-# -- Counter-based balance check --
 
 def is_balanced(text: str) -> bool:
     """Check if parentheses are balanced using a simple counter."""
@@ -363,17 +262,10 @@ def is_balanced(text: str) -> bool:
     return depth == 0
 
 
-# -- Matchers --
-# A matcher takes text and returns the matched portion, or False if no match.
-# This is the building block for parser combinators.
-
 def literal(target: str, text: str) -> str | bool:
     """Match an exact string at the start of text."""
     return target if text.startswith(target) else False
 
-
-# -- Combinators --
-# Combinators compose matchers into larger matchers.
 
 def sequence(*matchers):
     """Match matchers one after another. All must succeed in order."""
@@ -404,8 +296,6 @@ def longest(*matchers):
     return match
 
 
-# -- Examples --
-
 print("-- literal --")
 match_parens = partial(literal, "()")
 print(match_parens(text="())"))  # "()"
@@ -430,10 +320,6 @@ print(match_bad_news("fubar'd"))  # "fubar"
 print(match_bad_news("hello"))    # False
 
 
-# -- Recursive balanced parentheses --
-# Uses combinators to define a recursive grammar:
-#   balanced -> "()" | "()" balanced | "(" balanced ")" | "(" balanced ")" balanced
-
 def balanced(text: str):
     return longest(
         partial(literal, "()"),
@@ -443,13 +329,14 @@ def balanced(text: str):
     )(text)
 
 print("-- balanced --")
-print(balanced("(())("))      # False
-print(balanced("(()())()"))   # "(()())()"
-print(balanced("())"))        # "()"
-print(balanced("xyz"))        # False
+print(balanced("(())("))   
+print(balanced("(()())()"))  
+print(balanced("())"))    
+print(balanced("xyz"))       
 
 
-# A brutal look at balanced parntheses, computing machines and pushdown automata
+# inspo from
+# A brutal look at balanced parntheses, computing machines and pushdown automata 
 # https://raganwald.com/2019/02/14/i-love-programming-and-programmers.html
 
 
