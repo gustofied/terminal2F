@@ -7,7 +7,7 @@ from functools import partial
 
 # State Design Pattern
 
-# not really a machine, but let's have it
+# meh example, match very much if-else esque
 
 class Bucket(Enum):
     RED = auto()
@@ -25,9 +25,12 @@ class Palette:
 
     def add(self, amount: int = 25) -> Self:
         match self.bucket:
-            case Bucket.RED:   self.r = min(255, self.r + amount)
-            case Bucket.GREEN: self.g = min(255, self.g + amount)
-            case Bucket.BLUE:  self.b = min(255, self.b + amount)
+            case Bucket.RED:  
+                 self.r = min(255, self.r + amount)
+            case Bucket.GREEN: 
+                self.g = min(255, self.g + amount)
+            case Bucket.BLUE:  
+                self.b = min(255, self.b + amount)
         return self
 
     def __repr__(self):
@@ -41,70 +44,55 @@ print(p.switch(Bucket.RED).add().add().switch(Bucket.BLUE).add())
 print(p.switch(Bucket.GREEN).add(100))
 
 
-# 1. Match on (state, action) tuples
-# Single method. Behavior depends on both state AND action.
+def add_red(amount):
+    return amount
 
-class Color(Enum):
-    RED = auto()
-    BLUE = auto()
+def add_blue(amount):
+    return amount +2
+tableu = {
+    Bucket.RED: add_red,
+     Bucket.BLUE: add_blue,
 
-class Action(Enum):
-    ADD = auto()
-    SWITCH = auto()
+}
 
-class ColorMixer:
-    def __init__(self):
-        self.state = Color.RED
-        self.r, self.b = 0, 0
-
-    def do(self, action: Action, amount: int = 25) -> Self:
-        match (self.state, action):
-            case (Color.RED,  Action.ADD):    self.r = min(255, self.r + amount)
-            case (Color.BLUE, Action.ADD):    self.b = min(255, self.b + amount)
-            case (Color.RED,  Action.SWITCH): self.state = Color.BLUE
-            case (Color.BLUE, Action.SWITCH): self.state = Color.RED
-        return self
-
-    def __repr__(self):
-        return f"[{self.state.name}] r={self.r} b={self.b}"
+print(tableu[Bucket.BLUE](2))
 
 
-cm = ColorMixer()
-print(cm.do(Action.ADD).do(Action.ADD))
-print(cm.do(Action.SWITCH).do(Action.ADD))
-print(cm.do(Action.ADD).do(Action.SWITCH).do(Action.ADD))
+
 
 
 print("- - - - -")
 
 
 
-# 3. Dispatch table
-# Same machine as 2, but transitions are data in a dict
-# Pure function: all state in, all state out
 
-transitions = {
-    (Color.RED,  Action.ADD):    Color.RED,
-    (Color.RED,  Action.SWITCH): Color.BLUE,
-    (Color.BLUE, Action.ADD):    Color.BLUE,
-    (Color.BLUE, Action.SWITCH): Color.RED,
-}
 
-def step(state: Color, r: int, b: int, action: Action, amount: int = 25):
-    next_state = transitions[(state, action)]
-    if action == Action.ADD:
-        if state == Color.RED:
-            r = min(255, r + amount)
-        else:
-            b = min(255, b + amount)
-    return next_state, r, b
+# # 3. Dispatch table
+# # Same machine as 2, but transitions are data in a dict
+# # Pure function: all state in, all state out
 
-state, r, b = Color.RED, 0, 0
-state, r, b = step(state, r, b, Action.ADD)
-state, r, b = step(state, r, b, Action.ADD)
-state, r, b = step(state, r, b, Action.SWITCH)
-state, r, b = step(state, r, b, Action.ADD)
-print(f"[{state.name}] r={r} b={b}")
+# transitions = {
+#     (Color.RED,  Action.ADD):    Color.RED,
+#     (Color.RED,  Action.SWITCH): Color.BLUE,
+#     (Color.BLUE, Action.ADD):    Color.BLUE,
+#     (Color.BLUE, Action.SWITCH): Color.RED,
+# }
+
+# def step(state: Color, r: int, b: int, action: Action, amount: int = 25):
+#     next_state = transitions[(state, action)]
+#     if action == Action.ADD:
+#         if state == Color.RED:
+#             r = min(255, r + amount)
+#         else:
+#             b = min(255, b + amount)
+#     return next_state, r, b
+
+# state, r, b = Color.RED, 0, 0
+# state, r, b = step(state, r, b, Action.ADD)
+# state, r, b = step(state, r, b, Action.ADD)
+# state, r, b = step(state, r, b, Action.SWITCH)
+# state, r, b = step(state, r, b, Action.ADD)
+# print(f"[{state.name}] r={r} b={b}")
 
 
 # 4. OO State Pattern
