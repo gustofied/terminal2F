@@ -592,7 +592,7 @@ Verifiers defines a hierarchy of error types under `vf.Error`:
 - `vf.ModelError` — errors from model interactions (e.g., `vf.EmptyModelResponseError`)
 - `vf.OverlongPromptError` — prompt exceeds model context length
 - `vf.ToolError` — tool-related errors (`vf.ToolParseError`, `vf.ToolCallError`)
-- `vf.InfraError` — infrastructure errors (e.g., `vf.SandboxError`)
+- `vf.InfraError` — infrastructure errors (e.g., `vf.SandboxError`, `vf.TunnelError`)
 
 When a `vf.Error` is raised during a rollout, it is automatically caught and stored in `state["error"]`, triggering the built-in `has_error` stop condition at the next check. This allows rollouts to terminate gracefully rather than crashing.
 
@@ -796,5 +796,6 @@ Newer and more experimental environment classes include:
 
 - **`GymEnv`** — universal runner for Gym-compatible environments (OpenAI Gym / Gymnasium API)
 - **`CliAgentEnv`** — runs custom agent code inside sandboxes, intercepting API requests. Accepts sandbox configuration parameters including `docker_image`, `cpu_cores`, `memory_gb`, `disk_size_gb`, `gpu_count`, `timeout_minutes`, `environment_vars`, and `labels` for sandbox categorization. Also accepts retry tuning (like `max_retries`) and connection pooling ( like `sandbox_client_max_workers`) parameters via `SandboxMixin`
+- **`RolloutGatewayMixin`** — opt-in mixin for `CliAgentEnv` that replaces its interception-based rollout with a server-side gateway path, where the agent talks directly to the inference server's rollout gateway. Toggle between modes via the `use_gateway` attribute: when `True`, the mixin's `rollout()` fires and manages gateway registration, tunnel setup, and trajectory fetching; when `False`, falls through to `CliAgentEnv`'s interception path. Use with `class MyEnv(vf.RolloutGatewayMixin, vf.CliAgentEnv):`
 - **`HarborEnv`** — loads Harbor-format agent benchmark tasks
 - **`RLMEnv`** — implements [Recursive Language Models](https://alexzhang13.github.io/blog/2025/rlm/) for unbounded context processing via REPL-based decomposition and recursive sub-LLM calls

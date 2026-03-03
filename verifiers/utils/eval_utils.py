@@ -34,6 +34,7 @@ from verifiers.types import (
 from verifiers.utils.async_utils import EventLoopLagMonitor
 from verifiers.utils.import_utils import load_toml
 from verifiers.utils.logging_utils import print_prompt_completions_sample, print_time
+from verifiers.utils.metric_utils import compute_pass_at_k
 from verifiers.utils.path_utils import get_eval_results_path
 
 logger = logging.getLogger(__name__)
@@ -327,6 +328,7 @@ def load_toml_config(path: Path) -> list[dict]:
         "max_concurrent",
         "independent_scoring",
         "max_retries",
+        "disable_env_server",
         # logging
         "verbose",
         "debug",
@@ -422,6 +424,21 @@ def print_rewards(results: GenerateOutputs):
         trials = [round(rewards[i + (j * r)], 3) for j in range(n)]
         out = f"r{i + 1}: {trials}"
         print(out)
+
+    threshold = results["metadata"].get("pass_threshold", 0.5)
+    pass_at_k, pass_all_k = compute_pass_at_k(results["outputs"], r, threshold)
+    if pass_at_k:
+        parts = [
+            f"{k}={v:.3f}"
+            for k, v in sorted(pass_at_k.items(), key=lambda x: int(x[0]))
+        ]
+        print(f"pass@k: {', '.join(parts)}")
+    if pass_all_k:
+        parts = [
+            f"{k}={v:.3f}"
+            for k, v in sorted(pass_all_k.items(), key=lambda x: int(x[0]))
+        ]
+        print(f"pass^k: {', '.join(parts)}")
 
     metrics = [o["metrics"] for o in results["outputs"]]
     metrics_col = to_col_order(metrics)
@@ -585,22 +602,23 @@ async def run_evaluation(
     results_path = config.resume_path or get_eval_results_path(config)
 
     try:
-        if config.debug:
-            await vf_env.start_server(
-                extra_env_kwargs=config.extra_env_kwargs,
-                log_level=get_log_level(config.verbose),
-            )
-        else:
-            log_file = results_path / "eval.log"
-            log_file.parent.mkdir(parents=True, exist_ok=True)
-            await vf_env.start_server(
-                extra_env_kwargs=config.extra_env_kwargs,
-                log_level="CRITICAL",  # disable console logging
-                log_file=str(log_file),
-                log_file_level=get_log_level(config.verbose),
-            )
-            if on_log_file is not None:
-                on_log_file(log_file)
+        if not config.disable_env_server:
+            if config.debug:
+                await vf_env.start_server(
+                    extra_env_kwargs=config.extra_env_kwargs,
+                    log_level=get_log_level(config.verbose),
+                )
+            else:
+                log_file = results_path / "eval.log"
+                log_file.parent.mkdir(parents=True, exist_ok=True)
+                await vf_env.start_server(
+                    extra_env_kwargs=config.extra_env_kwargs,
+                    log_level="CRITICAL",  # disable console logging
+                    log_file=str(log_file),
+                    log_file_level=get_log_level(config.verbose),
+                )
+                if on_log_file is not None:
+                    on_log_file(log_file)
 
         logger.debug(f"Starting evaluation with model: {config.model}")
         logger.debug(
@@ -642,7 +660,8 @@ async def run_evaluation(
             on_log=on_log,
         )
     finally:
-        await vf_env.stop_server()
+        if not config.disable_env_server:
+            await vf_env.stop_server()
 
     return outputs
 
@@ -739,11 +758,18 @@ async def run_evaluations_tui(config: EvalRunConfig, tui_mode: bool = True) -> N
             new_outputs: list[RolloutOutput],
             metadata: GenerateMetadata,
         ) -> None:
+            metrics = dict(metadata.get("avg_metrics") or {})
+            pass_at_k = metadata.get("pass_at_k") or {}
+            for k, v in pass_at_k.items():
+                metrics[f"pass@{k}"] = v
+            pass_all_k = metadata.get("pass_all_k") or {}
+            for k, v in pass_all_k.items():
+                metrics[f"pass^{k}"] = v
             display.update_env_state(
                 env_idx,
                 progress=len(all_outputs),
                 reward=metadata.get("avg_reward"),
-                metrics=metadata.get("avg_metrics"),
+                metrics=metrics,
                 error_rate=metadata.get("avg_error"),
                 usage=metadata.get("usage"),
             )
