@@ -17,7 +17,6 @@ class EmailEnv(vf.MultiTurnEnv):
 
 def extract_json(text: str) -> dict:
     """Find the last balanced {...} JSON object in text."""
-    last_obj = None
     for i in range(len(text) - 1, -1, -1):
         if text[i] == '}':
             depth, start = 0, None
@@ -31,8 +30,7 @@ def extract_json(text: str) -> dict:
                     break
             if start is not None:
                 try:
-                    last_obj = json.loads(text[start:i + 1])
-                    return last_obj
+                    return json.loads(text[start:i + 1])
                 except json.JSONDecodeError:
                     continue
     return {}
@@ -48,17 +46,20 @@ def score_turn(response: str, ground_truth: str, field: str) -> float:
     """Score a single turn for a single field (to/cc/bcc)."""
     pred = set(extract_json(response).get(field, []))
     expected = set(extract_json(ground_truth).get(field, []))
+    if field == "bcc" and not pred and not expected:
+        return 0.5
     return set_overlap(pred, expected)
 
 
 def score_field(completion: list[dict], state: dict, field: str) -> float:
-    """Average score for a field across all turns."""
+    """Average score for a field across all expected turns. Missing turns count as 0."""
     responses = [m["content"] for m in completion if m["role"] == "assistant"]
     ground_truths = state["info"]["ground_truths"]
-    turns = min(len(responses), len(ground_truths))
-    if not turns:
+    n = len(ground_truths)
+    if not n:
         return 0.0
-    return sum(score_turn(responses[i], ground_truths[i], field) for i in range(turns)) / turns
+    scored = min(len(responses), n)
+    return sum(score_turn(responses[i], ground_truths[i], field) for i in range(scored)) / n
 
 
 def load_environment(

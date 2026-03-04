@@ -442,7 +442,7 @@ Provide your answer as JSON.</code></pre>
   </tr>
 </table>
 
-<p>Each function averages its score across turns internally. Weighted equally (1/3 each) by the rubric. Jaccard index: <code>|intersection| / |union|</code>, 1.0 if both sets empty.</p>
+<p>Each function averages its score across all expected turns (missing turns count as 0, so a model that stops early is penalized). Weighted equally (1/3 each) by the rubric. Jaccard index: <code>|intersection| / |union|</code>, 1.0 if both sets empty. Exception: BCC scores 0.5 when both predicted and expected are empty, so rows without BCC recipients are not a free point. This is a hacky fix for a data problem (too many rows with empty BCC), and it could backfire if the model learns to always stuff someone into BCC to avoid the penalty.</p>
 
 <p><strong>Knobs</strong> (<code>--env-args</code>): <code>max_turns</code> (1, 2, or 3). Slices dataset accordingly.</p>
 
@@ -459,7 +459,7 @@ Provide your answer as JSON.</code></pre>
 
 <p><code>distribute_emails()</code> shuffles active people before assigning To and CC. The model has some signal from the email text (who is addressed, who is asked to act, hierarchy cues), but the ground truth split comes from a random shuffle. The model cannot fully recover it. BCC is also noisy: sensitivity controls <em>whether</em> people go to BCC, but <em>who</em> goes there is still drawn from shuffled active participants. Active people who are greeted in the email can end up in BCC, which is why 75% of BCC recipients appear in the text.</p>
 
-<p>This means all three individual scores (<code>to_correct</code>, <code>cc_correct</code>, <code>bcc_correct</code>) have noise. The visible set (To + CC combined) is the most learnable signal. One upgrade would be to replace the rubric with <code>visible_correct</code> (Jaccard on To &cup; CC) + <code>bcc_correct</code> + <code>format_correct</code> (valid JSON with correct keys), dropping individual To/CC scoring entirely.</p>
+<p>This means all three individual scores (<code>to_correct</code>, <code>cc_correct</code>, <code>bcc_correct</code>) have noise. With the rubric at equal 1/3 weights, two-thirds of the reward signal that GRPO uses to rank rollouts is driven by noise the model cannot learn from, leaving BCC as the only clean signal at 1/3 weight. The visible set (To + CC combined) is the most learnable signal. One upgrade would be to replace the rubric with <code>visible_correct</code> (Jaccard on To &cup; CC) + <code>bcc_correct</code> + <code>format_correct</code> (valid JSON with correct keys), dropping individual To/CC scoring entirely.</p>
 
 <p>The real fix is to replace the shuffle with rules driven by scenario type, hierarchy, audience, and roles. The person being asked to act goes to To (picked by scenario-to-role priority), managers and stakeholders go to CC (shaped by hierarchy), compliance observers from reserve go to BCC (when sensitivity is high). Active participants never end up in BCC. This makes the exact To/CC/BCC split derivable from the observation without turning it into greeting-parsing.</p>
 
