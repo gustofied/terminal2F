@@ -53,13 +53,22 @@
     overflow: hidden;
     border-radius: 2px;
   }
-  .header-fig img {
-    width: 100%;
+  .header-stack {
+    position: relative;
+    height: 220px;
+  }
+  .header-stack img {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
     height: 220px;
     object-fit: cover;
-    object-position: center 40%;
     display: block;
   }
+  .header-stack .l4 { width: 100%; opacity: 0.3; object-position: center 30%; }
+  .header-stack .l3 { width: 98%; opacity: 0.5; object-position: center 30%; }
+  .header-stack .l2 { width: 96%; opacity: 0.75; object-position: center 30%; }
+  .header-stack .l1 { width: 104%; opacity: 1; object-position: center 40%; clip-path: inset(0 5% 0 5%); }
   .header-fig figcaption {
     font-family: 'JetBrains Mono', monospace;
     font-size: 11px;
@@ -309,10 +318,12 @@
 </div>
 
 <figure class="header-fig">
-  <img
-    src="https://www.legendarte.shop/pimages/Stampa-su-tela-La-Chiesa-di-Cassone-Gustav-Klimt-Quadro-su-Tela--big-64641-139.jpg"
-    alt="La Chiesa di Cassone, Gustav Klimt"
-  />
+  <div class="header-stack">
+    <img class="l4" src="https://www.mfab.hu/app/uploads/2023/08/345913.jpg" alt="">
+    <img class="l3" src="https://www.mfab.hu/app/uploads/2023/08/345913.jpg" alt="">
+    <img class="l2" src="https://www.mfab.hu/app/uploads/2023/08/345913.jpg" alt="">
+    <img class="l1" src="https://www.legendarte.shop/pimages/Stampa-su-tela-La-Chiesa-di-Cassone-Gustav-Klimt-Quadro-su-Tela--big-64641-139.jpg" alt="La Chiesa di Cassone, Gustav Klimt">
+  </div>
   <figcaption>Gustav Klimt, <em>La Chiesa di Cassone</em>, 1913.</figcaption>
 </figure>
 

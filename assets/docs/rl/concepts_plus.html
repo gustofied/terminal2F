@@ -52,13 +52,22 @@
     overflow: hidden;
     border-radius: 2px;
   }
-  .header-fig img {
-    width: 100%;
+  .header-stack {
+    position: relative;
+    height: 220px;
+  }
+  .header-stack img {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
     height: 220px;
     object-fit: cover;
-    object-position: center 40%;
     display: block;
   }
+  .header-stack .l4 { width: 100%; opacity: 0.3; object-position: center 30%; }
+  .header-stack .l3 { width: 98%; opacity: 0.5; object-position: center 30%; }
+  .header-stack .l2 { width: 96%; opacity: 0.75; object-position: center 30%; }
+  .header-stack .l1 { width: 94%; opacity: 1; object-position: center 40%; }
   .header-fig figcaption {
     font-family: 'JetBrains Mono', monospace;
     font-size: 11px;
@@ -269,10 +278,12 @@
 </div>
 
 <figure class="header-fig">
-  <img
-    src="https://www.bnf.fr/sites/default/files/2019-02/Cosmographie_universelle_selon_les_navigateurs_%5B...%5DLe_Testu_btv1b8447838j_16.jpg"
-    alt="Cosmographie universelle, Guillaume Le Testu, 1556"
-  />
+  <div class="header-stack">
+    <img class="l4" src="https://www.mfab.hu/app/uploads/2023/08/345913.jpg" alt="">
+    <img class="l3" src="https://www.mfab.hu/app/uploads/2023/08/345913.jpg" alt="">
+    <img class="l2" src="https://www.mfab.hu/app/uploads/2023/08/345913.jpg" alt="">
+    <img class="l1" src="https://www.bnf.fr/sites/default/files/2019-02/Cosmographie_universelle_selon_les_navigateurs_%5B...%5DLe_Testu_btv1b8447838j_16.jpg" alt="Cosmographie universelle, Guillaume Le Testu, 1556">
+  </div>
   <figcaption>Guillaume Le Testu, <em style="color:#bbb">Cosmographie universelle</em>, 1556.</figcaption>
 </figure>
 

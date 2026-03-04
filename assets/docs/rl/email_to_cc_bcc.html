@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Email-to-CC-BCC Environment</title>
+<title>1. Email-to-CC-BCC</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&display=swap');
 
@@ -28,11 +28,11 @@
 
   .memo-head {
     border-top: 2.5px solid #1a1a1a;
-    border-bottom: 0.5px solid #1a1a1a;
-    padding: 20px 0 16px;
-    margin-bottom: 40px;
+    border-bottom: none;
+    padding: 20px 0 0;
+    margin-bottom: 0;
   }
-  .memo-head h1 {
+  .memo-head h2 {
     font-size: 1.6rem;
     font-weight: normal;
     color: #333;
@@ -40,23 +40,99 @@
     margin: 0;
   }
 
-  h2 {
+  .header-fig {
+    margin: 16px 0 0;
+    overflow: hidden;
+    border-radius: 2px;
+  }
+  .header-stack {
+    position: relative;
+    height: 220px;
+  }
+  .header-stack img {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    height: 220px;
+    object-fit: cover;
+    object-position: center 30%;
+    display: block;
+  }
+  .header-stack .l4 { width: 100%; opacity: 0.3; }
+  .header-stack .l3 { width: 98%; opacity: 0.5; }
+  .header-stack .l2 { width: 96%; opacity: 0.75; }
+  .header-stack .l1 { width: 94%; opacity: 1; }
+  .header-fig figcaption {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #bbb;
+    letter-spacing: 0.5px;
+    margin-top: 8px;
+    text-align: center;
+  }
+  .header-fig figcaption em {
+    color: #bbb;
+  }
+
+  .toc {
+    margin: 32px 0 40px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: #999;
+    letter-spacing: 0.3px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 20px;
+    align-items: baseline;
+  }
+  .toc a {
+    color: #666;
+    text-decoration: none;
+  }
+  .toc a:hover {
+    color: #1a1a1a;
+    text-decoration: none;
+  }
+  .toc .toc-num {
+    color: #aaa;
+    font-size: 9px;
+    margin-right: 3px;
+  }
+
+  h3 {
     font-size: 1.3rem;
     font-weight: normal;
     color: #333;
-    margin: 56px 0 6px;
+    margin: 64px 0 10px;
   }
-  h3 {
+  h3 .num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 400;
+    color: #aaa;
+    letter-spacing: 1px;
+    display: block;
+    margin-bottom: 2px;
+  }
+  h4 {
     font-size: 1.1rem;
     font-weight: normal;
     color: #333;
-    margin: 36px 0 4px;
+    margin: 44px 0 6px;
   }
-  p { margin: 10px 0; }
-
-  ul, ol { margin: 12px 0 12px 22px; }
-  li { margin: 5px 0; color: #333; }
-  li::marker { color: #bbb; }
+  h4 .sub {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    font-weight: 400;
+    color: #bbb;
+    letter-spacing: 0.5px;
+    margin-right: 6px;
+  }
+  p { margin: 14px 0; }
+  .lede { font-size: 15px; color: #555; line-height: 1.68; }
+  a { color: #268bd2; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  em { color: #555; }
 
   code {
     font-family: 'JetBrains Mono', monospace;
@@ -68,7 +144,7 @@
   }
   .code-block {
     position: relative;
-    margin: 20px 0;
+    margin: 24px 0;
   }
   .code-block pre {
     margin: 0;
@@ -87,12 +163,12 @@
     user-select: none;
   }
   pre {
-    margin: 20px 0;
-    padding: 16px 20px;
+    margin: 24px 0;
+    padding: 18px 22px;
     background: #f5f4f0;
     border: 0.5px solid #e8e4de;
     overflow-x: auto;
-    line-height: 1.5;
+    line-height: 1.55;
   }
   pre code {
     background: none;
@@ -101,9 +177,51 @@
     font-size: 12px;
   }
   strong { font-weight: 700; color: #1a1a1a; }
-  em { color: #555; }
-  a { color: #268bd2; text-decoration: none; }
-  a:hover { text-decoration: underline; }
+
+  ul, ol { margin: 12px 0 12px 22px; }
+  li { margin: 5px 0; color: #333; }
+  li::marker { color: #bbb; }
+
+  .ch-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 20px 0 0;
+    font-size: 13.5px;
+  }
+  .ch-table th {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    font-weight: 400;
+    color: #aaa;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    text-align: left;
+    padding: 6px 16px;
+    border-bottom: 1px solid #1a1a1a;
+  }
+  .ch-table td {
+    padding: 10px 16px;
+    border-bottom: 0.5px solid #eee;
+    vertical-align: top;
+  }
+  .ch-table .mono {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  .sep {
+    border: none;
+    text-align: center;
+    margin: 56px 0;
+    line-height: 0;
+  }
+  .sep::after {
+    content: '\2022\2009\2009\2022\2009\2009\2022';
+    font-size: 10px;
+    color: #ccc;
+    letter-spacing: 4px;
+  }
 
   blockquote {
     font-size: 13px;
@@ -113,19 +231,6 @@
     padding-left: 16px;
     border-left: 1.5px solid #ddd;
     line-height: 1.6;
-  }
-
-  hr {
-    border: none;
-    text-align: center;
-    margin: 56px 0;
-    line-height: 0;
-  }
-  hr::after {
-    content: '\2022\2009\2009\2022\2009\2009\2022';
-    font-size: 10px;
-    color: #ccc;
-    letter-spacing: 4px;
   }
 
   .colophon {
@@ -140,6 +245,31 @@
     letter-spacing: 0.5px;
   }
 
+  @media (max-width: 768px) {
+    body { padding: 16px 0.75rem 80px; }
+    .memo-head h2 { font-size: 1.15rem; }
+    h3 { font-size: 1.1rem; margin: 36px 0 6px; }
+    h4 { font-size: 1rem; }
+    p { font-size: 13.5px; }
+    pre {
+      padding: 12px 14px;
+      font-size: 10.5px;
+      margin: 16px -0.75rem;
+      width: calc(100% + 1.5rem);
+      border-left: none;
+      border-right: none;
+      border-radius: 0;
+    }
+    pre code { font-size: 10.5px; }
+    .ch-table {
+      font-size: 12px;
+      display: block;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    .ch-table th, .ch-table td { padding: 6px 8px; }
+    .header-fig img { height: 160px; }
+  }
 </style>
 </head>
 <body>
@@ -147,168 +277,216 @@
 <a class="back" href="index.html">&larr; docs</a>
 
 <div class="memo-head">
-  <h1>Email-to-CC-BCC Environment</h1>
+  <h2>1. Email-to-CC-BCC</h2>
 </div>
 
-<p>Multi-turn environment where the model reads actual emails and assigns recipients to To, CC, and BCC.</p>
+<figure class="header-fig">
+  <div class="header-stack">
+    <img class="l4" src="https://www.mfab.hu/app/uploads/2023/08/345913.jpg" alt="">
+    <img class="l3" src="https://www.mfab.hu/app/uploads/2023/08/345913.jpg" alt="">
+    <img class="l2" src="https://www.mfab.hu/app/uploads/2023/08/345913.jpg" alt="">
+    <img class="l1" src="https://www.mfab.hu/app/uploads/2023/08/345913.jpg" alt="Marc Chagall">
+  </div>
+  <figcaption>Marc Chagall.</figcaption>
+</figure>
 
-<h3>The Task</h3>
+<p class="lede" style="margin-top:32px;">Email-to-CC-BCC is an environment built to evaluate and train models on recipient placement via RLVR (GRPO), using the <a href="https://github.com/saransh-khobragade/verifiers">verifiers</a> framework and t2f-trainer (a slightly adjusted verifiers-rl). The thinking is that the task is a good fit for RL because it has a clear verifiable reward signal (set match against ground truth), structured output (JSON), and enough ambiguity in the CC/BCC split that a model has to reason about roles, sensitivity, and hierarchy rather than pattern match. A synthetic dataset is generated using <a href="https://nvidia-nemo.github.io/DataDesigner/latest/">NVIDIA NeMo DataDesigner</a>, then used to train Qwen models and compare against OpenAI baselines to gauge what stronger models can do out of the box. The environment supports 1, 2, and 3 turn rollouts as a form of curriculum, not increasing difficulty but expanding the number of recipient reassignment decisions the model must handle. Some terminology used throughout comes from verifiers.</p>
 
-<p>Given an email and a list of 7 people (name, email address, role), decide who goes in To, CC, and BCC. Multi-turn: email thread evolves, recipients shift.</p>
+<div class="toc">
+  <a href="#s-task"><span class="toc-num">I</span>Task</a>
+  <a href="#s-dataset"><span class="toc-num">II</span>Dataset</a>
+  <a href="#s-rewards"><span class="toc-num">III</span>Rewards</a>
+  <a href="#s-discussion"><span class="toc-num">IV</span>Results v1</a>
+</div>
 
-<p>The environment assembles the full prompt at runtime:</p>
 
-<div class="code-block"><pre><code><span style="color: #657B83">Available </span><span style="color: #268BD2">recipients</span><span style="color: #657B83">:</span>
-<span style="color: #93A1A1">-</span><span style="color: #657B83"> Sarah Chen </span><span style="color: #93A1A1">&lt;</span><span style="color: #657B83">sarah.chen</span><span style="color: #268BD2">@acme</span><span style="color: #657B83">.com</span><span style="color: #93A1A1">&gt;</span><span style="color: #657B83"> </span><span style="color: #93A1A1">-</span><span style="color: #657B83"> Project Lead</span>
-<span style="color: #93A1A1">-</span><span style="color: #657B83"> Mike Torres </span><span style="color: #93A1A1">&lt;</span><span style="color: #657B83">mike.t</span><span style="color: #268BD2">@clientcorp</span><span style="color: #657B83">.com</span><span style="color: #93A1A1">&gt;</span><span style="color: #657B83"> </span><span style="color: #93A1A1">-</span><span style="color: #657B83"> Client PM</span>
-<span style="color: #93A1A1">-</span><span style="color: #657B83"> Lisa Park </span><span style="color: #93A1A1">&lt;</span><span style="color: #657B83">lisa.park</span><span style="color: #268BD2">@acme</span><span style="color: #657B83">.com</span><span style="color: #93A1A1">&gt;</span><span style="color: #657B83"> </span><span style="color: #93A1A1">-</span><span style="color: #657B83"> VP Engineering</span>
-<span style="color: #657B83">...</span>
+<!-- ═══════════════════════════════════════════════════════════
+     I. TASK
+     ═══════════════════════════════════════════════════════════ -->
 
-<span style="color: #268BD2">Subject</span><span style="color: #657B83">: Q3 deadline extension request</span>
+<h3 id="s-task"><span class="num">I</span>Task</h3>
+<p class="lede">Given 7 people and an email thread, assign each person to To, CC, or BCC. The thread evolves across turns and recipients shift.</p>
 
-<span style="color: #657B83">Hi team, I wanted </span><span style="color: #859900">to</span><span style="color: #657B83"> flag that we</span><span style="color: #657B83; background-color: #DC322F">&#39;</span><span style="color: #657B83">re going </span><span style="color: #859900">to</span><span style="color: #657B83"> need a </span><span style="color: #2AA198">2</span><span style="color: #93A1A1">-</span><span style="color: #657B83">week extension...</span>
+<p>Each row has 7 people with name, email address, and role. The model sees the full roster and an email, then outputs a JSON object placing each relevant person into the correct field. On follow-up turns, a new email arrives in the thread and the model re-evaluates.</p>
 
-<span style="color: #657B83">Assign recipients </span><span style="color: #859900">to</span><span style="color: #657B83"> </span><span style="color: #859900">To</span><span style="color: #657B83">, CC, </span><span style="color: #859900">and</span><span style="color: #657B83"> BCC.</span>
-</code></pre></div>
+<p><code>load_environment</code> assembles the first prompt from the dataset's <code>email_list</code> and <code>question_1</code> columns:</p>
 
-<p>Answer format - email addresses, JSON:</p>
+<div class="code-block">
+  <span class="code-lang">turn 1</span>
+  <pre><code>An email thread is unfolding. For each email, decide who
+belongs in To, CC, and BCC. Recipients may change as the
+thread evolves.
 
-<div class="code-block"><span class="code-lang">json</span><pre><code><span style="color: #657B83">{</span><span style="color: #268BD2">&quot;to&quot;</span><span style="color: #657B83">: [</span><span style="color: #2AA198">&quot;sarah.chen@acme.com&quot;</span><span style="color: #657B83">], </span><span style="color: #268BD2">&quot;cc&quot;</span><span style="color: #657B83">: [</span><span style="color: #2AA198">&quot;mike.t@clientcorp.com&quot;</span><span style="color: #657B83">], </span><span style="color: #268BD2">&quot;bcc&quot;</span><span style="color: #657B83">: [</span><span style="color: #2AA198">&quot;lisa.park@acme.com&quot;</span><span style="color: #657B83">]}</span>
-</code></pre></div>
+Possible recipients:
+- Sarah Chen &lt;sarah.chen@acme.com&gt; - Project Lead
+- Mike Torres &lt;mike.t@clientcorp.com&gt; - Client PM
+- Lisa Park &lt;lisa.park@acme.com&gt; - VP Engineering
+  ...
 
-<h3>Dataset</h3>
+Subject: Q3 deadline extension request
 
-<p>7 columns, flat. Each row is a full 3-turn scenario:</p>
+Hi team, I wanted to flag that we're going to need
+a 2-week extension on the Phoenix deliverables...
 
-<div class="code-block"><pre><code>email_list | question_1 | question_2 | question_3 | answer_1 | answer_2 | answer_3
-</code></pre></div>
+Provide your answer as JSON: {<span style="color:#2aa198">"to"</span>: [...], <span style="color:#2aa198">"cc"</span>: [...], <span style="color:#2aa198">"bcc"</span>: [...]}
+Use email addresses, not names.</code></pre>
+</div>
 
-<ul>
-<li><code>email_list</code> - all 7 people, always present (<code>name &lt;email&gt; - role</code>)</li>
-<li><code>question_n</code> - email content (subject + body). The environment prepends <code>email_list</code> and appends the instruction at runtime</li>
-<li><code>answer_n</code> - <code>{&quot;to&quot;: [...], &quot;cc&quot;: [...], &quot;bcc&quot;: [...]}</code></li>
-</ul>
+<p>Follow-up turns feed the next email from <code>info["follow_ups"]</code> via <code>env_response</code>:</p>
 
-<p><code>question_1</code> is the initial email. <code>question_2</code> and <code>question_3</code> are replies as the situation evolves (people added, removed, escalation, etc.).</p>
+<div class="code-block">
+  <span class="code-lang">turn 2+</span>
+  <pre><code>New email in the thread. Re-evaluate recipients.
 
-<p>In <code>load_environment</code>, flat columns get reshaped into the verifiers format:</p>
+Subject: Re: Q3 deadline extension request
 
-<div class="code-block"><span class="code-lang">python</span><pre><code><span style="color: #2AA198">&quot;prompt&quot;</span><span style="color: #657B83">:</span> <span style="color: #657B83">[{</span><span style="color: #2AA198">&quot;role&quot;</span><span style="color: #657B83">:</span> <span style="color: #2AA198">&quot;user&quot;</span><span style="color: #657B83">,</span> <span style="color: #2AA198">&quot;content&quot;</span><span style="color: #657B83">:</span> <span style="color: #657B83">email_list</span> <span style="color: #93A1A1">+</span> <span style="color: #657B83">question_1</span> <span style="color: #93A1A1">+</span> <span style="color: #657B83">instruction}],</span>
-<span style="color: #2AA198">&quot;info&quot;</span><span style="color: #657B83">:</span> <span style="color: #657B83">{</span>
-    <span style="color: #2AA198">&quot;follow_ups&quot;</span><span style="color: #657B83">:</span> <span style="color: #657B83">[question_2,</span> <span style="color: #657B83">question_3],</span>
-    <span style="color: #2AA198">&quot;ground_truths&quot;</span><span style="color: #657B83">:</span> <span style="color: #657B83">[answer_1,</span> <span style="color: #657B83">answer_2,</span> <span style="color: #657B83">answer_3],</span>
-    <span style="color: #2AA198">&quot;num_turns&quot;</span><span style="color: #657B83">:</span> <span style="color: #657B83">max_turns,</span>
-<span style="color: #657B83">}</span>
-</code></pre></div>
+Lisa, thanks for looping me in. I've reviewed the timeline
+with the client and can confirm...
 
-<h3>Generation Approach</h3>
+Provide your answer as JSON.</code></pre>
+</div>
 
-<p>Ground truth first - the LLM never decides who goes where.</p>
+<p>Expected output on each turn:</p>
+
+<div class="code-block">
+  <span class="code-lang">json</span>
+  <pre><code>{
+  <span style="color:#268bd2">"to"</span>: [<span style="color:#2aa198">"sarah.chen@acme.com"</span>],
+  <span style="color:#268bd2">"cc"</span>: [<span style="color:#2aa198">"mike.t@clientcorp.com"</span>],
+  <span style="color:#268bd2">"bcc"</span>: [<span style="color:#2aa198">"lisa.park@acme.com"</span>]
+}</code></pre>
+</div>
+
+<p><code>max_turns</code> controls how many turns the environment runs (1, 2, or 3). The stop condition checks <code>len(trajectory) >= num_turns</code>. Scoring uses Jaccard index per field per turn, averaged across all turns in the rollout.</p>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     II. DATASET
+     ═══════════════════════════════════════════════════════════ -->
+
+<h3 id="s-dataset"><span class="num">II</span>Dataset</h3>
+<p class="lede">In verifiers, the dataset is the initial prompt of an environment. Each row becomes one rollout, one full trajectory. The framework uses HuggingFace <code>datasets</code> natively, so hosting on HuggingFace and loading via <code>load_dataset</code> is the natural path. That is why this dataset is <a href="https://huggingface.co/datasets/gustofied/email-to-cc-bcc">hosted there</a>.</p>
+
+<p>The dataset is a flat parquet with 7 columns. One row is one complete 3-turn scenario:</p>
+
+<table class="ch-table">
+  <tr>
+    <th>Column</th>
+    <th>Description</th>
+  </tr>
+  <tr>
+    <td class="mono">email_list</td>
+    <td>The 7 people, always present. Each entry is <code>name &lt;email&gt; - role</code>.</td>
+  </tr>
+  <tr>
+    <td class="mono">question_1</td>
+    <td>Initial email (subject + body). The environment prepends <code>email_list</code> and appends the instruction at runtime.</td>
+  </tr>
+  <tr>
+    <td class="mono">question_2, 3</td>
+    <td>Follow-up replies as the situation evolves (people added, removed, escalation, etc.).</td>
+  </tr>
+  <tr>
+    <td class="mono">answer_1, 2, 3</td>
+    <td>Ground truth JSON: <code>{"to": [...], "cc": [...], "bcc": [...]}</code></td>
+  </tr>
+</table>
+
+<p><code>load_environment</code> reshapes the flat columns into the verifiers format:</p>
+
+<div class="code-block">
+  <span class="code-lang">python</span>
+  <pre><code><span style="color:#2aa198">"prompt"</span>: [{<span style="color:#2aa198">"role"</span>: <span style="color:#2aa198">"user"</span>, <span style="color:#2aa198">"content"</span>: email_list + question_1 + instruction}],
+<span style="color:#2aa198">"info"</span>: {
+    <span style="color:#2aa198">"follow_ups"</span>: [question_2, question_3],
+    <span style="color:#2aa198">"ground_truths"</span>: [answer_1, answer_2, answer_3],
+    <span style="color:#2aa198">"num_turns"</span>: max_turns,
+}</code></pre>
+</div>
+
+<h4 id="s-generation"><span class="sub">a</span>Data Generation</h4>
+
+<p>A dataset was needed to train on, so <a href="https://nvidia-nemo.github.io/DataDesigner/latest/">DataDesigner</a> was the tool of choice. Below is the thinking behind how the v1 dataset was built. Some of these choices get revisited in later sections as the dataset evolves.</p>
 
 <ol>
-<li><strong>Sample people</strong> - 7 per row with name, email, role. 2-6 start active, rest are reserve. One company domain per row, one external domain. Roles sampled without replacement</li>
-<li><strong>Assign recipients per turn</strong> - deterministic. Sensitivity drives bcc, hierarchy drives to vs cc. Changes between turns (escalation, person added, made confidential, etc.) retry if they'd be a no-op</li>
-<li><strong>LLM writes email content</strong> - given the roster and visible recipients (to/cc only, no bcc), generate realistic email thread. The LLM never sees bcc assignments</li>
+<li><strong>Sample people</strong> - 7 per row with name, email, role. 2-6 start active, rest are reserve. One company domain per row, one external domain. Roles sampled without replacement.</li>
+<li><strong>Assign recipients per turn</strong> - deterministic. Sensitivity drives BCC, hierarchy drives To vs CC. Changes between turns (escalation, person added, made confidential, etc.) retry if they'd be a no-op.</li>
+<li><strong>LLM writes email content</strong> - given the roster and visible recipients (To/CC only, no BCC), generate realistic email thread. The LLM never sees BCC assignments.</li>
 </ol>
 
-<h3>Synthetic Data Generation</h3>
 
-<p>10k rows. Single-phase <a href="https://nvidia-nemo.github.io/DataDesigner/latest/">DataDesigner</a> pipeline (<code>&gt;=0.5.1</code>).</p>
+<!-- ═══════════════════════════════════════════════════════════
+     IV. REWARDS
+     ═══════════════════════════════════════════════════════════ -->
 
-<div class="code-block"><span class="code-lang">bash</span><pre><code><span style="color: #268BD2">cd</span><span style="color: #657B83"> </span>nuggets
-uv<span style="color: #657B83"> </span>venv<span style="color: #657B83"> </span><span style="color: #93A1A1">&amp;&amp;</span><span style="color: #657B83"> </span>uv<span style="color: #657B83"> </span>pip<span style="color: #657B83"> </span>install<span style="color: #657B83"> </span><span style="color: #2AA198">&#39;data-designer&gt;=0.5.1&#39;</span><span style="color: #657B83"> </span>faker
-.venv/bin/python<span style="color: #657B83"> </span>email_to_cc_bcc_synthetic_data_generation.py<span style="color: #657B83"> </span>--generate<span style="color: #657B83"> </span><span style="color: #2AA198">10000</span>
-</code></pre></div>
+<h3 id="s-rewards"><span class="num">III</span>Rewards</h3>
 
-<p>Preview:</p>
+<p>Verifiers scores the full rollout once at the end. The rubric receives the complete state object, which includes all turns and all ground truths. Each reward function can loop through individual turns, score each one against its ground truth, and average them into a single number. GRPO only sees that final scalar for the entire trajectory, there is no per-turn reward signal to the trainer. But because the state object gives access to all turns, the reward function can bake per-turn correctness into that scalar (e.g. a model that gets turn 1 right but fails turn 3 still gets partial credit). The rubric then combines all functions via weighted sum into one reward for the trainer.</p>
 
-<div class="code-block"><span class="code-lang">bash</span><pre><code>.venv/bin/python<span style="color: #657B83"> </span>email_to_cc_bcc_synthetic_data_generation.py<span style="color: #657B83"> </span>--preview<span style="color: #657B83"> </span><span style="color: #2AA198">5</span>
-</code></pre></div>
+<table class="ch-table">
+  <tr>
+    <th>Function</th>
+    <th>What</th>
+  </tr>
+  <tr>
+    <td class="mono">to_correct</td>
+    <td>Jaccard on To field</td>
+  </tr>
+  <tr>
+    <td class="mono">cc_correct</td>
+    <td>Jaccard on CC field</td>
+  </tr>
+  <tr>
+    <td class="mono">bcc_correct</td>
+    <td>Jaccard on BCC field</td>
+  </tr>
+</table>
 
-<h3>Pipeline Details</h3>
+<p>Each function averages its score across turns internally. Weighted equally (1/3 each) by the rubric. Jaccard index: <code>|intersection| / |union|</code>, 1.0 if both sets empty.</p>
 
-<p><strong>Samplers (deterministic, no LLM):</strong></p>
+<p><strong>Knobs</strong> (<code>--env-args</code>): <code>max_turns</code> (1, 2, or 3). Slices dataset accordingly.</p>
 
-<ul>
-<li><code>start_people</code> - uniform 2-6</li>
-<li><code>person_1..7</code> - PersonFromFaker</li>
-<li><code>department</code>, <code>scenario_type</code>, <code>scenario_subtype</code> - context for email content</li>
-<li><code>audience</code> - internal_only, with_client, with_vendor, etc. Drives domain selection</li>
-<li><code>sensitivity</code> - public, internal, confidential, restricted. Drives bcc usage</li>
-<li><code>hierarchy</code> - upward, downward, lateral, mixed. Drives to vs cc</li>
-<li><code>change_turn_2</code>, <code>change_turn_3</code> - 12 change types (person_added, escalation, made_confidential, delegation, etc.)</li>
-</ul>
+<hr class="sep">
 
-<p><strong>Custom column (deterministic, no LLM):</strong></p>
 
-<p>Builds <code>email_list</code> (all 7 people) and ground truth <code>answer_1/2/3</code>. Email addresses generated from faker names + sampled domains. Turn 1 distributes active emails into to/cc/bcc. Turns 2/3 apply changes with no-op retry.</p>
+<!-- ═══════════════════════════════════════════════════════════
+     IV. RESULTS V1
+     ═══════════════════════════════════════════════════════════ -->
 
-<p><strong>LLM columns (email content):</strong></p>
+<h3 id="s-discussion"><span class="num">IV</span>Results v1</h3>
 
-<p>The LLM generates realistic emails given the roster and visible recipients (to/cc only). It never sees bcc. Strict rules: no placeholders, no mention of bcc, spell names exactly.</p>
+<h4><span class="sub">a</span>To vs CC is Noisy</h4>
 
-<ul>
-<li><code>question_1</code> - initial email</li>
-<li><code>question_2</code> - reply after change</li>
-<li><code>question_3</code> - second reply after another change</li>
-</ul>
+<p><code>distribute_emails()</code> shuffles active people before assigning To and CC. The model has some signal from the email text (who is addressed, who is asked to act, hierarchy cues), but the ground truth split comes from a random shuffle. The model cannot fully recover it. BCC is also noisy: sensitivity controls <em>whether</em> people go to BCC, but <em>who</em> goes there is still drawn from shuffled active participants. Active people who are greeted in the email can end up in BCC, which is why 75% of BCC recipients appear in the text.</p>
 
-<h3>Reward Functions</h3>
+<p>This means all three individual scores (<code>to_correct</code>, <code>cc_correct</code>, <code>bcc_correct</code>) have noise. The visible set (To + CC combined) is the most learnable signal. One upgrade would be to replace the rubric with <code>visible_correct</code> (Jaccard on To &cup; CC) + <code>bcc_correct</code> + <code>format_correct</code> (valid JSON with correct keys), dropping individual To/CC scoring entirely.</p>
 
-<p>Verifiers scores the full rollout once at the end - the rubric calls each reward function with the complete state (all turns, all ground truths). Each function internally loops over turns and averages. The rubric combines them via weighted sum into a single reward scalar for the trainer.</p>
+<p>The real fix is to replace the shuffle with rules driven by scenario type, hierarchy, audience, and roles. The person being asked to act goes to To (picked by scenario-to-role priority), managers and stakeholders go to CC (shaped by hierarchy), compliance observers from reserve go to BCC (when sensitivity is high). Active participants never end up in BCC. This makes the exact To/CC/BCC split derivable from the observation without turning it into greeting-parsing.</p>
 
-<p>Planned reward functions (v1):</p>
+<h4><span class="sub">b</span>Fix the Rubric, Not the Data</h4>
 
-<ul>
-<li><code>visible_correct</code> - set match on To ∪ CC (avoids noisy To/CC split)</li>
-<li><code>bcc_correct</code> - set match on BCC</li>
-<li><code>format_correct</code> - valid JSON with correct keys</li>
-</ul>
+<p>Scoring To and CC separately with GRPO hence becomes a problem. Rollouts get ranked against each other on a distinction that is partly random, and GRPO amplifies that noise into policy updates. The fix for v1 without regenerating data: replace the three-way rubric with <code>visible_correct</code> (set match on To &cup; CC) + <code>bcc_correct</code> (set match on BCC) + <code>format_correct</code> (valid JSON). Drop individual To/CC rewards entirely. Re-add them in v2 once <code>distribute_emails()</code> is deterministic.</p>
 
-<p>Each function averages its score across turns internally. Weighted equally by the rubric.</p>
+<p>That said, this is a second-order fix. Collapsing To and CC into a single visible set just to get a reward curve going up is reward shaping for something the model is not actually learning to distinguish. The reward goes up, but the underlying capability (correct To vs CC placement) is not being trained. It is useful to get a first run going, but it should not be mistaken for the real thing.</p>
 
-<h3>Ongoing Discussion</h3>
+<h4><span class="sub">c</span>Known Data Issues</h4>
 
-<p><strong>To vs CC learnability.</strong> The current <code>distribute_emails()</code> shuffles active people and assigns To/CC somewhat arbitrarily. The model sees the email text + people list with roles, so it has <em>some</em> signal (hierarchy, who's addressed, who's asked to act), but the exact To/CC split has randomness the model can't fully recover. BCC is cleaner - driven directly by sensitivity.</p>
-
-<p>In practice this means: <code>bcc_correct</code> should learn well, <code>to_correct</code> and <code>cc_correct</code> individually will be noisier. The model will likely learn the <em>visible set</em> (To + CC combined) better than the exact split.</p>
-
-<p><strong>v2 fix:</strong> replace the shuffle with deterministic role-based rules - e.g., person being asked to act → To, their manager → CC when hierarchy=upward, external stakeholders → CC when audience=with_client. This makes the split recoverable from the observation (email content + role labels) and gives GRPO a clean signal.</p>
-
-<p><strong>Other things to watch for:</strong></p>
+<p>Looking at the v1 parquet (5,000 rows):</p>
 
 <ul>
-<li>BCC recipients sometimes get greeted in the email text (~rare, but contradictory)</li>
-<li>LLM occasionally duplicates Q1 text verbatim for Q2 (~5% of rows). Answers still differ, but the thread doesn't evolve</li>
-<li>Sender sometimes appears in their own BCC</li>
+<li><strong>BCC recipients mentioned in email text (75%).</strong> The generating LLM was given only visible recipients (To/CC) as a hint, but it mentions BCC people by full name 75% of the time anyway (non-BCC: 64.5%). It largely ignores the hint and references everyone on the roster. 1.9% of rows have BCC people directly addressed or greeted. This is the biggest issue: the model being trained could learn to infer BCC from who is named but absent from To/CC, or just get confused by the contradiction.</li>
+<li><strong>Q2 near-duplicates of Q1 (~2%).</strong> 0.8% verbatim, 2.3% sharing the first 100 characters. Answers still differ across turns, but the thread does not evolve for these rows.</li>
+<li><strong>No field overlap.</strong> To/BCC and CC/BCC overlap is 0% across all turns. No person appears in multiple fields.</li>
 </ul>
 
-<p>None of these block a first training run. Plan is: train on v1, check reward curves. If <code>to_correct</code>/<code>cc_correct</code> plateau while <code>bcc_correct</code> climbs, that confirms the To/CC noise and we tighten for v2.</p>
+<p>The BCC mention rate is the real problem. None of these block a first training run, but the generation prompts need tightening for v2. A check script lives at <code>nuggets/email-to-cc-bcc/check_data.py</code>.</p>
 
-<p><strong>Reward restructuring for v1.</strong> Since To vs CC is noisy but the visible set (To ∪ CC) is learnable, scoring them separately risks GRPO amplifying noise - the model chases an impossible target and you get policy thrash from within-group ranking on random distinctions. Practical fix for v1 without regenerating data: restructure the reward to score <code>visible_correct</code> (set match on To ∪ CC) + <code>bcc_correct</code> (set match on BCC) + <code>format_correct</code> (valid JSON). Drop the individual To/CC rewards. Re-add them in v2 once <code>distribute_emails()</code> is deterministic and the split is recoverable.</p>
+<h4><span class="sub">d</span>mbox Format</h4>
 
-<p><strong>Deterministic role-based routing (v2).</strong> Replace the shuffle with rules driven by scenario type, hierarchy, audience, and roles. E.g., the person being asked to act → To (picked by scenario-to-role priority), managers/stakeholders → CC (shaped by hierarchy), compliance observers from reserve → BCC (when sensitivity is high). Active participants never end up in BCC. This makes the exact To/CC/BCC split derivable from the observation without turning it into greeting-parsing.</p>
-
-<p><strong>Metadata columns.</strong> The generation pipeline samples <code>scenario_type</code>, <code>audience</code>, <code>sensitivity</code>, <code>hierarchy</code> but currently drops them from the final dataset. If we expose them to the model, the task gets easier but more deterministic. If we hide them, the model infers sensitivity/hierarchy from the email prose - harder, more realistic, but noisier. Leaning towards hiding them for now. Revisit based on reward curves.</p>
-
-<h3>v2 Discussion and Upgrades</h3>
-
-<p><strong>mbox format for realistic email state.</strong> Archipelago's mail MCP server uses mbox - the standard Unix mailbox format. All emails in a single file, separated by <code>From </code> lines. Each email is a full RFC 822 message with real headers (From, To, Cc, Bcc, Subject, Date, In-Reply-To, References). Python stdlib has <code>mailbox.mbox</code> to read/write it.</p>
-
-<p>Instead of passing email content as plain text strings, v2 could store the thread as an mbox file per rollout. The model interacts with actual email structure - threading via In-Reply-To, proper headers, multipart bodies. This makes the task harder and more realistic: the model must parse real email format, not a simplified prompt.</p>
-
-<p>Archipelago's full mail server exposes 7 tools via FastMCP: <code>list_mails</code>, <code>read_mail</code>, <code>search_mail</code>, <code>send_mail</code>, <code>reply_mail</code>, <code>reply_all_mail</code>, <code>forward_mail</code>. All backed by mbox files (~2,100 lines). Their dual-mode pattern is worth noting - individual tools or a single <code>mail</code> meta-tool with an action parameter, controlled by env var.</p>
-
-<p><strong>What this means for us:</strong> v2 could evolve from "read this email, assign recipients" to "interact with a mail server via MCP tools, manage an inbox." The model would <code>read_mail</code> to see the thread, then <code>reply_mail</code> or <code>forward_mail</code> with the right recipients. Scoring shifts from JSON extraction to checking the actual sent email's headers in the mbox file. This aligns with the Zapier/MCP direction - same <code>env_response</code> pattern, just routing tool calls to a FastMCP mail server instead of returning follow-up strings.</p>
-
-<h3>Knobs (<code>--env-args</code>)</h3>
-
-<ul>
-<li><code>max_turns</code> - 1, 2, or 3. Slices dataset accordingly.</li>
-</ul>
+<p>mbox is a standard mail format. The current dataset uses a custom plain-text layout for emails, but mbox gives real structure: proper headers, threading, multipart bodies. Using mbox instead could make the task more realistic and potentially more trainable, since the model would work with the same format actual mail clients and servers use. Python stdlib has <code>mailbox.mbox</code> built in. Worth exploring for a future version.</p>
 
 <div class="colophon">
-  <p>EMAIL-TO-CC-BCC ENVIRONMENT</p>
+  <p>EMAIL-TO-CC-BCC</p>
 </div>
 
 </body>

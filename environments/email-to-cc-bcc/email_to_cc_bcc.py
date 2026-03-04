@@ -16,10 +16,26 @@ class EmailEnv(vf.MultiTurnEnv):
 
 
 def extract_json(text: str) -> dict:
-    """Find the last {...} JSON object in text."""
-    matches = re.findall(r"\{[^{}]*\}", text)
-    try: return json.loads(matches[-1]) if matches else {}
-    except json.JSONDecodeError: return {}
+    """Find the last balanced {...} JSON object in text."""
+    last_obj = None
+    for i in range(len(text) - 1, -1, -1):
+        if text[i] == '}':
+            depth, start = 0, None
+            for j in range(i, -1, -1):
+                if text[j] == '}':
+                    depth += 1
+                elif text[j] == '{':
+                    depth -= 1
+                if depth == 0:
+                    start = j
+                    break
+            if start is not None:
+                try:
+                    last_obj = json.loads(text[start:i + 1])
+                    return last_obj
+                except json.JSONDecodeError:
+                    continue
+    return {}
 
 
 def set_overlap(predicted: set, expected: set) -> float:
