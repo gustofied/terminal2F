@@ -22,6 +22,7 @@ name = "Environments"
 docs = [
     { file = "email_to_cc_bcc", title = "1. Email-to-CC-BCC" },
     { file = "doltgres_env", title = "2. Doltgres" },
+    { file = "pglite_env", title = "3. PGlite" },
     { file = "fastmcp_drawings", title = "4. Drawing" },
 ]
 

@@ -20,14 +20,20 @@
     -webkit-font-smoothing: antialiased;
   }
 
+  a.back {
+    font-family: 'JetBrains Mono', monospace; font-size: 9.5px;
+    color: #bbb; text-decoration: none; letter-spacing: 0.5px;
+  }
+  a.back:hover { color: #1a1a1a; }
+
   /* ── Header / Memo ── */
   .memo-head {
     border-top: 2.5px solid #1a1a1a;
-    border-bottom: 0.5px solid #1a1a1a;
-    padding: 20px 0 16px;
-    margin-bottom: 40px;
+    border-bottom: none;
+    padding: 20px 0 0;
+    margin-bottom: 0;
   }
-  .memo-head h1 {
+  .memo-head h2 {
     font-size: 1.6rem;
     font-weight: normal;
     color: #333;
@@ -39,22 +45,67 @@
     font-size: 10px;
     color: #999;
     letter-spacing: 0.8px;
+    margin-top: 4px;
+  }
+
+  .header-fig {
+    margin: 16px 0 0;
+    overflow: hidden;
+    border-radius: 2px;
+  }
+  .header-fig img {
+    width: 100%;
+    height: 220px;
+    object-fit: cover;
+    object-position: center 40%;
+    display: block;
+  }
+  .header-fig figcaption {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #bbb;
+    letter-spacing: 0.5px;
     margin-top: 8px;
+    text-align: center;
   }
-  a.back {
-    font-family: 'JetBrains Mono', monospace; font-size: 9.5px;
-    color: #bbb; text-decoration: none; letter-spacing: 0.5px;
+  .header-fig figcaption em {
+    color: #bbb;
   }
-  a.back:hover { color: #1a1a1a; }
+
+  /* ── TOC ── */
+  .toc {
+    margin: 32px 0 40px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: #999;
+    letter-spacing: 0.3px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 20px;
+    align-items: baseline;
+  }
+  .toc a {
+    color: #666;
+    text-decoration: none;
+  }
+  .toc a:hover {
+    color: #1a1a1a;
+    text-decoration: none;
+  }
+  .toc .toc-num {
+    color: #aaa;
+    font-size: 9px;
+    margin-right: 3px;
+  }
 
   /* ── Sections ── */
-  h2 {
+  h3 {
     font-size: 1.3rem;
     font-weight: normal;
     color: #333;
-    margin: 56px 0 6px;
+    margin: 64px 0 10px;
   }
-  h2 .num {
+  h3 .num {
     font-family: 'JetBrains Mono', monospace;
     font-size: 10px;
     font-weight: 400;
@@ -63,13 +114,13 @@
     display: block;
     margin-bottom: 2px;
   }
-  h3 {
-    font-size: 1rem;
+  h4 {
+    font-size: 1.1rem;
     font-weight: normal;
     color: #333;
-    margin: 32px 0 4px;
+    margin: 44px 0 6px;
   }
-  h3 .sub {
+  h4 .sub {
     font-family: 'JetBrains Mono', monospace;
     font-size: 9px;
     font-weight: 400;
@@ -77,10 +128,13 @@
     letter-spacing: 0.5px;
     margin-right: 6px;
   }
-  p { margin: 10px 0; }
+  p { margin: 14px 0; }
   .lede { font-size: 15px; color: #555; line-height: 1.68; }
+  a { color: #268bd2; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  em { color: #555; }
 
-  /* ── Inline ── */
+  /* ── Code ── */
   code {
     font-family: 'JetBrains Mono', monospace;
     font-size: 12px;
@@ -89,13 +143,33 @@
     padding: 1.5px 5px;
     border-bottom: 1px solid #ddd;
   }
+  .code-block {
+    position: relative;
+    margin: 24px 0;
+  }
+  .code-block pre {
+    margin: 0;
+  }
+  .code-lang {
+    position: absolute;
+    top: 0;
+    right: 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8.5px;
+    font-weight: 400;
+    color: #bbb;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    padding: 5px 10px;
+    user-select: none;
+  }
   pre {
-    margin: 20px 0;
-    padding: 16px 20px;
+    margin: 24px 0;
+    padding: 18px 22px;
     background: #f5f4f0;
     border: 0.5px solid #e8e4de;
     overflow-x: auto;
-    line-height: 1.5;
+    line-height: 1.55;
   }
   pre code {
     background: none;
@@ -111,7 +185,7 @@
     border-top: 1px solid #1a1a1a;
     border-bottom: 0.5px solid #e8e4de;
     padding: 14px 20px 16px;
-    margin: 20px 0;
+    margin: 24px 0;
   }
   .block .label {
     font-family: 'JetBrains Mono', monospace;
@@ -136,7 +210,7 @@
     line-height: 1.65;
   }
 
-  /* ── Channel table ── */
+  /* ── Tables ── */
   .ch-table {
     width: 100%;
     border-collapse: collapse;
@@ -196,15 +270,58 @@
     color: #ccc;
     letter-spacing: 0.5px;
   }
+
+  /* ── Responsive ── */
+  @media (max-width: 768px) {
+    body { padding: 16px 0.75rem 80px; }
+    .memo-head h2 { font-size: 1.15rem; }
+    h3 { font-size: 1.1rem; margin: 36px 0 6px; }
+    h4 { font-size: 1rem; }
+    p { font-size: 13.5px; }
+    pre {
+      padding: 12px 14px;
+      font-size: 10.5px;
+      margin: 16px -0.75rem;
+      width: calc(100% + 1.5rem);
+      border-left: none;
+      border-right: none;
+      border-radius: 0;
+    }
+    pre code { font-size: 10.5px; }
+    .ch-table {
+      font-size: 12px;
+      display: block;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    .ch-table th, .ch-table td { padding: 6px 8px; }
+    .header-fig img { height: 160px; }
+  }
 </style>
 </head>
 <body>
 
-<a class="back" href="index.html">&larr; rl / docs</a>
+<a class="back" href="index.html">&larr; docs</a>
 
 <div class="memo-head">
-  <h1>End-to-End</h1>
+  <h2>End-to-End</h2>
   <div class="memo-sub">PRIME &amp; VERIFIERS</div>
+</div>
+
+<figure class="header-fig">
+  <img
+    src="https://www.legendarte.shop/pimages/Stampa-su-tela-La-Chiesa-di-Cassone-Gustav-Klimt-Quadro-su-Tela--big-64641-139.jpg"
+    alt="La Chiesa di Cassone, Gustav Klimt"
+  />
+  <figcaption>Gustav Klimt, <em>La Chiesa di Cassone</em>, 1913.</figcaption>
+</figure>
+
+<div class="toc">
+  <a href="#s-pieces"><span class="toc-num">I</span>Pieces</a>
+  <a href="#s-env-setup"><span class="toc-num">II</span>Environment Setup</a>
+  <a href="#s-node-setup"><span class="toc-num">III</span>Node Setup</a>
+  <a href="#s-trainer"><span class="toc-num">IV</span>Trainer</a>
+  <a href="#s-prime-rl"><span class="toc-num">V</span>prime-rl</a>
 </div>
 
 
@@ -212,8 +329,8 @@
      I. THE PIECES
      ═══════════════════════════════════════════════════════════ -->
 
-<h2><span class="num">I</span>Pieces</h2>
-<p class="lede">Three things to train: a model, an environment, and a trainer. The environment lives in verifiers. The trainer can be anything &ndash; verifiers-rl, prime-rl, SkyRL, rLLM, your own. It just needs to call <code>env.generate()</code> and consume the rollouts.</p>
+<h3 id="s-pieces"><span class="num">I</span>Pieces</h3>
+<p class="lede">When working with verifiers and Prime, there are three pieces to deal with: a model, an environment, and a trainer. The environment lives in verifiers, which builds all the machinery around it: state management, the multi-turn conversation loop, trajectory tracking, rubric scoring. The trainer can be anything: verifiers-rl, prime-rl, SkyRL, rLLM, your own. The connection point is <code>env.generate()</code> on the environment instance. The trainer calls it, verifiers drives the rollouts, and scored trajectories come back.</p>
 
 <table class="ch-table">
   <tr>
@@ -226,11 +343,11 @@
   </tr>
   <tr>
     <td class="mono">environment</td>
-    <td>A verifiers environment: dataset + reward functions + conversation loop. Versioned Python package &ndash; importable, reproducible, pinned with deps.</td>
+    <td>A verifiers environment: dataset + reward functions + conversation loop. Versioned Python package, importable, reproducible, pinned with deps.</td>
   </tr>
   <tr>
     <td class="mono">trainer</td>
-    <td>Orchestrates rollouts, computes advantages, runs the training loop, syncs weights back to vLLM. Verifiers-rl and prime-rl are the two we use, but any trainer that speaks the same protocol works.</td>
+    <td>Orchestrates rollouts, computes advantages, runs the training loop, syncs weights back to vLLM. Verifiers-rl and prime-rl are the main two, but any trainer that speaks the same protocol works.</td>
   </tr>
 </table>
 
@@ -243,41 +360,55 @@
      II. ENVIRONMENT SETUP
      ═══════════════════════════════════════════════════════════ -->
 
-<h2><span class="num">II</span>Environment Setup</h2>
-<p class="lede">Environments are versioned Python packages &ndash; importable, reproducible, pinned with deps.</p>
+<h3 id="s-env-setup"><span class="num">II</span>Environment Setup</h3>
+<p class="lede">Environments are versioned Python packages. Importable, reproducible, pinned with deps.</p>
 
-<p>Consumer mode &ndash; install and use, can't edit:</p>
+<p>Consumer mode (install and use, can't edit):</p>
 
-<pre><code>prime env install owner/env-name</code></pre>
+<div class="code-block">
+  <span class="code-lang">shell</span>
+  <pre><code><span style="color:#268bd2">prime env install</span> owner/env-name</code></pre>
+</div>
 
 <p>Goes into site-packages. Meant for running, not editing.</p>
 
-<p>Developer mode &ndash; pull source, install editable, hack on it:</p>
+<p>Developer mode (pull source, install editable, hack on it):</p>
 
-<pre><code>prime env pull owner/env-name@latest --target ./environments/env-name
-uv add --editable ./environments/env-name</code></pre>
+<div class="code-block">
+  <span class="code-lang">shell</span>
+  <pre><code><span style="color:#268bd2">prime env pull</span> owner/env-name@latest --target ./environments/env-name
+<span style="color:#268bd2">uv add</span> --editable ./environments/env-name</code></pre>
+</div>
 
 <p>Source is in your tree. Changes take effect immediately.</p>
 
-<h3><span class="sub">a</span>Preferred Workflow</h3>
+<h4><span class="sub">a</span>Preferred Workflow</h4>
 
 <p>Always pull + editable. Never blind install.</p>
 
-<p>Why: you always want to see what you're running. Editable installs mean you can read and modify the environment code directly, debug reward functions, tweak prompts &ndash; without reinstalling anything. When something breaks during training you can trace it right to the source. Blind installs hide the code in site-packages where you'll never look at it.</p>
+<p>Why: you always want to see what you're running. Editable installs mean you can read and modify the environment code directly, debug reward functions, tweak prompts, without reinstalling anything. When something breaks during training you can trace it right to the source. Blind installs hide the code in site-packages where you'll never look at it.</p>
 
-<pre><code># 1. Pull the source
-prime env pull owner/env-name@latest --target ./environments/env-name
+<div class="code-block">
+  <span class="code-lang">shell</span>
+  <pre><code><span style="color:#586E75"># 1. Pull the source</span>
+<span style="color:#268bd2">prime env pull</span> owner/env-name@latest --target ./environments/env-name
 
-# 2. Make it editable in your project (recorded in pyproject.toml)
-uv add --editable ./environments/env-name
+<span style="color:#586E75"># 2. Make it editable in your project (recorded in pyproject.toml)</span>
+<span style="color:#268bd2">uv add</span> --editable ./environments/env-name
 
-# 3. Hack on it, run eval, iterate
-vf-eval configs/eval.toml -e configs/endpoints.toml
+<span style="color:#586E75"># 3. Run eval against any OpenAI-compatible model</span>
+<span style="color:#268bd2">prime eval run</span> my-env -m openai/gpt-4.1-mini -n <span style="color:#6c71c4">10</span>
 
-# 4. Push changes back
-prime env push --auto-bump   # auto-bumps version in pyproject.toml</code></pre>
+<span style="color:#586E75"># 4. View results in the browser (live-reloads on refresh)</span>
+<span style="color:#268bd2">t2f eval view</span>
 
-<h3><span class="sub">b</span>Quick vs Recorded Install</h3>
+<span style="color:#586E75"># 5. Iterate, then push changes back</span>
+<span style="color:#268bd2">prime env push</span> --auto-bump</code></pre>
+</div>
+
+<p><code>prime eval run</code> saves results to <code>outputs/evals/{env}--{model}/{run_id}/</code>. Evaluations use Prime Inference by default; configure your own API endpoints in <code>./configs/endpoints.toml</code>. <code>t2f eval view</code> starts a local server that reads those results and renders them. Refreshing the browser re-reads the files, so you always see the latest data.</p>
+
+<h4><span class="sub">b</span>Quick vs Recorded Install</h4>
 
 <table class="ch-table">
   <tr>
@@ -288,24 +419,27 @@ prime env push --auto-bump   # auto-bumps version in pyproject.toml</code></pre>
   <tr>
     <td class="mono">uv pip install -e ./path</td>
     <td>Editable install into venv</td>
-    <td>No &ndash; <code>uv sync</code> can forget it</td>
+    <td>No, <code>uv sync</code> can forget it</td>
   </tr>
   <tr>
     <td class="mono">uv add --editable ./path</td>
     <td>Editable install + writes path dependency</td>
-    <td>Yes &ndash; stays part of project</td>
+    <td>Yes, stays part of project</td>
   </tr>
 </table>
 
 <p>Use <code>uv add --editable</code> when you want it to persist. Use <code>uv pip install -e</code> for quick throwaway testing.</p>
 
-<h3><span class="sub">c</span>Creating a New Environment</h3>
+<h4><span class="sub">c</span>Creating a New Environment</h4>
 
-<pre><code># Scaffold files (does NOT make it importable)
-prime env init my-env --path ./environments/my-env
+<div class="code-block">
+  <span class="code-lang">shell</span>
+  <pre><code><span style="color:#586E75"># Scaffold files (does NOT make it importable)</span>
+<span style="color:#268bd2">prime env init</span> my-env --path ./environments/my-env
 
-# Make it importable
-uv add --editable ./environments/my-env</code></pre>
+<span style="color:#586E75"># Make it importable</span>
+<span style="color:#268bd2">uv add</span> --editable ./environments/my-env</code></pre>
+</div>
 
 <p><code>prime env init</code> only creates files. You still need the editable install for Python to find it.</p>
 
@@ -316,146 +450,118 @@ uv add --editable ./environments/my-env</code></pre>
      III. NODE SETUP
      ═══════════════════════════════════════════════════════════ -->
 
-<h2><span class="num">III</span>Node Setup</h2>
-<p class="lede">Manual setup on a remote GPU node with verifiers-rl. Not the golden path &ndash; the hands-on way to understand what's happening.</p>
+<h3 id="s-node-setup"><span class="num">III</span>Node Setup</h3>
+<p class="lede">Manual setup on a remote GPU node with verifiers-rl. Not the golden path, but the hands-on way to understand what's happening.</p>
 
-<h3><span class="sub">a</span>SSH keys</h3>
+<h4><span class="sub">a</span>SSH keys</h4>
 
 <p>Generate a dedicated keypair on your machine:</p>
 
-<pre><code>ssh-keygen -t ed25519 -a 64 -f ~/.ssh/primeintellect_ed25519 -C "primeintellect"</code></pre>
+<div class="code-block">
+  <span class="code-lang">shell</span>
+  <pre><code>ssh-keygen -t ed25519 -a 64 -f ~/.ssh/primeintellect_ed25519 -C "primeintellect"</code></pre>
+</div>
 
 <p>Copy the public key (<code>cat ~/.ssh/primeintellect_ed25519.pub</code>), paste it in the provider dashboard, deploy a 2-GPU instance.</p>
 
 <p>To avoid passing <code>-i</code> every time:</p>
 
-<pre><code>eval "$(ssh-agent -s)"
+<div class="code-block">
+  <span class="code-lang">shell</span>
+  <pre><code>eval "$(ssh-agent -s)"
 ssh-add --apple-use-keychain ~/.ssh/primeintellect_ed25519</code></pre>
+</div>
 
-<h3><span class="sub">b</span>SSH and workspace</h3>
+<h4><span class="sub">b</span>SSH and workspace</h4>
 
-<pre><code>ssh -i ~/.ssh/primeintellect_ed25519 -p &lt;port&gt; root@&lt;ip&gt;
-nvidia-smi                     # should show GPU 0 and GPU 1
+<div class="code-block">
+  <span class="code-lang">shell</span>
+  <pre><code>ssh -i ~/.ssh/primeintellect_ed25519 -p &lt;port&gt; root@&lt;ip&gt;
+nvidia-smi                     <span style="color:#586E75"># should show GPU 0 and GPU 1</span>
 
 cd /workspace
 mkdir -p rl-tutorial &amp;&amp; cd rl-tutorial</code></pre>
+</div>
 
-<h3><span class="sub">c</span>Install uv and create venv</h3>
+<h4><span class="sub">c</span>Install uv and create venv</h4>
 
-<pre><code>curl -LsSf https://astral.sh/uv/install.sh | sh
+<div class="code-block">
+  <span class="code-lang">shell</span>
+  <pre><code>curl -LsSf https://astral.sh/uv/install.sh | sh
 source $HOME/.local/bin/env
 uv venv --python 3.12
 source .venv/bin/activate</code></pre>
+</div>
 
-<h3><span class="sub">d</span>Upload local files</h3>
+<h4><span class="sub">d</span>Upload local files</h4>
 
 <p>From your local machine, not the node:</p>
 
-<pre><code># verifiers-rl package
+<div class="code-block">
+  <span class="code-lang">shell</span>
+  <pre><code><span style="color:#586E75"># verifiers-rl package</span>
 scp -P &lt;port&gt; -i ~/.ssh/primeintellect_ed25519 -r \
   ~/projects/terminal2F/external/verifiers/packages/verifiers-rl \
   root@&lt;ip&gt;:/workspace/rl-tutorial/verifiers-rl
 
-# environment
+<span style="color:#586E75"># environment</span>
 scp -P &lt;port&gt; -i ~/.ssh/primeintellect_ed25519 -r \
   ~/projects/terminal2F/environments/alphabet-sort \
   root@&lt;ip&gt;:/workspace/rl-tutorial/alphabet-sort</code></pre>
+</div>
 
-<p>Why scp instead of pip install? verifiers-rl lives inside the verifiers monorepo under <code>packages/verifiers-rl/</code> &ndash; it's not on PyPI as a standalone package. And the environment was local/unpublished, not yet on the hub. If both were published you'd skip scp entirely and just install on the node.</p>
+<p>Why scp instead of pip install? verifiers-rl lives inside the verifiers monorepo under <code>packages/verifiers-rl/</code>, it's not on PyPI as a standalone package. And the environment was local/unpublished, not yet on the hub. If both were published you'd skip scp entirely and just install on the node.</p>
 
-<h3><span class="sub">e</span>Install verifiers-rl</h3>
+<h4><span class="sub">e</span>Install verifiers-rl</h4>
 
 <p>Do NOT use <code>--no-deps</code>. This installs everything: vllm, flash-attn (compiles from source, ~15 min), deepspeed, liger-kernel, trl, accelerate, torch.</p>
 
-<pre><code>cd /workspace/rl-tutorial
+<div class="code-block">
+  <span class="code-lang">shell</span>
+  <pre><code>cd /workspace/rl-tutorial
 uv pip install ./verifiers-rl</code></pre>
+</div>
 
 <p>Do NOT start vLLM during this step. flash-attn compilation eats RAM. If vLLM is running too, the node can OOM and crash.</p>
 
-<pre><code># If flash-attn OOM's during compile even without vLLM:
+<div class="code-block">
+  <span class="code-lang">shell</span>
+  <pre><code><span style="color:#586E75"># If flash-attn OOM's during compile even without vLLM:</span>
 MAX_JOBS=4 uv pip install ./verifiers-rl</code></pre>
+</div>
 
-<h3><span class="sub">f</span>Install extras</h3>
+<h4><span class="sub">f</span>Install extras</h4>
 
-<pre><code>uv pip install wandb
+<div class="code-block">
+  <span class="code-lang">shell</span>
+  <pre><code>uv pip install wandb
 uv pip install -e ./alphabet-sort</code></pre>
+</div>
 
-<h3><span class="sub">g</span>Start vf-vllm on GPU 0</h3>
+<h4><span class="sub">g</span>Start vf-vllm on GPU 0</h4>
 
-<pre><code>export HF_TOKEN=your_token
+<div class="code-block">
+  <span class="code-lang">shell</span>
+  <pre><code>export HF_TOKEN=your_token
 CUDA_VISIBLE_DEVICES=0 vf-vllm --model willcb/Qwen3-0.6B \
   --enforce-eager --disable-log-requests</code></pre>
+</div>
 
 <p>Wait for <code>Application startup complete</code>.</p>
 
 <p>Why <code>vf-vllm</code> not <code>vllm serve</code>? Training needs weight sync. After each step the trainer pushes updated weights from GPU 1 to GPU 0 via NCCL. <code>vf-vllm</code> adds <code>/init_communicator</code>, <code>/update_weights</code>, <code>/get_world_size</code> endpoints. Regular <code>vllm serve</code> gives 404 on those.</p>
 
-<h3><span class="sub">h</span>Run training on GPU 1</h3>
+<h4><span class="sub">h</span>Run training on GPU 1</h4>
 
 <p>In a second tmux pane:</p>
 
-<pre><code>cd /workspace/rl-tutorial &amp;&amp; source .venv/bin/activate
+<div class="code-block">
+  <span class="code-lang">shell</span>
+  <pre><code>cd /workspace/rl-tutorial &amp;&amp; source .venv/bin/activate
 export HF_TOKEN=your_token
 export WANDB_API_KEY=your_key
 CUDA_VISIBLE_DEVICES=1 vf-rl @ configs/train.toml</code></pre>
-
-<h3><span class="sub">i</span>Common errors</h3>
-
-<table class="ch-table">
-  <tr>
-    <th>Problem</th>
-    <th>Fix</th>
-  </tr>
-  <tr>
-    <td>flash-attn OOM during install</td>
-    <td>Kill vLLM first, or <code>MAX_JOBS=4</code></td>
-  </tr>
-  <tr>
-    <td><code>vf-vllm: command not found</code></td>
-    <td><code>source .venv/bin/activate</code></td>
-  </tr>
-  <tr>
-    <td>404 on <code>/get_world_size</code></td>
-    <td>Used <code>vllm serve</code> instead of <code>vf-vllm</code></td>
-  </tr>
-  <tr>
-    <td>401 Unauthorized on HF Hub</td>
-    <td><code>export HF_TOKEN=xxx</code></td>
-  </tr>
-  <tr>
-    <td>NCCL error after Ctrl+C</td>
-    <td>Restart both vf-vllm and training</td>
-  </tr>
-  <tr>
-    <td>SSH disconnect kills training</td>
-    <td>Use tmux</td>
-  </tr>
-  <tr>
-    <td>CUDA OOM on backward pass</td>
-    <td>Reduce <code>micro_batch_size</code> (4 instead of 8)</td>
-  </tr>
-  <tr>
-    <td><code>/workspace</code> is slow or missing</td>
-    <td>Network mount on some providers. Local disk is <code>/</code></td>
-  </tr>
-  <tr>
-    <td><code>prime</code> can't find verifiers</td>
-    <td><code>uv tool</code> envs are isolated. Use one project venv instead</td>
-  </tr>
-</table>
-
-<h3><span class="sub">j</span>Tips</h3>
-
-<pre><code># tmux basics
-tmux new -s train              # new session
-Ctrl+B D                       # detach
-tmux attach -t train           # reconnect
-Ctrl+B %                       # split vertical
-Ctrl+B "                       # split horizontal
-Ctrl+B arrow                   # switch pane
-
-# GPU usage
-nvidia-smi --query-gpu=index,memory.used,utilization.gpu --format=csv</code></pre>
+</div>
 
 <hr class="sep">
 
@@ -464,10 +570,10 @@ nvidia-smi --query-gpu=index,memory.used,utilization.gpu --format=csv</code></pr
      IV. TRAINER
      ═══════════════════════════════════════════════════════════ -->
 
-<h2><span class="num">IV</span>Trainer</h2>
-<p class="lede">We use a TOML config. verifiers-rl is part of the verifiers monorepo.</p>
+<h3 id="s-trainer"><span class="num">IV</span>Trainer</h3>
+<p class="lede">Training runs off a TOML config. verifiers-rl is part of the verifiers monorepo.</p>
 
-<h3><span class="sub">a</span>Config</h3>
+<h4><span class="sub">a</span>Config</h4>
 
 <div class="block">
 <span class="label">configs/vf-rl/alphabet-sort.toml</span>
@@ -501,7 +607,7 @@ max_seq_len = 1024</code></pre>
 
 <p>Top-level <code>model</code> applies to both inference and trainer. GPU counts are split sequentially: inference gets GPU 0, trainer gets GPU 1.</p>
 
-<h3><span class="sub">b</span>What happens</h3>
+<h4><span class="sub">b</span>What happens</h4>
 
 <table class="ch-table">
   <tr>
@@ -518,7 +624,7 @@ max_seq_len = 1024</code></pre>
   </tr>
   <tr>
     <td class="mono" style="color: #aaa;">3</td>
-    <td>Orchestrator calls <code>env.generate()</code> &ndash; verifiers drives the conversation loop, vLLM generates completions</td>
+    <td>Orchestrator calls <code>env.generate()</code>. Verifiers drives the conversation loop, vLLM generates completions</td>
   </tr>
   <tr>
     <td class="mono" style="color: #aaa;">4</td>
@@ -545,11 +651,11 @@ max_seq_len = 1024</code></pre>
      V. PRIME-RL
      ═══════════════════════════════════════════════════════════ -->
 
-<h2><span class="num">V</span>prime-rl</h2>
-<p class="lede">We will write on this later.</p>
+<h3 id="s-prime-rl"><span class="num">V</span>prime-rl</h3>
+<p class="lede">To be written.</p>
 
 <div class="colophon">
-  <p>END-TO-END &middot; PRIME &amp; VERIFIERS</p>
+  <p>END-TO-END</p>
 </div>
 
 </body>

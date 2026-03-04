@@ -522,9 +522,32 @@ applyFilters();
 </html>"""
 
 
-def find_eval_runs(root: Path) -> list[Path]:
-    """Find all eval run dirs (containing metadata.json) under root."""
-    return sorted(d.parent for d in root.rglob("metadata.json") if (d.parent / "results.jsonl").exists())
+def _find_project_root() -> Path:
+    """Walk up from cwd to find the project root (has .git or pyproject.toml)."""
+    p = Path.cwd().resolve()
+    for parent in [p, *p.parents]:
+        if (parent / ".git").exists() or (parent / "pyproject.toml").exists():
+            return parent
+    return p
+
+
+def find_eval_runs(root: Path | None = None) -> list[Path]:
+    """Find all eval run dirs (containing metadata.json + results.jsonl).
+
+    If no root given, scans the entire project tree for any outputs/evals/ directories.
+    """
+    if root is not None:
+        if not root.exists():
+            return []
+        return sorted(d.parent for d in root.rglob("metadata.json") if (d.parent / "results.jsonl").exists())
+
+    project = _find_project_root()
+    # find every outputs/evals/ directory anywhere in the project
+    runs = []
+    for metadata in project.rglob("metadata.json"):
+        if "outputs/evals" in str(metadata) and (metadata.parent / "results.jsonl").exists():
+            runs.append(metadata.parent)
+    return sorted(runs)
 
 
 def _load_dirs(eval_dirs: list[Path]) -> list[dict]:
@@ -543,9 +566,9 @@ def view(eval_dirs: list[Path] | None = None, port: int = 8279) -> None:
     If no dirs given, scans outputs/evals/ for all runs.
     """
     if not eval_dirs:
-        eval_dirs = find_eval_runs(Path("outputs/evals"))
+        eval_dirs = find_eval_runs()
         if not eval_dirs:
-            raise SystemExit("No eval runs found in outputs/evals/")
+            raise SystemExit("No eval runs found under outputs/evals/")
         print(f"Found {len(eval_dirs)} eval runs")
 
     # verify at least one valid dir
