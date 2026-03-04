@@ -10,9 +10,9 @@ class EmailEnv(vf.MultiTurnEnv):
         return len(state["trajectory"]) >= state["info"]["num_turns"]
 
     async def env_response(self, messages: vf.Messages, state: vf.State, **kwargs) -> vf.Messages:
-        turn = len(state["trajectory"])
+        turn = len(state["trajectory"]) - 1
         follow_ups = state["info"]["follow_ups"]
-        return [{"role": "user", "content": follow_ups[turn]}] if turn < len(follow_ups) else []
+        return [{"role": "user", "content": follow_ups[turn]}] if 0 <= turn < len(follow_ups) else []
 
 
 def extract_json(text: str) -> dict:
