@@ -9,7 +9,7 @@ class EmailEnv(vf.MultiTurnEnv):
     async def max_turns_reached(self, state: vf.State) -> bool:
         return len(state["trajectory"]) >= state["info"]["num_turns"]
 
-    async def env_response(self, messages: vf.Messages, state: vf.State) -> vf.Messages:
+    async def env_response(self, messages: vf.Messages, state: vf.State, **kwargs) -> vf.Messages:
         turn = len(state["trajectory"])
         follow_ups = state["info"]["follow_ups"]
         return [{"role": "user", "content": follow_ups[turn]}] if turn < len(follow_ups) else []
