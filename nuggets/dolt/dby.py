@@ -1,0 +1,45 @@
+import setup_doltgres
+import subprocess
+import signal
+import time
+import psycopg
+
+def kill_existing():
+    subprocess.run(["pkill", "-f", "doltgres"], stderr=subprocess.DEVNULL)
+    time.sleep(1)
+
+def main():
+    setup_doltgres.install()
+    kill_existing()
+    proc = subprocess.Popen(["doltgres"])
+    time.sleep(2)
+
+    conn = psycopg.connect("host=127.0.0.1 user=postgres password=password dbname=postgres")
+    conn.autocommit = True
+    conn.execute("CREATE DATABASE IF NOT EXISTS getting_started")
+    conn.close()
+
+    conn = psycopg.connect("host=127.0.0.1 user=postgres password=password dbname=getting_started")
+    conn.autocommit = True
+
+    conn.execute("""CREATE TABLE IF NOT EXISTS employees (
+        id int8, last_name text, first_name text, primary key(id))""")
+    conn.execute("""CREATE TABLE IF NOT EXISTS teams (
+        id int8, team_name text, primary key(id))""")
+    conn.execute("""CREATE TABLE IF NOT EXISTS employees_teams (
+        team_id int8, employee_id int8, primary key(team_id, employee_id),
+        foreign key (team_id) references teams(id),
+        foreign key (employee_id) references employees(id))""")
+
+    conn.execute("SELECT dolt_add('teams', 'employees', 'employees_teams')")
+    conn.execute("SELECT dolt_commit('-m', 'Created initial schema')")
+
+    for row in conn.execute("SELECT * FROM dolt_log").fetchall():
+        print(row)
+
+    conn.close()
+    proc.terminate()
+
+
+if __name__ == "__main__":
+    main()
