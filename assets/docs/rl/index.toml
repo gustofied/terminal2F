@@ -4,6 +4,7 @@ title = "RL"
 name = "Setup"
 docs = [
     { file = "end_to_end", title = "End-to-End" },
+    { file = "t2f_eval", title = "t2f eval" },
 ]
 
 [[groups]]
@@ -12,15 +13,15 @@ docs = [
     { file = "trainer", title = "Trainer" },
     { file = "reinforcement_learning", title = "Reinforcement Learning" },
     { file = "environments", title = "Environments" },
-    { file = "concepts_plus", title = "Concepts+" },
     { file = "sandboxes", title = "Sandboxes" },
+    { file = "concepts_plus", title = "Concepts+" },
 ]
 
 [[groups]]
 name = "Environments"
 docs = [
-    { file = "email_to_cc_bcc", title = "Email-to-CC-BCC" },
-    { file = "doltgres_env", title = "3. Doltgres" },
+    { file = "email_to_cc_bcc", title = "1. Email-to-CC-BCC" },
+    { file = "doltgres_env", title = "2. Doltgres" },
     { file = "fastmcp_drawings", title = "4. Drawing" },
 ]
 

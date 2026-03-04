@@ -20,14 +20,19 @@
     -webkit-font-smoothing: antialiased;
   }
 
-  /* ── Header / Memo ── */
+  a.back {
+    font-family: 'JetBrains Mono', monospace; font-size: 9.5px;
+    color: #bbb; text-decoration: none; letter-spacing: 0.5px;
+  }
+  a.back:hover { color: #1a1a1a; }
+
   .memo-head {
     border-top: 2.5px solid #1a1a1a;
-    border-bottom: 0.5px solid #1a1a1a;
-    padding: 20px 0 16px;
-    margin-bottom: 40px;
+    border-bottom: none;
+    padding: 20px 0 0;
+    margin-bottom: 0;
   }
-  .memo-head h1 {
+  .memo-head h2 {
     font-size: 1.6rem;
     font-weight: normal;
     color: #333;
@@ -39,22 +44,66 @@
     font-size: 10px;
     color: #999;
     letter-spacing: 0.8px;
-    margin-top: 8px;
+    margin-top: 4px;
   }
-  a.back {
-    font-family: 'JetBrains Mono', monospace; font-size: 9.5px;
-    color: #bbb; text-decoration: none; letter-spacing: 0.5px;
-  }
-  a.back:hover { color: #1a1a1a; }
 
-  /* ── Sections ── */
-  h2 {
+  .header-fig {
+    margin: 16px 0 0;
+    overflow: hidden;
+    border-radius: 2px;
+  }
+  .header-fig img {
+    width: 100%;
+    height: 220px;
+    object-fit: cover;
+    object-position: center 40%;
+    display: block;
+  }
+  .header-fig figcaption {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #bbb;
+    letter-spacing: 0.5px;
+    margin-top: 8px;
+    text-align: center;
+  }
+  .header-fig figcaption a {
+    color: #bbb;
+    text-decoration: underline;
+  }
+
+  .toc {
+    margin: 32px 0 40px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: #999;
+    letter-spacing: 0.3px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 20px;
+    align-items: baseline;
+  }
+  .toc a {
+    color: #666;
+    text-decoration: none;
+  }
+  .toc a:hover {
+    color: #1a1a1a;
+    text-decoration: none;
+  }
+  .toc .toc-num {
+    color: #aaa;
+    font-size: 9px;
+    margin-right: 3px;
+  }
+
+  h3 {
     font-size: 1.3rem;
     font-weight: normal;
     color: #333;
-    margin: 56px 0 6px;
+    margin: 64px 0 10px;
   }
-  h2 .num {
+  h3 .num {
     font-family: 'JetBrains Mono', monospace;
     font-size: 10px;
     font-weight: 400;
@@ -63,13 +112,13 @@
     display: block;
     margin-bottom: 2px;
   }
-  h3 {
-    font-size: 1rem;
+  h4 {
+    font-size: 1.1rem;
     font-weight: normal;
     color: #333;
-    margin: 32px 0 4px;
+    margin: 44px 0 6px;
   }
-  h3 .sub {
+  h4 .sub {
     font-family: 'JetBrains Mono', monospace;
     font-size: 9px;
     font-weight: 400;
@@ -77,10 +126,12 @@
     letter-spacing: 0.5px;
     margin-right: 6px;
   }
-  p { margin: 10px 0; }
+  p { margin: 14px 0; }
   .lede { font-size: 15px; color: #555; line-height: 1.68; }
+  a { color: #268bd2; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  em { color: #555; }
 
-  /* ── Inline ── */
   code {
     font-family: 'JetBrains Mono', monospace;
     font-size: 12px;
@@ -89,13 +140,33 @@
     padding: 1.5px 5px;
     border-bottom: 1px solid #ddd;
   }
+  .code-block {
+    position: relative;
+    margin: 24px 0;
+  }
+  .code-block pre {
+    margin: 0;
+  }
+  .code-lang {
+    position: absolute;
+    top: 0;
+    right: 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8.5px;
+    font-weight: 400;
+    color: #bbb;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    padding: 5px 10px;
+    user-select: none;
+  }
   pre {
-    margin: 20px 0;
-    padding: 16px 20px;
+    margin: 24px 0;
+    padding: 18px 22px;
     background: #f5f4f0;
     border: 0.5px solid #e8e4de;
     overflow-x: auto;
-    line-height: 1.5;
+    line-height: 1.55;
   }
   pre code {
     background: none;
@@ -160,67 +231,113 @@
     color: #ccc;
     letter-spacing: 0.5px;
   }
+
+  /* ── Responsive ── */
+  @media (max-width: 768px) {
+    body { padding: 16px 0.75rem 80px; }
+    .memo-head h2 { font-size: 1.15rem; }
+    h3 { font-size: 1.1rem; margin: 36px 0 6px; }
+    h4 { font-size: 1rem; }
+    p { font-size: 13.5px; }
+    pre {
+      padding: 12px 14px;
+      font-size: 10.5px;
+      margin: 16px -0.75rem;
+      width: calc(100% + 1.5rem);
+      border-left: none;
+      border-right: none;
+      border-radius: 0;
+    }
+    pre code { font-size: 10.5px; }
+    .ch-table {
+      font-size: 12px;
+      display: block;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    .ch-table th, .ch-table td { padding: 6px 8px; }
+    .header-fig img { height: 160px; }
+  }
 </style>
 </head>
 <body>
 
-<a class="back" href="index.html">&larr; rl / docs</a>
+<a class="back" href="index.html">&larr; docs</a>
 
 <div class="memo-head">
-  <h1>Concepts+</h1>
-  <div class="memo-sub">TEMPLATES, TOKENS, MASKS</div>
+  <h2>Concepts+</h2>
 </div>
 
+<figure class="header-fig">
+  <img
+    src="https://www.bnf.fr/sites/default/files/2019-02/Cosmographie_universelle_selon_les_navigateurs_%5B...%5DLe_Testu_btv1b8447838j_16.jpg"
+    alt="Cosmographie universelle, Guillaume Le Testu, 1556"
+  />
+  <figcaption>Guillaume Le Testu, <em style="color:#bbb">Cosmographie universelle</em>, 1556.</figcaption>
+</figure>
+
+<div class="toc">
+  <a href="#s-chat-templates"><span class="toc-num">I</span>Chat Templates</a>
+</div>
 
 <!-- ═══════════════════════════════════════════════════════════
      I. CHAT TEMPLATES
      ═══════════════════════════════════════════════════════════ -->
 
-<h2><span class="num">I</span>Chat Templates</h2>
+<h3 id="s-chat-templates"><span class="num">I</span>Chat Templates</h3>
 <p class="lede">Three representations of the same conversation, each one step closer to what the model actually sees.</p>
 
-<h3><span class="sub">a</span>Message List</h3>
+<h4><span class="sub">a</span>Message List</h4>
 
-<p>The API format. Structured, readable, model-agnostic. This is what your env writes, what verifiers sends to vLLM.</p>
+<p>The API format. Structured, readable, model-agnostic. This is what your env writes, what the verifier sends to vLLM.</p>
 
-<pre><code>[
-  {"role": "system", "content": "You are a helpful assistant."},
-  {"role": "user", "content": "What is the capital of France?"},
-  {"role": "assistant", "content": "Paris."},
-  {"role": "user", "content": "And Germany?"},
-  {"role": "assistant", "content": "Berlin."}
+<div class="code-block">
+  <span class="code-lang">json</span>
+  <pre><code>[
+  {<span style="color:#268bd2">"role"</span>: <span style="color:#2aa198">"system"</span>, <span style="color:#268bd2">"content"</span>: <span style="color:#2aa198">"You are a helpful assistant."</span>},
+  {<span style="color:#268bd2">"role"</span>: <span style="color:#2aa198">"user"</span>, <span style="color:#268bd2">"content"</span>: <span style="color:#2aa198">"What is the capital of France?"</span>},
+  {<span style="color:#268bd2">"role"</span>: <span style="color:#2aa198">"assistant"</span>, <span style="color:#268bd2">"content"</span>: <span style="color:#2aa198">"Paris."</span>},
+  {<span style="color:#268bd2">"role"</span>: <span style="color:#2aa198">"user"</span>, <span style="color:#268bd2">"content"</span>: <span style="color:#2aa198">"And Germany?"</span>},
+  {<span style="color:#268bd2">"role"</span>: <span style="color:#2aa198">"assistant"</span>, <span style="color:#268bd2">"content"</span>: <span style="color:#2aa198">"Berlin."</span>}
 ]</code></pre>
+</div>
 
-<h3><span class="sub">b</span>Template-Rendered String</h3>
+<h4><span class="sub">b</span>Template-Rendered String</h4>
 
 <p>The tokenizer applies a Jinja template (stored in <code>tokenizer_config.json</code> on HuggingFace) and produces a raw string. Every model family has a different template. Qwen uses ChatML:</p>
 
-<pre><code>&lt;|im_start|&gt;system
-You are a helpful assistant.&lt;|im_end|&gt;
-&lt;|im_start|&gt;user
-What is the capital of France?&lt;|im_end|&gt;
-&lt;|im_start|&gt;assistant
-Paris.&lt;|im_end|&gt;
-&lt;|im_start|&gt;user
-And Germany?&lt;|im_end|&gt;
-&lt;|im_start|&gt;assistant
-Berlin.&lt;|im_end|&gt;</code></pre>
+<div class="code-block">
+  <span class="code-lang">chatml</span>
+  <pre><code><span style="color:#b58900">&lt;|im_start|&gt;</span><span style="color:#268bd2">system</span>
+You are a helpful assistant.<span style="color:#b58900">&lt;|im_end|&gt;</span>
+<span style="color:#b58900">&lt;|im_start|&gt;</span><span style="color:#268bd2">user</span>
+What is the capital of France?<span style="color:#b58900">&lt;|im_end|&gt;</span>
+<span style="color:#b58900">&lt;|im_start|&gt;</span><span style="color:#268bd2">assistant</span>
+Paris.<span style="color:#b58900">&lt;|im_end|&gt;</span>
+<span style="color:#b58900">&lt;|im_start|&gt;</span><span style="color:#268bd2">user</span>
+And Germany?<span style="color:#b58900">&lt;|im_end|&gt;</span>
+<span style="color:#b58900">&lt;|im_start|&gt;</span><span style="color:#268bd2">assistant</span>
+Berlin.<span style="color:#b58900">&lt;|im_end|&gt;</span></code></pre>
+</div>
 
-<p>Same message list, completely different string per model family. Feed a model the wrong template format and it still runs, it just performs worse because the token patterns are unfamiliar.</p>
+<p>Same message list, completely different string per model family. Feed a model the wrong template format and it still runs &mdash; it just performs worse because the token patterns are unfamiliar.</p>
 
-<h3><span class="sub">c</span>Token IDs</h3>
+<h4><span class="sub">c</span>Token IDs</h4>
 
 <p>The rendered string gets tokenized into integer IDs. This is the only thing that enters the model.</p>
 
-<pre><code>[151644, 8948, 198, 2610, 5765, ..., 151645, 198, 151644, 872, 198, ...]</code></pre>
+<div class="code-block">
+  <span class="code-lang">tokens</span>
+  <pre><code>[<span style="color:#d33682">151644</span>, <span style="color:#6c71c4">8948</span>, <span style="color:#6c71c4">198</span>, <span style="color:#6c71c4">2610</span>, <span style="color:#6c71c4">5765</span>, ..., <span style="color:#d33682">151645</span>, <span style="color:#6c71c4">198</span>, <span style="color:#d33682">151644</span>, <span style="color:#6c71c4">872</span>, <span style="color:#6c71c4">198</span>, ...]</code></pre>
+</div>
 
 <p>Delimiter strings like <code>&lt;|im_start|&gt;</code> are <strong>single tokens</strong>: <code>&lt;|im_start|&gt;</code> is token <code>151644</code> in Qwen, not a sequence of characters. The tokenizer has them in its vocabulary as special tokens. The model outputs logits over this same vocabulary at each position.</p>
 
-<h3><span class="sub">d</span>Why This Matters for Training</h3>
+<h4><span class="sub">d</span>Why This Matters for Training</h4>
 
 <p>During <strong>generation</strong>, vLLM handles all three steps internally. You send message lists, it applies the template, tokenizes, generates, returns text.</p>
 
-<p>During <strong>training</strong>, the orchestrator reconstructs the exact same token sequence that vLLM generated. The full multi-turn conversation as one flat array of token IDs. It does this to:</p>
+<p>During <strong>training</strong>, the orchestrator reconstructs the exact same token sequence that vLLM generated &mdash; the full multi-turn conversation as one flat array of token IDs. It does this to:</p>
 
 <table class="ch-table">
   <tr>
@@ -241,23 +358,26 @@ Berlin.&lt;|im_end|&gt;</code></pre>
   </tr>
 </table>
 
-<p>If the trainer's tokenizer applies the template differently from vLLM's, even one extra newline or a missing BOS token, the token IDs shift and the logprobs are misaligned. The loss is computed on wrong positions. No error, just bad gradients.</p>
+<p>If the trainer's tokenizer applies the template differently from vLLM's &mdash; even one extra newline or a missing BOS token &mdash; the token IDs shift and the logprobs are misaligned. The loss is computed on wrong positions. No error, just bad gradients.</p>
 
 <p>In practice this doesn't happen: both vLLM and the trainer load the same model from HuggingFace, same <code>tokenizer_config.json</code>, same Jinja template, same tokenization. They agree automatically.</p>
 
-<h3><span class="sub">e</span>Multi-Turn Masking</h3>
+<h4><span class="sub">e</span>Multi-Turn Masking</h4>
 
 <p>For single-turn, the flat sequence is prompt tokens then completion tokens. Simple mask. For multi-turn, the full conversation is one array:</p>
 
-<pre><code>[system] [user: question₁] [assistant: answer₁] [user: question₂] [assistant: answer₂]
+<div class="code-block">
+  <span class="code-lang">mask</span>
+  <pre><code>[system] [user: question&#x2081;] [assistant: answer&#x2081;] [user: question&#x2082;] [assistant: answer&#x2082;]
    0           0                    1                   0                    1</code></pre>
+</div>
 
 <p>All processed left-to-right in one forward pass during training. The orchestrator finds where each assistant turn starts and ends by applying the same template and locating the boundaries. If the boundaries are off by even one token, you're training on user tokens or skipping completion tokens.</p>
 
 <p>During generation it's incremental: vLLM generates turn 1, the env injects the follow-up, vLLM generates turn 2 with the full history. During training, the entire conversation is one sequence in a single forward pass.</p>
 
 <div class="colophon">
-  <p>CONCEPTS+ &middot; TEMPLATES, TOKENS, MASKS</p>
+  <p>CONCEPTS+</p>
 </div>
 
 </body>

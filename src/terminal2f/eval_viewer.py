@@ -1,5 +1,7 @@
 """HTML viewer for eval outputs. Reads metadata.json + results.jsonl and generates a browsable page.
 
+Starts a local server so browser refresh re-reads the files live.
+
 Usage:
     t2f eval view outputs/evals/email-to-cc-bcc--openai--gpt-4.1/e50c41ac
     t2f eval view outputs/evals/.../e50c41ac outputs/evals/.../d02a5a4d
@@ -9,8 +11,9 @@ from __future__ import annotations
 
 import html
 import json
-import tempfile
+import threading
 import webbrowser
+from http.server import HTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
 
 
@@ -210,57 +213,67 @@ def generate_html(eval_data_list: list[dict]) -> str:
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Eval Viewer</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=JetBrains+Mono:wght@300;400;500&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&display=swap');
 
   * {{ margin: 0; padding: 0; box-sizing: border-box; }}
   body {{
-    font-family: 'Libre Baskerville', Georgia, serif;
-    font-size: 13.5px; line-height: 1.6;
+    font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, serif;
+    font-size: 14.5px; line-height: 1.72;
     color: #2a2a2a; background: #fdfcfa;
-    padding: 48px 40px 120px;
+    padding: 72px 1rem 120px;
     max-width: 1100px; margin: 0 auto;
     -webkit-font-smoothing: antialiased;
   }}
 
-  h1 {{
-    font-family: 'Cormorant Garamond', serif;
-    font-size: 28px; font-weight: 600;
-    color: #111; letter-spacing: -0.5px;
+  .memo-head {{
     border-top: 2.5px solid #1a1a1a;
     border-bottom: 0.5px solid #1a1a1a;
-    padding: 16px 0 12px; margin-bottom: 24px;
+    padding: 20px 0 16px;
+    margin-bottom: 24px;
+  }}
+  .memo-head h1 {{
+    font-size: 1.6rem; font-weight: normal;
+    color: #333; line-height: 1.25; margin: 0;
+  }}
+  .memo-sub {{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; color: #999;
+    letter-spacing: 0.8px; margin-top: 6px;
   }}
   h2.eval-section {{
-    font-family: 'Cormorant Garamond', serif;
-    font-size: 20px; font-weight: 600;
-    color: #1a1a1a; margin: 40px 0 12px;
-    letter-spacing: -0.2px;
+    font-size: 1.3rem; font-weight: normal;
+    color: #333; margin: 56px 0 10px;
   }}
   .eval-hash {{
     font-family: 'JetBrains Mono', monospace;
-    font-size: 10px; color: #999; font-weight: 400;
+    font-size: 10px; color: #bbb; font-weight: 400;
+    letter-spacing: 0.5px;
   }}
 
   /* Summary table */
   .summary-table {{
     width: 100%; border-collapse: collapse;
-    margin-bottom: 20px; font-size: 12.5px;
+    margin: 0 0 20px; font-size: 13.5px;
   }}
   .summary-table th {{
     font-family: 'JetBrains Mono', monospace;
-    font-size: 10px; font-weight: 500;
-    text-align: left; padding: 6px 10px;
-    border-bottom: 1.5px solid #1a1a1a;
-    color: #888; letter-spacing: 0.3px;
-    text-transform: uppercase;
+    font-size: 9px; font-weight: 400;
+    color: #aaa; letter-spacing: 1px;
+    text-transform: uppercase; text-align: left;
+    padding: 6px 16px;
+    border-bottom: 1px solid #1a1a1a;
   }}
   .summary-table td {{
-    padding: 6px 10px;
-    border-bottom: 0.5px solid #e8e4de;
+    padding: 10px 16px;
+    border-bottom: 0.5px solid #eee;
+    vertical-align: top;
+  }}
+  .summary-table tbody tr:hover {{
+    background: #f5f4f0;
   }}
   .mono {{
     font-family: 'JetBrains Mono', monospace;
-    font-size: 11px;
+    font-size: 12px;
   }}
 
   /* Score colors */
@@ -272,15 +285,15 @@ def generate_html(eval_data_list: list[dict]) -> str:
   .badge {{
     display: inline-block;
     font-family: 'JetBrains Mono', monospace;
-    font-size: 10px; font-weight: 500;
-    padding: 1px 7px; border-radius: 3px;
+    font-size: 9.5px; font-weight: 400;
+    padding: 1px 6px; border-radius: 1px;
     margin-right: 4px; white-space: nowrap;
-    background: #f0ede8; color: #555;
-    border: 0.5px solid #ddd;
+    background: #f5f4f0; color: #555;
+    border-bottom: 1px solid #ddd;
   }}
-  .badge.score-high {{ background: #dcfce7; color: #16653a; border-color: #bbf7d0; }}
-  .badge.score-mid {{ background: #fef9c3; color: #8a6d0b; border-color: #fef08a; }}
-  .badge.score-low {{ background: #fee2e2; color: #b91c1c; border-color: #fecaca; }}
+  .badge.score-high {{ color: #16653a; font-weight: 500; border-bottom-color: #bbf7d0; }}
+  .badge.score-mid {{ color: #8a6d0b; font-weight: 500; border-bottom-color: #fef08a; }}
+  .badge.score-low {{ color: #b91c1c; font-weight: 500; border-bottom-color: #fecaca; }}
   .stop-label {{
     font-family: 'JetBrains Mono', monospace;
     font-size: 9px; color: #bbb;
@@ -288,44 +301,61 @@ def generate_html(eval_data_list: list[dict]) -> str:
 
   /* Controls */
   .controls {{
-    display: flex; gap: 10px; align-items: center;
-    flex-wrap: wrap; margin-bottom: 20px;
-    font-family: 'JetBrains Mono', monospace; font-size: 10.5px;
+    position: sticky; top: 0; z-index: 10;
+    display: flex; gap: 12px; align-items: center;
+    flex-wrap: wrap;
+    padding: 12px 0; margin: 0 0 20px;
+    background: rgba(253, 252, 250, 0.95);
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    border-bottom: 0.5px solid #e8e4de;
+    font-family: 'JetBrains Mono', monospace; font-size: 9.5px;
+    letter-spacing: 0.3px;
   }}
-  .controls label {{ color: #999; }}
+  .controls label {{ color: #aaa; text-transform: uppercase; font-size: 9px; letter-spacing: 1px; }}
   .controls select, .controls input {{
     font-family: 'JetBrains Mono', monospace;
-    font-size: 10.5px; padding: 3px 6px;
-    border: 0.5px solid #ddd; border-radius: 3px;
+    font-size: 10px; padding: 3px 6px;
+    border: 0.5px solid #ddd; border-radius: 2px;
     background: #fff; color: #333;
+    outline: none;
+  }}
+  .controls select:focus, .controls input:focus {{
+    border-color: #aaa;
   }}
   .controls button {{
     font-family: 'JetBrains Mono', monospace;
-    font-size: 10.5px; padding: 3px 10px;
-    background: #1a1a1a; color: #fdfcfa;
-    border: none; border-radius: 3px; cursor: pointer;
+    font-size: 9px; padding: 5px 16px;
+    letter-spacing: 0.5px;
+    color: #888; background: #fff;
+    border: 0.5px solid #ddd; border-radius: 2px;
+    cursor: pointer; transition: all 0.15s;
   }}
-  .controls button:hover {{ background: #333; }}
+  .controls button:hover {{ color: #1a1a1a; border-color: #aaa; }}
+  .controls .sep {{
+    width: 0.5px; height: 14px; background: #ddd;
+  }}
 
   /* Example groups */
-  .example-group {{ margin-bottom: 4px; }}
+  .example-group {{ margin-bottom: 2px; }}
   .example-header {{
     display: flex; align-items: center; gap: 10px;
-    padding: 6px 12px; cursor: pointer; user-select: none;
-    border-bottom: 0.5px solid #e8e4de;
+    padding: 8px 0; cursor: pointer; user-select: none;
+    border-bottom: 0.5px solid #eee;
   }}
-  .example-header:hover {{ background: #f5f4f0; }}
+  .example-header:hover {{ background: none; }}
+  .example-header:hover .example-title {{ color: #000; }}
   .example-title {{
     font-family: 'JetBrains Mono', monospace;
-    font-size: 11px; font-weight: 500; color: #1a1a1a;
+    font-size: 11px; font-weight: 500; color: #333;
+    transition: color 0.1s;
   }}
   .example-count {{
     font-family: 'JetBrains Mono', monospace;
-    font-size: 9.5px; color: #bbb;
+    font-size: 9px; color: #bbb; letter-spacing: 0.5px;
   }}
   .collapse-icon {{
-    margin-left: auto; color: #ccc; font-size: 9px;
-    transition: transform 0.15s;
+    margin-left: auto; color: #ddd; font-size: 8px;
+    transition: transform 0.15s ease;
   }}
   .collapse-icon::after {{ content: '\\25BC'; }}
   .collapsed > .example-header .collapse-icon,
@@ -335,65 +365,78 @@ def generate_html(eval_data_list: list[dict]) -> str:
   .example-body {{ padding-left: 16px; }}
 
   /* Rollout cards */
-  .rollout-card {{ margin: 2px 0; }}
+  .rollout-card {{ margin: 0; }}
   .rollout-header {{
     display: flex; align-items: center; gap: 8px;
-    padding: 4px 10px; cursor: pointer; user-select: none;
+    padding: 5px 0; cursor: pointer; user-select: none;
   }}
-  .rollout-header:hover {{ background: #f5f4f0; }}
+  .rollout-header:hover .rollout-idx {{ color: #666; }}
   .rollout-idx {{
     font-family: 'JetBrains Mono', monospace;
-    font-size: 10px; color: #bbb; min-width: 20px;
+    font-size: 9px; color: #ccc; min-width: 20px;
+    transition: color 0.1s;
   }}
   .rollout-badges {{ flex: 1; }}
   .rollout-body {{
-    padding: 10px 12px;
+    padding: 16px 20px;
     border-left: 1.5px solid #e8e4de;
-    margin-left: 8px;
+    margin-left: 6px;
+    margin-bottom: 8px;
   }}
 
   /* Messages */
-  .msg {{ margin-bottom: 8px; }}
+  .msg {{ margin-bottom: 10px; }}
   .msg-role {{
     font-family: 'JetBrains Mono', monospace;
-    font-size: 9px; font-weight: 600;
-    color: #bbb; letter-spacing: 0.5px;
-    display: block; margin-bottom: 2px;
+    font-size: 8.5px; font-weight: 400;
+    color: #aaa; letter-spacing: 1px;
+    text-transform: uppercase;
+    display: block; margin-bottom: 3px;
   }}
   .msg-content {{
     white-space: pre-wrap; word-break: break-word;
     font-family: 'JetBrains Mono', monospace;
-    font-size: 11.5px; line-height: 1.45;
+    font-size: 12px; line-height: 1.5;
     color: #333; margin: 0;
-  }}
-  .msg-system {{ opacity: 0.5; }}
-  .msg-system .msg-content {{ font-size: 10.5px; }}
-  .msg-user {{
+    padding: 16px 20px;
     background: #f5f4f0;
-    padding: 8px 10px; border-radius: 4px;
+    border: 0.5px solid #e8e4de;
+  }}
+  .msg-system .msg-content {{
+    font-size: 10.5px; opacity: 0.5;
+    background: none; border: none; padding: 0;
+  }}
+  .msg-assistant .msg-content {{
+    background: #fafaf8;
+    border-color: #eee;
+  }}
+  .msg-user .msg-content {{
+    background: #f5f4f0;
   }}
 
   /* Turn pair: assistant vs ground truth side by side */
   .turn-pair {{
-    display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
-    margin-bottom: 8px;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+    margin-bottom: 10px;
   }}
-  .turn-col {{
-    padding: 8px 10px; border-radius: 4px;
-    background: #f0fdf4; border: 0.5px solid #dcfce7;
+  .turn-col .msg-content {{
+    background: #fafaf8; border-color: #e8e4de;
   }}
-  .turn-gt {{
-    background: #fffbeb; border-color: #fef3c7;
+  .turn-gt .msg-content {{
+    background: #f5f4f0; border-color: #e8e4de;
   }}
-  .turn-gt .msg-role {{ color: #92400e; }}
+  .turn-gt .msg-role {{ color: #999; }}
 
   @media (max-width: 700px) {{
     .turn-pair {{ grid-template-columns: 1fr; }}
+    body {{ padding: 32px 0.75rem 80px; }}
   }}
 </style>
 </head>
 <body>
-<h1>Eval Viewer</h1>
+<div class="memo-head">
+  <h1>Eval Viewer</h1>
+</div>
 
 <table class="summary-table">
 <thead><tr>
@@ -416,8 +459,10 @@ def generate_html(eval_data_list: list[dict]) -> str:
   <label>Max:</label>
   <input id="maxReward" type="number" value="1" min="0" max="1" step="0.1" style="width:55px">
   <button onclick="applyFilters()">Apply</button>
+  <div class="sep"></div>
   <button onclick="toggleAll(true)">Expand All</button>
   <button onclick="toggleAll(false)">Collapse All</button>
+  <span id="countLabel" style="color:#bbb; margin-left:auto;"></span>
 </div>
 
 <div id="rollouts">
@@ -430,11 +475,17 @@ function applyFilters() {{
   const minR = parseFloat(document.getElementById('minReward').value) || 0;
   const maxR = parseFloat(document.getElementById('maxReward').value) || 1;
   const groups = document.querySelectorAll('.example-group');
+  let visible = 0;
 
   groups.forEach(g => {{
     const r = parseFloat(g.dataset.reward);
-    g.style.display = (r >= minR && r <= maxR) ? '' : 'none';
+    const show = r >= minR && r <= maxR;
+    g.style.display = show ? '' : 'none';
+    if (show) visible++;
   }});
+
+  document.getElementById('countLabel').textContent =
+    visible + '/' + groups.length + ' examples';
 
   // Sort within each eval section
   document.querySelectorAll('h2.eval-section').forEach(sec => {{
@@ -460,8 +511,12 @@ function toggleAll(expand) {{
   }});
 }}
 
-// Start collapsed
+// Auto-apply on sort change
+document.getElementById('sortBy').addEventListener('change', applyFilters);
+
+// Start collapsed, show count
 toggleAll(false);
+applyFilters();
 </script>
 </body>
 </html>"""
@@ -472,8 +527,18 @@ def find_eval_runs(root: Path) -> list[Path]:
     return sorted(d.parent for d in root.rglob("metadata.json") if (d.parent / "results.jsonl").exists())
 
 
-def view(eval_dirs: list[Path] | None = None) -> None:
-    """Load eval dirs, generate HTML, and open in browser.
+def _load_dirs(eval_dirs: list[Path]) -> list[dict]:
+    """Load eval data from directories, skipping invalid ones."""
+    data = []
+    for d in eval_dirs:
+        if not (d / "metadata.json").exists() or not (d / "results.jsonl").exists():
+            continue
+        data.append(load_eval_dir(d))
+    return data
+
+
+def view(eval_dirs: list[Path] | None = None, port: int = 8279) -> None:
+    """Start a local server that re-reads eval data on every refresh.
 
     If no dirs given, scans outputs/evals/ for all runs.
     """
@@ -483,21 +548,33 @@ def view(eval_dirs: list[Path] | None = None) -> None:
             raise SystemExit("No eval runs found in outputs/evals/")
         print(f"Found {len(eval_dirs)} eval runs")
 
-    eval_data_list = []
-    for d in eval_dirs:
-        if not (d / "metadata.json").exists():
-            print(f"Warning: {d} has no metadata.json, skipping")
-            continue
-        if not (d / "results.jsonl").exists():
-            print(f"Warning: {d} has no results.jsonl, skipping")
-            continue
-        eval_data_list.append(load_eval_dir(d))
-
-    if not eval_data_list:
+    # verify at least one valid dir
+    if not _load_dirs(eval_dirs):
         raise SystemExit("No valid eval dirs found.")
 
-    html_content = generate_html(eval_data_list)
-    out = Path(tempfile.gettempdir()) / "eval_view.html"
-    out.write_text(html_content)
-    print(f"Wrote {out}")
-    webbrowser.open(f"file://{out}")
+    dirs = eval_dirs  # captured by handler
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            data = _load_dirs(dirs)
+            if not data:
+                self.send_error(404, "No valid eval dirs")
+                return
+            content = generate_html(data).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(content)))
+            self.end_headers()
+            self.wfile.write(content)
+
+        def log_message(self, fmt, *args):
+            pass  # quiet
+
+    server = HTTPServer(("127.0.0.1", port), Handler)
+    url = f"http://127.0.0.1:{port}"
+    print(f"Serving at {url}  (refresh to reload data, ctrl-c to stop)")
+    threading.Timer(0.3, lambda: webbrowser.open(url)).start()
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print("\nStopped.")
