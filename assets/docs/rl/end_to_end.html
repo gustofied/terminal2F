@@ -319,9 +319,7 @@
 <div class="toc">
   <a href="#s-pieces"><span class="toc-num">I</span>Pieces</a>
   <a href="#s-env-setup"><span class="toc-num">II</span>Environment Setup</a>
-  <a href="#s-node-setup"><span class="toc-num">III</span>Node Setup</a>
-  <a href="#s-trainer"><span class="toc-num">IV</span>Trainer</a>
-  <a href="#s-prime-rl"><span class="toc-num">V</span>prime-rl</a>
+  <a href="#s-training"><span class="toc-num">III</span>Training</a>
 </div>
 
 
@@ -447,11 +445,13 @@
 
 
 <!-- ═══════════════════════════════════════════════════════════
-     III. NODE SETUP
+     III. TRAINING
      ═══════════════════════════════════════════════════════════ -->
 
-<h3 id="s-node-setup"><span class="num">III</span>Node Setup</h3>
-<p class="lede">Manual setup on a remote GPU node with verifiers-rl. Not the golden path, but the hands-on way to understand what's happening.</p>
+<h3 id="s-training"><span class="num">III</span>Training</h3>
+<p class="lede">Manual setup on a remote GPU node with t2f-trainer. Not the golden path, but the hands-on way to understand what's happening.</p>
+
+<p><code>verifiers-rl</code> is the optional RL trainer inside the verifiers monorepo (<code>packages/verifiers-rl/</code>). Not actively maintained, but intentionally lightweight and readable, good for experimentation and education. <a href="t2f_trainer.html">t2f-trainer</a> is a fork of it, extracted into its own package. That's what the rest of this section uses.</p>
 
 <h4><span class="sub">a</span>SSH keys</h4>
 
@@ -459,7 +459,7 @@
 
 <div class="code-block">
   <span class="code-lang">shell</span>
-  <pre><code>ssh-keygen -t ed25519 -a 64 -f ~/.ssh/primeintellect_ed25519 -C "primeintellect"</code></pre>
+  <pre><code><span style="color:#268bd2">ssh-keygen</span> -t ed25519 -a <span style="color:#6c71c4">64</span> -f ~/.ssh/primeintellect_ed25519 -C <span style="color:#2aa198">"primeintellect"</span></code></pre>
 </div>
 
 <p>Copy the public key (<code>cat ~/.ssh/primeintellect_ed25519.pub</code>), paste it in the provider dashboard, deploy a 2-GPU instance.</p>
@@ -468,16 +468,16 @@
 
 <div class="code-block">
   <span class="code-lang">shell</span>
-  <pre><code>eval "$(ssh-agent -s)"
-ssh-add --apple-use-keychain ~/.ssh/primeintellect_ed25519</code></pre>
+  <pre><code><span style="color:#268bd2">eval</span> <span style="color:#2aa198">"$(ssh-agent -s)"</span>
+<span style="color:#268bd2">ssh-add</span> --apple-use-keychain ~/.ssh/primeintellect_ed25519</code></pre>
 </div>
 
 <h4><span class="sub">b</span>SSH and workspace</h4>
 
 <div class="code-block">
   <span class="code-lang">shell</span>
-  <pre><code>ssh -i ~/.ssh/primeintellect_ed25519 -p &lt;port&gt; root@&lt;ip&gt;
-nvidia-smi                     <span style="color:#586E75"># should show GPU 0 and GPU 1</span>
+  <pre><code><span style="color:#268bd2">ssh</span> -i ~/.ssh/primeintellect_ed25519 -p &lt;port&gt; root@&lt;ip&gt;
+<span style="color:#268bd2">nvidia-smi</span>                     <span style="color:#586E75"># should show GPU 0 and GPU 1</span>
 
 cd /workspace
 mkdir -p rl-tutorial &amp;&amp; cd rl-tutorial</code></pre>
@@ -489,7 +489,7 @@ mkdir -p rl-tutorial &amp;&amp; cd rl-tutorial</code></pre>
   <span class="code-lang">shell</span>
   <pre><code>curl -LsSf https://astral.sh/uv/install.sh | sh
 source $HOME/.local/bin/env
-uv venv --python 3.12
+<span style="color:#268bd2">uv venv</span> --python <span style="color:#6c71c4">3.12</span>
 source .venv/bin/activate</code></pre>
 </div>
 
@@ -499,115 +499,100 @@ source .venv/bin/activate</code></pre>
 
 <div class="code-block">
   <span class="code-lang">shell</span>
-  <pre><code><span style="color:#586E75"># verifiers-rl package</span>
-scp -P &lt;port&gt; -i ~/.ssh/primeintellect_ed25519 -r \
-  ~/projects/terminal2F/external/verifiers/packages/verifiers-rl \
-  root@&lt;ip&gt;:/workspace/rl-tutorial/verifiers-rl
+  <pre><code><span style="color:#586E75"># t2f-trainer package</span>
+<span style="color:#268bd2">scp</span> -P &lt;port&gt; -i ~/.ssh/primeintellect_ed25519 -r \
+  ~/projects/terminal2F/external/t2f-trainer \
+  root@&lt;ip&gt;:/workspace/rl-tutorial/t2f-trainer
 
 <span style="color:#586E75"># environment</span>
-scp -P &lt;port&gt; -i ~/.ssh/primeintellect_ed25519 -r \
+<span style="color:#268bd2">scp</span> -P &lt;port&gt; -i ~/.ssh/primeintellect_ed25519 -r \
   ~/projects/terminal2F/environments/alphabet-sort \
   root@&lt;ip&gt;:/workspace/rl-tutorial/alphabet-sort</code></pre>
 </div>
 
-<p>Why scp instead of pip install? verifiers-rl lives inside the verifiers monorepo under <code>packages/verifiers-rl/</code>, it's not on PyPI as a standalone package. And the environment was local/unpublished, not yet on the hub. If both were published you'd skip scp entirely and just install on the node.</p>
+<p>Why scp? t2f-trainer is a local package, not on PyPI. The environment is also local/unpublished. If both were published you'd skip scp and just install on the node.</p>
 
-<h4><span class="sub">e</span>Install verifiers-rl</h4>
+<h4><span class="sub">e</span>Install t2f-trainer</h4>
 
-<p>Do NOT use <code>--no-deps</code>. This installs everything: vllm, flash-attn (compiles from source, ~15 min), deepspeed, liger-kernel, trl, accelerate, torch.</p>
+<p>Do NOT use <code>--no-deps</code>. This installs everything: vllm, flash-attn (compiles from source, ~15 min), deepspeed, liger-kernel, trl, accelerate, torch. Do NOT start vLLM during this step, flash-attn compilation eats RAM and the node can OOM.</p>
 
 <div class="code-block">
   <span class="code-lang">shell</span>
   <pre><code>cd /workspace/rl-tutorial
-uv pip install ./verifiers-rl</code></pre>
-</div>
+<span style="color:#268bd2">uv pip install</span> ./t2f-trainer
 
-<p>Do NOT start vLLM during this step. flash-attn compilation eats RAM. If vLLM is running too, the node can OOM and crash.</p>
-
-<div class="code-block">
-  <span class="code-lang">shell</span>
-  <pre><code><span style="color:#586E75"># If flash-attn OOM's during compile even without vLLM:</span>
-MAX_JOBS=4 uv pip install ./verifiers-rl</code></pre>
+<span style="color:#586E75"># If flash-attn OOM's during compile:</span>
+MAX_JOBS=<span style="color:#6c71c4">4</span> <span style="color:#268bd2">uv pip install</span> ./t2f-trainer</code></pre>
 </div>
 
 <h4><span class="sub">f</span>Install extras</h4>
 
 <div class="code-block">
   <span class="code-lang">shell</span>
-  <pre><code>uv pip install wandb
-uv pip install -e ./alphabet-sort</code></pre>
+  <pre><code><span style="color:#268bd2">uv pip install</span> wandb
+<span style="color:#268bd2">uv pip install</span> -e ./alphabet-sort</code></pre>
 </div>
 
-<h4><span class="sub">g</span>Start vf-vllm on GPU 0</h4>
+<h4><span class="sub">g</span>Config</h4>
+
+<div class="block">
+<span class="label">configs/t2f-rl/alphabet-sort.toml</span>
+<pre><code>model = <span style="color:#2aa198">"Qwen/Qwen3-4B-Instruct-2507"</span>
+
+[env]
+id = <span style="color:#2aa198">"kalomaze/alphabet-sort"</span>
+
+[env.args]
+min_turns = <span style="color:#6c71c4">3</span>
+max_turns = <span style="color:#6c71c4">5</span>
+
+[inference]
+gpus = <span style="color:#6c71c4">1</span>
+
+[inference.args]
+enforce_eager = <span style="color:#b58900">true</span>
+
+[trainer]
+gpus = <span style="color:#6c71c4">1</span>
+
+[trainer.args]
+run_name = <span style="color:#2aa198">"alphabet-sort"</span>
+micro_batch_size = <span style="color:#6c71c4">16</span>
+rollouts_per_example = <span style="color:#6c71c4">16</span>
+batch_size = <span style="color:#6c71c4">512</span>
+max_steps = <span style="color:#6c71c4">100</span>
+max_tokens = <span style="color:#6c71c4">512</span>
+max_seq_len = <span style="color:#6c71c4">1024</span></code></pre>
+</div>
+
+<p>Top-level <code>model</code> applies to both inference and trainer. GPU counts are split sequentially: inference gets GPU 0, trainer gets GPU 1.</p>
+
+<h4><span class="sub">h</span>Start t2f-vllm on GPU 0</h4>
 
 <div class="code-block">
   <span class="code-lang">shell</span>
-  <pre><code>export HF_TOKEN=your_token
-CUDA_VISIBLE_DEVICES=0 vf-vllm --model willcb/Qwen3-0.6B \
+  <pre><code><span style="color:#268bd2">export</span> HF_TOKEN=your_token
+CUDA_VISIBLE_DEVICES=<span style="color:#6c71c4">0</span> <span style="color:#268bd2">t2f-vllm</span> --model willcb/Qwen3-0.6B \
   --enforce-eager --disable-log-requests</code></pre>
 </div>
 
 <p>Wait for <code>Application startup complete</code>.</p>
 
-<p>Why <code>vf-vllm</code> not <code>vllm serve</code>? Training needs weight sync. After each step the trainer pushes updated weights from GPU 1 to GPU 0 via NCCL. <code>vf-vllm</code> adds <code>/init_communicator</code>, <code>/update_weights</code>, <code>/get_world_size</code> endpoints. Regular <code>vllm serve</code> gives 404 on those.</p>
+<p>Why <code>t2f-vllm</code> not <code>vllm serve</code>? Training needs weight sync. After each step the trainer pushes updated weights from GPU 1 to GPU 0 via NCCL. <code>t2f-vllm</code> adds <code>/init_communicator</code>, <code>/update_weights</code>, <code>/get_world_size</code> endpoints. Regular <code>vllm serve</code> gives 404 on those.</p>
 
-<h4><span class="sub">h</span>Run training on GPU 1</h4>
+<h4><span class="sub">i</span>Run training on GPU 1</h4>
 
 <p>In a second tmux pane:</p>
 
 <div class="code-block">
   <span class="code-lang">shell</span>
   <pre><code>cd /workspace/rl-tutorial &amp;&amp; source .venv/bin/activate
-export HF_TOKEN=your_token
-export WANDB_API_KEY=your_key
-CUDA_VISIBLE_DEVICES=1 vf-rl @ configs/train.toml</code></pre>
+<span style="color:#268bd2">export</span> HF_TOKEN=your_token
+<span style="color:#268bd2">export</span> WANDB_API_KEY=your_key
+CUDA_VISIBLE_DEVICES=<span style="color:#6c71c4">1</span> <span style="color:#268bd2">t2f-rl</span> @ configs/t2f-rl/alphabet-sort.toml</code></pre>
 </div>
 
-<hr class="sep">
-
-
-<!-- ═══════════════════════════════════════════════════════════
-     IV. TRAINER
-     ═══════════════════════════════════════════════════════════ -->
-
-<h3 id="s-trainer"><span class="num">IV</span>Trainer</h3>
-<p class="lede">Training runs off a TOML config. verifiers-rl is part of the verifiers monorepo.</p>
-
-<h4><span class="sub">a</span>Config</h4>
-
-<div class="block">
-<span class="label">configs/vf-rl/alphabet-sort.toml</span>
-<pre><code>model = "Qwen/Qwen3-4B-Instruct-2507"
-
-[env]
-id = "kalomaze/alphabet-sort"
-
-[env.args]
-min_turns = 3
-max_turns = 5
-
-[inference]
-gpus = 1
-
-[inference.args]
-enforce_eager = true
-
-[trainer]
-gpus = 1
-
-[trainer.args]
-run_name = "alphabet-sort"
-micro_batch_size = 16
-rollouts_per_example = 16
-batch_size = 512
-max_steps = 100
-max_tokens = 512
-max_seq_len = 1024</code></pre>
-</div>
-
-<p>Top-level <code>model</code> applies to both inference and trainer. GPU counts are split sequentially: inference gets GPU 0, trainer gets GPU 1.</p>
-
-<h4><span class="sub">b</span>What happens</h4>
+<h4><span class="sub">j</span>What happens</h4>
 
 <table class="ch-table">
   <tr>
@@ -616,11 +601,11 @@ max_seq_len = 1024</code></pre>
   </tr>
   <tr>
     <td class="mono" style="color: #aaa;">1</td>
-    <td><code>vf-vllm</code> loads model into GPU 0, starts serving</td>
+    <td><code>t2f-vllm</code> loads model into GPU 0, starts serving</td>
   </tr>
   <tr>
     <td class="mono" style="color: #aaa;">2</td>
-    <td><code>vf-train</code> loads model into GPU 1, connects to vLLM, initializes NCCL</td>
+    <td><code>t2f-train</code> loads model into GPU 1, connects to vLLM, initializes NCCL</td>
   </tr>
   <tr>
     <td class="mono" style="color: #aaa;">3</td>
@@ -643,16 +628,6 @@ max_seq_len = 1024</code></pre>
     <td>Back to 3 with updated weights</td>
   </tr>
 </table>
-
-<hr class="sep">
-
-
-<!-- ═══════════════════════════════════════════════════════════
-     V. PRIME-RL
-     ═══════════════════════════════════════════════════════════ -->
-
-<h3 id="s-prime-rl"><span class="num">V</span>prime-rl</h3>
-<p class="lede">To be written.</p>
 
 <div class="colophon">
   <p>END-TO-END</p>

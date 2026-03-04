@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>t2f-trainer</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, serif;
+    font-size: 14.5px;
+    line-height: 1.72;
+    color: #2a2a2a;
+    background: #fdfcfa;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 72px 1rem 120px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a.back {
+    font-family: 'JetBrains Mono', monospace; font-size: 9.5px;
+    color: #bbb; text-decoration: none; letter-spacing: 0.5px;
+  }
+  a.back:hover { color: #1a1a1a; }
+
+  .memo-head {
+    border-top: 2.5px solid #1a1a1a;
+    border-bottom: 0.5px solid #1a1a1a;
+    padding: 20px 0 16px;
+    margin-bottom: 40px;
+  }
+  .memo-head h2 {
+    font-size: 1.6rem;
+    font-weight: normal;
+    color: #333;
+    line-height: 1.25;
+    margin: 0;
+  }
+
+  h3 {
+    font-size: 1.3rem;
+    font-weight: normal;
+    color: #333;
+    margin: 64px 0 10px;
+  }
+  h3 .num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 400;
+    color: #aaa;
+    letter-spacing: 1px;
+    display: block;
+    margin-bottom: 2px;
+  }
+  p { margin: 14px 0; }
+  .lede { font-size: 15px; color: #555; line-height: 1.68; }
+  a { color: #268bd2; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  em { color: #555; }
+
+  ul, ol { margin: 12px 0 12px 22px; }
+  li { margin: 5px 0; color: #333; }
+  li::marker { color: #bbb; }
+
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: #1a1a1a;
+    background: #f5f4f0;
+    padding: 1.5px 5px;
+    border-bottom: 1px solid #ddd;
+  }
+  pre {
+    margin: 24px 0;
+    padding: 18px 22px;
+    background: #f5f4f0;
+    border: 0.5px solid #e8e4de;
+    overflow-x: auto;
+    line-height: 1.55;
+  }
+  pre code {
+    background: none;
+    padding: 0;
+    border: none;
+    font-size: 12px;
+  }
+  strong { font-weight: 700; color: #1a1a1a; }
+
+  .sep {
+    border: none;
+    text-align: center;
+    margin: 56px 0;
+    line-height: 0;
+  }
+  .sep::after {
+    content: '\2022\2009\2009\2022\2009\2009\2022';
+    font-size: 10px;
+    color: #ccc;
+    letter-spacing: 4px;
+  }
+
+  .colophon {
+    border-top: 0.5px solid #ddd;
+    margin-top: 64px;
+    padding-top: 16px;
+  }
+  .colophon p {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    color: #ccc;
+    letter-spacing: 0.5px;
+  }
+</style>
+</head>
+<body>
+
+<a class="back" href="index.html">&larr; docs</a>
+
+<div class="memo-head" style="border-bottom:none; padding-bottom:0;">
+  <h2>t2f-trainer</h2>
+</div>
+
+<figure style="margin:16px 0 0; overflow:hidden; border-radius:2px;">
+  <img
+    src="https://www.mapsandart.com/wp-content/uploads/2020/08/01GBR20206-01.jpg"
+    alt="English Countryside, Peter Trowbridge, 1836"
+    style="width:100%; height:220px; object-fit:cover; object-position:center 70%; display:block;"
+  />
+  <figcaption style="font-family:'JetBrains Mono',monospace; font-size:11px; color:#bbb; letter-spacing:0.5px; margin-top:8px; text-align:center;">Peter Trowbridge, <em style="color:#bbb">English Countryside</em>, 1836.</figcaption>
+</figure>
+
+<p class="lede" style="margin-top:32px;">A fork of verifiers-rl, extracted into its own package at <code>external/t2f-trainer/</code>. verifiers-rl is a compact single-node async RL trainer that is no longer actively maintained but is intentionally lightweight and readable. t2f-trainer takes that as a starting base and builds on it.</p>
+
+<h3><span class="num">I</span>Background</h3>
+
+<p>verifiers-rl lives inside the verifiers monorepo under <code>packages/verifiers-rl/</code>. It is an optional RL trainer package for verifiers, useful for experimentation and education. The core implementation (<code>trainer.py</code> and <code>orchestrator.py</code>) has a narrower feature set than production trainers like prime-rl, but that's the point: it's small enough to read end to end and hack on.</p>
+
+<p>t2f-trainer was extracted from verifiers-rl to have full ownership over it. The package was renamed to <code>t2f_trainer</code>, commands renamed to <code>t2f-rl</code>, <code>t2f-train</code>, <code>t2f-vllm</code>. All internal imports updated, standalone from upstream. The only change needed to make it behave like any other external trainer was computing advantages from raw rewards instead of using verifiers' pre-computed values (same contract as prime-rl and other trainers). With that done, it's a standalone trainer to hack on and adventure with. A good starting point if you want to build your own.</p>
+
+<h3><span class="num">II</span>What's Inside</h3>
+
+<p>The codebase is small and well-defined:</p>
+
+<ol>
+<li><strong><code>orchestrator.py</code></strong> - the multi-turn conversation loop. Model responds, environment gives new input, model responds again, score the whole trajectory. This is the core valuable piece.</li>
+<li><strong><code>client.py</code></strong> - vLLM weight sync. Pushes updated weights from training GPU to inference GPU via NCCL.</li>
+<li><strong><code>trainer.py</code></strong> - subclasses <code>transformers.Trainer</code> directly (not TRL). Runs GRPO with importance ratio clipping.</li>
+<li><strong><code>config.py</code></strong> - RLConfig with multi-turn fields.</li>
+<li><strong><code>server.py</code></strong> - custom vLLM server with weight sync endpoints.</li>
+</ol>
+
+<h3><span class="num">III</span>Observations</h3>
+
+<ul>
+<li>verifiers-rl does NOT use TRL at all, it's pure <code>transformers.Trainer</code></li>
+<li>The earlier plan to port into TRL's <code>rollout_func</code> is one option but not the only one</li>
+<li>Ludic exists as a purpose-built multi-turn/agentic RL library (custom trainer, no TRL)</li>
+<li>prime-rl is production-grade but not meant for hacking</li>
+<li>The real value is the orchestrator + weight sync, the trainer itself is fairly standard GRPO</li>
+</ul>
+
+<h3><span class="num">IV</span>Directions</h3>
+
+<p><strong>Option A: Keep evolving t2f-trainer.</strong> Simplest path. Full ownership, small enough to understand fully. Unpin vllm (currently locked to 0.10.x), make flash-attn optional, add KL penalty (training collapsed without it), add more algorithms beyond GRPO, improve TOML config support.</p>
+
+<p><strong>Option B: Study Ludic's architecture.</strong> Ludic is designed for exactly this: agentic multi-turn RL. Clean separation of agents, environments, interaction protocols. Modular credit assignment and loss functions. Supports GRPO, SAPO, REINFORCE, SFT out of the box. Could adopt ideas or patterns into t2f-trainer.</p>
+
+<p><strong>Option C: Contribute to prime-rl / upstream.</strong> If the changes are useful broadly, push them upstream. Less control but more community.</p>
+
+<h3><span class="num">V</span>Next Steps</h3>
+
+<ol>
+<li>Read through t2f-trainer source end to end, understand every file</li>
+<li>Unpin vllm, update <code>server.py</code> imports for newer vLLM (the <code>collective_rpc</code> / <code>worker_extension_cls</code> pattern is stable and officially supported, just the internal import paths move between versions)</li>
+<li>Make flash-attn optional, move to <code>[project.optional-dependencies]</code>, vLLM handles attention itself</li>
+<li>Add KL penalty option to prevent training collapse</li>
+<li>Add SFT training mode (for SFT + LoRA to RLVR + LoRA pipeline)</li>
+<li>Read Ludic source for ideas on better multi-turn abstractions</li>
+<li>Test on a GPU node with alphabet-sort</li>
+</ol>
+
+<div class="colophon">
+  <p>T2F-TRAINER</p>
+</div>
+
+</body>
+</html>
