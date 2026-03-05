@@ -4,6 +4,24 @@ import signal
 import time
 import psycopg
 
+
+def print_table(cursor):
+    rows = cursor.fetchall()
+    if not rows:
+        print("(empty)")
+        return
+    cols = [desc[0] for desc in cursor.description]
+    widths = [len(c) for c in cols]
+    for row in rows:
+        for i, val in enumerate(row):
+            widths[i] = max(widths[i], len(str(val)))
+    header = " | ".join(c.ljust(widths[i]) for i, c in enumerate(cols))
+    sep = "-+-".join("-" * w for w in widths)
+    print(header)
+    print(sep)
+    for row in rows:
+        print(" | ".join(str(val).ljust(widths[i]) for i, val in enumerate(row)))
+
 def kill_existing():
     subprocess.run(["pkill", "-f", "doltgres"], stderr=subprocess.DEVNULL)
     time.sleep(1)
@@ -40,11 +58,14 @@ def main():
         else:
             raise
 
-    conn.execute("CREATE TABLE IF NOT EXISTS students( id int8, name text)")
-    
+    # conn.execute("CREATE TABLE IF NOT EXISTS students( id int8, name text)")
+    # conn.execute("SELECT  dolt_add('students')")
+    # conn.execute("SELECT  dolt_commit('-m', 'Testing commit')")
+    print("\n=== dolt_status ===")
+    print_table(conn.execute("SELECT * FROM dolt_status"))
 
-    for row in conn.execute("SELECT * FROM dolt_log").fetchall():
-        print(row)
+    print("\n=== dolt_log ===")
+    print_table(conn.execute("SELECT * FROM dolt_log"))
 
     conn.close()
     proc.terminate()
