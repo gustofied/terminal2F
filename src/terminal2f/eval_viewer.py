@@ -565,7 +565,8 @@ def view(eval_dirs: list[Path] | None = None, port: int = 8279) -> None:
 
     If no dirs given, scans outputs/evals/ for all runs.
     """
-    if not eval_dirs:
+    auto_discover = not eval_dirs
+    if auto_discover:
         eval_dirs = find_eval_runs()
         if not eval_dirs:
             raise SystemExit("No eval runs found under outputs/evals/")
@@ -575,10 +576,11 @@ def view(eval_dirs: list[Path] | None = None, port: int = 8279) -> None:
     if not _load_dirs(eval_dirs):
         raise SystemExit("No valid eval dirs found.")
 
-    dirs = eval_dirs  # captured by handler
+    fixed_dirs = eval_dirs
 
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):
+            dirs = find_eval_runs() if auto_discover else fixed_dirs
             data = _load_dirs(dirs)
             if not data:
                 self.send_error(404, "No valid eval dirs")

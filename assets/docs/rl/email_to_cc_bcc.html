@@ -442,7 +442,7 @@ Provide your answer as JSON.</code></pre>
   </tr>
 </table>
 
-<p>Each function averages its score across all expected turns (missing turns count as 0, so a model that stops early is penalized). Weighted equally (1/3 each) by the rubric. Jaccard index: <code>|intersection| / |union|</code>, 1.0 if both sets empty. Exception: BCC scores 0.5 when both predicted and expected are empty, so rows without BCC recipients are not a free point. This is a hacky fix for a data problem (too many rows with empty BCC), and it could backfire if the model learns to always stuff someone into BCC to avoid the penalty.</p>
+<p>Each function averages its score across all expected turns (missing turns count as 0, so a model that stops early is penalized). Weighted equally (1/3 each) by the rubric. Jaccard index: <code>|intersection| / |union|</code>, 1.0 if both sets empty. Exception: BCC scores 0.5 when both predicted and expected are empty, so rows without BCC recipients are not a free point. This is a hacky fix for a data problem (too many rows with empty BCC), and it could backfire if the model learns to always stuff someone into BCC to avoid the penalty. In practice it does not change behavior: the "lazy" strategy is still to always predict empty BCC (0.5 on empty-GT rows, 0.0 on non-empty-GT rows), which matches the eval table where BCC hovers around a constant across all models.</p>
 
 <p><strong>Knobs</strong> (<code>--env-args</code>): <code>max_turns</code> (1, 2, or 3). Slices dataset accordingly.</p>
 
@@ -455,35 +455,136 @@ Provide your answer as JSON.</code></pre>
 
 <h3 id="s-discussion"><span class="num">IV</span>Results v1</h3>
 
-<h4><span class="sub">a</span>To vs CC is Noisy</h4>
+<h4><span class="sub">a</span>Baselines</h4>
 
-<p><code>distribute_emails()</code> shuffles active people before assigning To and CC. The model has some signal from the email text (who is addressed, who is asked to act, hierarchy cues), but the ground truth split comes from a random shuffle. The model cannot fully recover it. BCC is also noisy: sensitivity controls <em>whether</em> people go to BCC, but <em>who</em> goes there is still drawn from shuffled active participants. Active people who are greeted in the email can end up in BCC, which is why 75% of BCC recipients appear in the text.</p>
+<p>Eval runs against the v1 dataset (3 turns, 3 rollouts per example, Jaccard per field averaged across turns). The n=50 runs are the primary numbers.</p>
 
-<p>This means all three individual scores (<code>to_correct</code>, <code>cc_correct</code>, <code>bcc_correct</code>) have noise. With the rubric at equal 1/3 weights, two-thirds of the reward signal that GRPO uses to rank rollouts is driven by noise the model cannot learn from, leaving BCC as the only clean signal at 1/3 weight. The visible set (To + CC combined) is the most learnable signal. One upgrade would be to replace the rubric with <code>visible_correct</code> (Jaccard on To &cup; CC) + <code>bcc_correct</code> + <code>format_correct</code> (valid JSON with correct keys), dropping individual To/CC scoring entirely.</p>
+<table class="ch-table">
+  <tr>
+    <th>Model</th>
+    <th>n</th>
+    <th>Reward</th>
+    <th>To</th>
+    <th>CC</th>
+    <th>BCC</th>
+  </tr>
+  <tr>
+    <td class="mono">gpt-4.1-mini</td>
+    <td>10</td>
+    <td>0.443</td>
+    <td>0.722</td>
+    <td>0.367</td>
+    <td>0.238</td>
+  </tr>
+  <tr>
+    <td class="mono">gpt-5</td>
+    <td>10</td>
+    <td>0.435</td>
+    <td>0.628</td>
+    <td><strong>0.427</strong></td>
+    <td>0.250</td>
+  </tr>
+  <tr>
+    <td class="mono">gpt-4.1-mini</td>
+    <td>50</td>
+    <td><strong>0.431</strong></td>
+    <td><strong>0.749</strong></td>
+    <td>0.356</td>
+    <td>0.187</td>
+  </tr>
+  <tr>
+    <td class="mono">claude-sonnet-4.6</td>
+    <td>10</td>
+    <td>0.431</td>
+    <td>0.655</td>
+    <td>0.389</td>
+    <td>0.250</td>
+  </tr>
+  <tr>
+    <td class="mono">gpt-4.1-mini</td>
+    <td>10</td>
+    <td>0.429</td>
+    <td>0.712</td>
+    <td>0.342</td>
+    <td>0.234</td>
+  </tr>
+  <tr>
+    <td class="mono">intellect-3</td>
+    <td>10</td>
+    <td>0.420</td>
+    <td>0.643</td>
+    <td>0.369</td>
+    <td>0.250</td>
+  </tr>
+  <tr>
+    <td class="mono">qwen3-30b-a3b-thinking</td>
+    <td>10</td>
+    <td>0.408</td>
+    <td>0.633</td>
+    <td>0.339</td>
+    <td>0.250</td>
+  </tr>
+  <tr>
+    <td class="mono">deepseek-r1-0528</td>
+    <td>10</td>
+    <td>0.384</td>
+    <td>0.615</td>
+    <td>0.288</td>
+    <td>0.250</td>
+  </tr>
+  <tr>
+    <td class="mono">qwen3-30b-a3b-instruct</td>
+    <td>50</td>
+    <td>0.377</td>
+    <td>0.662</td>
+    <td>0.304</td>
+    <td>0.164</td>
+  </tr>
+  <tr>
+    <td class="mono">qwen3-30b-a3b-instruct</td>
+    <td>10</td>
+    <td>0.348</td>
+    <td>0.493</td>
+    <td>0.320</td>
+    <td>0.230</td>
+  </tr>
+</table>
 
-<p>The real fix is to replace the shuffle with rules driven by scenario type, hierarchy, audience, and roles. The person being asked to act goes to To (picked by scenario-to-role priority), managers and stakeholders go to CC (shaped by hierarchy), compliance observers from reserve go to BCC (when sensitivity is high). Active participants never end up in BCC. This makes the exact To/CC/BCC split derivable from the observation without turning it into greeting-parsing.</p>
+<p>Every model lands between 0.35 and 0.44. GPT-5, Claude 4.6, DeepSeek R1, they all hit the same ceiling. This is not a model problem, it is a data ceiling. To is the only field with real variance (0.63-0.75). CC is stuck around 0.3 for everyone. BCC clusters at 0.25 for the n=10 runs (an artifact of small sample + the 0.5-for-empty-empty hack) and drops to 0.16-0.19 at n=50, meaning models almost never attempt BCC.</p>
 
-<h4><span class="sub">b</span>Fix the Rubric, Not the Data</h4>
+<p>The gap between Qwen 30B instruct (0.377) and GPT-4.1-mini (0.431) is the space RL would need to close. That gap is real but small, and the ceiling is low. Training on this data would push Qwen toward 0.43 by learning the same surface heuristics frontier models use, but 0.43 is the ceiling with this dataset.</p>
 
-<p>Scoring To and CC separately with GRPO hence becomes a problem. Rollouts get ranked against each other on a distinction that is partly random, and GRPO amplifies that noise into policy updates. The fix for v1 without regenerating data: replace the three-way rubric with <code>visible_correct</code> (set match on To &cup; CC) + <code>bcc_correct</code> (set match on BCC) + <code>format_correct</code> (valid JSON). Drop individual To/CC rewards entirely. Re-add them in v2 once <code>distribute_emails()</code> is deterministic.</p>
+<p>Looking at individual rollouts, the models are often more correct than the ground truth. Claude Sonnet 4.6 on a complaint email: correctly places the addressee in To, all mentioned stakeholders in CC, empty BCC. Reasoning is sound ("this is a formal complaint where transparency among all parties is important"). The ground truth disagrees on one CC entry because the shuffle happened to assign it differently. DeepSeek R1 on a vendor update: excludes a person from CC because "her support has already been secured," a reasonable reading of the email. The ground truth includes her anyway. In both cases the model is doing better email reasoning than the labels. Training with RL on these labels would push models <em>away</em> from good judgment and <em>toward</em> matching random assignments.</p>
 
-<p>That said, this is a second-order fix. Collapsing To and CC into a single visible set just to get a reward curve going up is reward shaping for something the model is not actually learning to distinguish. The reward goes up, but the underlying capability (correct To vs CC placement) is not being trained. It is useful to get a first run going, but it should not be mistaken for the real thing.</p>
+<h4><span class="sub">b</span>Why the Ceiling is Low</h4>
 
-<h4><span class="sub">c</span>Known Data Issues</h4>
+<p><code>distribute_emails()</code> shuffles active people before assigning To and CC. The ground truth split comes from a random shuffle, not from the email content. The model has some signal (who is addressed, who is asked to act), but it cannot fully recover a random permutation. BCC is also noisy: sensitivity controls <em>whether</em> people go to BCC, but <em>who</em> goes there is still drawn from shuffled active participants. Active people who are greeted in the email can end up in BCC, which is why 75% of BCC recipients appear in the text.</p>
+
+<p>With the rubric at equal 1/3 weights, two-thirds of the reward signal that GRPO uses to rank rollouts is driven by noise the model cannot learn from, leaving BCC as the only clean signal at 1/3 weight.</p>
+
+<h4><span class="sub">c</span>Rubric Fix (Second-Order)</h4>
+
+<p>One option without regenerating data: replace the three-way rubric with <code>visible_correct</code> (Jaccard on To &cup; CC) + <code>bcc_correct</code> + <code>format_correct</code> (valid JSON). Drop individual To/CC scoring. This would get a reward curve going up, but collapsing To and CC into a single visible set is reward shaping for something the model is not actually learning to distinguish. The reward goes up, but the underlying capability is not being trained. Useful to get a first run going, but it should not be mistaken for the real thing. If the goal were just to get learning signal without regenerating data, this is the quickest path, but it is not the option to go for.</p>
+
+<h4><span class="sub">d</span>Data Fix (The Real One)</h4>
+
+<p>Replace the shuffle with deterministic rules. The person being asked to act goes to To (picked by scenario-to-role priority), managers and stakeholders go to CC (shaped by hierarchy), compliance observers from reserve go to BCC (when sensitivity is high). Active participants never end up in BCC. This makes the exact To/CC/BCC split derivable from the observation. The LLM generation prompts also need tightening: BCC people should not appear in the email text at all.</p>
+
+<h4><span class="sub">e</span>Known Data Issues</h4>
 
 <p>Looking at the v1 parquet (5,000 rows):</p>
 
 <ul>
-<li><strong>BCC recipients mentioned in email text (75%).</strong> The generating LLM was given only visible recipients (To/CC) as a hint, but it mentions BCC people by full name 75% of the time anyway (non-BCC: 64.5%). It largely ignores the hint and references everyone on the roster. 1.9% of rows have BCC people directly addressed or greeted. This is the biggest issue: the model being trained could learn to infer BCC from who is named but absent from To/CC, or just get confused by the contradiction.</li>
+<li><strong>BCC recipients mentioned in email text (75%).</strong> The generating LLM was given only visible recipients (To/CC) as a hint, but it mentions BCC people by full name 75% of the time anyway (non-BCC: 64.5%). 1.9% of rows have BCC people directly addressed or greeted.</li>
 <li><strong>Q2 near-duplicates of Q1 (~2%).</strong> 0.8% verbatim, 2.3% sharing the first 100 characters. Answers still differ across turns, but the thread does not evolve for these rows.</li>
-<li><strong>No field overlap.</strong> To/BCC and CC/BCC overlap is 0% across all turns. No person appears in multiple fields.</li>
+<li><strong>No field overlap.</strong> To/BCC and CC/BCC overlap is 0% across all turns.</li>
 </ul>
 
-<p>The BCC mention rate is the real problem. None of these block a first training run, but the generation prompts need tightening for v2. A check script lives at <code>nuggets/email-to-cc-bcc/check_data.py</code>.</p>
+<p>A check script lives at <code>nuggets/email-to-cc-bcc/check_data.py</code>.</p>
 
-<h4><span class="sub">d</span>mbox Format</h4>
+<h4><span class="sub">f</span>mbox Format</h4>
 
-<p>mbox is a standard mail format. The current dataset uses a custom plain-text layout for emails, but mbox gives real structure: proper headers, threading, multipart bodies. Using mbox instead could make the task more realistic and potentially more trainable, since the model would work with the same format actual mail clients and servers use. Python stdlib has <code>mailbox.mbox</code> built in. Worth exploring for a future version.</p>
+<p>mbox is a standard mail format. The current dataset uses a custom plain-text layout, but mbox gives real structure: proper headers, threading, multipart bodies. Python stdlib has <code>mailbox.mbox</code> built in. Worth exploring for a future version.</p>
 
 <div class="colophon">
   <p>EMAIL-TO-CC-BCC</p>
