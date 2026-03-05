@@ -32,7 +32,16 @@ def main():
         foreign key (employee_id) references employees(id))""")
 
     conn.execute("SELECT dolt_add('teams', 'employees', 'employees_teams')")
-    conn.execute("SELECT dolt_commit('-m', 'Created initial schema')")
+    try:
+        conn.execute("SELECT dolt_commit('-m', 'Created initial schema')")
+    except Exception as e:
+        if "nothing to commit" in str(e):
+            print("Nothing to commit, schema already exists")
+        else:
+            raise
+
+    conn.execute("CREATE TABLE IF NOT EXISTS students( id int8, name text)")
+    
 
     for row in conn.execute("SELECT * FROM dolt_log").fetchall():
         print(row)
