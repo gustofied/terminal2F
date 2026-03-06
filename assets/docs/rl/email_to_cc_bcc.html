@@ -1,321 +1,427 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-<meta charset="utf-8">
-<title>1. Email-to-CC-BCC</title>
-<style>
-  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&display=swap');
+  <head>
+    <meta charset="utf-8" />
+    <title>1. Email-to-CC-BCC</title>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&display=swap");
 
-  * { margin: 0; padding: 0; box-sizing: border-box; }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
 
-  body {
-    font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, serif;
-    font-size: 14.5px;
-    line-height: 1.72;
-    color: #2a2a2a;
-    background: #fdfcfa;
-    max-width: 800px;
-    margin: 0 auto;
-    padding: 72px 1rem 120px;
-    -webkit-font-smoothing: antialiased;
-  }
+      body {
+        font-family: "Palatino Linotype", "Book Antiqua", Palatino, serif;
+        font-size: 14.5px;
+        line-height: 1.72;
+        color: #2a2a2a;
+        background: #fdfcfa;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 72px 1rem 120px;
+        -webkit-font-smoothing: antialiased;
+      }
 
-  a.back {
-    font-family: 'JetBrains Mono', monospace; font-size: 9.5px;
-    color: #bbb; text-decoration: none; letter-spacing: 0.5px;
-  }
-  a.back:hover { color: #1a1a1a; }
+      a.back {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 9.5px;
+        color: #bbb;
+        text-decoration: none;
+        letter-spacing: 0.5px;
+      }
+      a.back:hover {
+        color: #1a1a1a;
+      }
 
-  .memo-head {
-    border-top: 2.5px solid #1a1a1a;
-    border-bottom: none;
-    padding: 20px 0 0;
-    margin-bottom: 0;
-  }
-  .memo-head h2 {
-    font-size: 1.6rem;
-    font-weight: normal;
-    color: #333;
-    line-height: 1.25;
-    margin: 0;
-  }
+      .memo-head {
+        border-top: 2.5px solid #1a1a1a;
+        border-bottom: none;
+        padding: 20px 0 0;
+        margin-bottom: 0;
+      }
+      .memo-head h2 {
+        font-size: 1.6rem;
+        font-weight: normal;
+        color: #333;
+        line-height: 1.25;
+        margin: 0;
+      }
 
-  .header-fig {
-    margin: 16px 0 0;
-    overflow: hidden;
-    border-radius: 2px;
-  }
-  .header-stack {
-    position: relative;
-    height: 220px;
-  }
-  .header-stack img {
-    position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
-    height: 220px;
-    object-fit: cover;
-    object-position: center 30%;
-    display: block;
-  }
-  .header-stack .l4 { width: 100%; opacity: 0.5; }
-  .header-stack .l3 { width: 98%; opacity: 0.7; }
-  .header-stack .l2 { width: 96%; opacity: 0.85; }
-  .header-stack .l1 { width: 94%; opacity: 1; }
-  .header-fig figcaption {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 11px;
-    color: #bbb;
-    letter-spacing: 0.5px;
-    margin-top: 8px;
-    text-align: center;
-  }
-  .header-fig figcaption em {
-    color: #bbb;
-  }
+      .header-fig {
+        margin: 16px 0 0;
+        overflow: hidden;
+        border-radius: 2px;
+      }
+      .header-stack {
+        position: relative;
+        height: 220px;
+      }
+      .header-stack img {
+        position: absolute;
+        left: 50%;
+        transform: translateX(-50%);
+        height: 220px;
+        object-fit: cover;
+        object-position: center 30%;
+        display: block;
+      }
+      .header-stack .l4 {
+        width: 100%;
+        opacity: 0.5;
+      }
+      .header-stack .l3 {
+        width: 98%;
+        opacity: 0.7;
+      }
+      .header-stack .l2 {
+        width: 96%;
+        opacity: 0.85;
+      }
+      .header-stack .l1 {
+        width: 94%;
+        opacity: 1;
+      }
+      .header-fig figcaption {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 11px;
+        color: #bbb;
+        letter-spacing: 0.5px;
+        margin-top: 8px;
+        text-align: center;
+      }
+      .header-fig figcaption em {
+        color: #bbb;
+      }
 
-  .toc {
-    margin: 32px 0 40px;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10px;
-    color: #999;
-    letter-spacing: 0.3px;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px 20px;
-    align-items: baseline;
-  }
-  .toc a {
-    color: #666;
-    text-decoration: none;
-  }
-  .toc a:hover {
-    color: #1a1a1a;
-    text-decoration: none;
-  }
-  .toc .toc-num {
-    color: #aaa;
-    font-size: 9px;
-    margin-right: 3px;
-  }
+      .toc {
+        margin: 32px 0 40px;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 10px;
+        color: #999;
+        letter-spacing: 0.3px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 20px;
+        align-items: baseline;
+      }
+      .toc a {
+        color: #666;
+        text-decoration: none;
+      }
+      .toc a:hover {
+        color: #1a1a1a;
+        text-decoration: none;
+      }
+      .toc .toc-num {
+        color: #aaa;
+        font-size: 9px;
+        margin-right: 3px;
+      }
 
-  h3 {
-    font-size: 1.3rem;
-    font-weight: normal;
-    color: #333;
-    margin: 64px 0 10px;
-  }
-  h3 .num {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10px;
-    font-weight: 400;
-    color: #aaa;
-    letter-spacing: 1px;
-    display: block;
-    margin-bottom: 2px;
-  }
-  h4 {
-    font-size: 1.1rem;
-    font-weight: normal;
-    color: #333;
-    margin: 44px 0 6px;
-  }
-  h4 .sub {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 9px;
-    font-weight: 400;
-    color: #bbb;
-    letter-spacing: 0.5px;
-    margin-right: 6px;
-  }
-  p { margin: 14px 0; }
-  .lede { font-size: 15px; color: #555; line-height: 1.68; }
-  a { color: #268bd2; text-decoration: none; }
-  a:hover { text-decoration: underline; }
-  em { color: #555; }
+      h3 {
+        font-size: 1.3rem;
+        font-weight: normal;
+        color: #333;
+        margin: 64px 0 10px;
+      }
+      h3 .num {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 10px;
+        font-weight: 400;
+        color: #aaa;
+        letter-spacing: 1px;
+        display: block;
+        margin-bottom: 2px;
+      }
+      h4 {
+        font-size: 1.1rem;
+        font-weight: normal;
+        color: #333;
+        margin: 44px 0 6px;
+      }
+      h4 .sub {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 9px;
+        font-weight: 400;
+        color: #bbb;
+        letter-spacing: 0.5px;
+        margin-right: 6px;
+      }
+      p {
+        margin: 14px 0;
+      }
+      .lede {
+        font-size: 15px;
+        color: #555;
+        line-height: 1.68;
+      }
+      a {
+        color: #268bd2;
+        text-decoration: none;
+      }
+      a:hover {
+        text-decoration: underline;
+      }
+      em {
+        color: #555;
+      }
 
-  code {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 12px;
-    color: #1a1a1a;
-    background: #f5f4f0;
-    padding: 1.5px 5px;
-    border-bottom: 1px solid #ddd;
-  }
-  .code-block {
-    position: relative;
-    margin: 24px 0;
-  }
-  .code-block pre {
-    margin: 0;
-  }
-  .code-lang {
-    position: absolute;
-    top: 0;
-    right: 0;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 8.5px;
-    font-weight: 400;
-    color: #bbb;
-    letter-spacing: 0.8px;
-    text-transform: uppercase;
-    padding: 5px 10px;
-    user-select: none;
-  }
-  pre {
-    margin: 24px 0;
-    padding: 18px 22px;
-    background: #f5f4f0;
-    border: 0.5px solid #e8e4de;
-    overflow-x: auto;
-    line-height: 1.55;
-  }
-  pre code {
-    background: none;
-    padding: 0;
-    border: none;
-    font-size: 12px;
-  }
-  strong { font-weight: 700; color: #1a1a1a; }
+      code {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 12px;
+        color: #1a1a1a;
+        background: #f5f4f0;
+        padding: 1.5px 5px;
+        border-bottom: 1px solid #ddd;
+      }
+      .code-block {
+        position: relative;
+        margin: 24px 0;
+      }
+      .code-block pre {
+        margin: 0;
+      }
+      .code-lang {
+        position: absolute;
+        top: 0;
+        right: 0;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 8.5px;
+        font-weight: 400;
+        color: #bbb;
+        letter-spacing: 0.8px;
+        text-transform: uppercase;
+        padding: 5px 10px;
+        user-select: none;
+      }
+      pre {
+        margin: 24px 0;
+        padding: 18px 22px;
+        background: #f5f4f0;
+        border: 0.5px solid #e8e4de;
+        overflow-x: auto;
+        line-height: 1.55;
+      }
+      pre code {
+        background: none;
+        padding: 0;
+        border: none;
+        font-size: 12px;
+      }
+      strong {
+        font-weight: 700;
+        color: #1a1a1a;
+      }
 
-  ul, ol { margin: 12px 0 12px 22px; }
-  li { margin: 5px 0; color: #333; }
-  li::marker { color: #bbb; }
+      ul,
+      ol {
+        margin: 12px 0 12px 22px;
+      }
+      li {
+        margin: 5px 0;
+        color: #333;
+      }
+      li::marker {
+        color: #bbb;
+      }
 
-  .ch-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin: 20px 0 0;
-    font-size: 13.5px;
-  }
-  .ch-table th {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 9px;
-    font-weight: 400;
-    color: #aaa;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    text-align: left;
-    padding: 6px 16px;
-    border-bottom: 1px solid #1a1a1a;
-  }
-  .ch-table td {
-    padding: 10px 16px;
-    border-bottom: 0.5px solid #eee;
-    vertical-align: top;
-  }
-  .ch-table .mono {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 12px;
-    white-space: nowrap;
-  }
+      .ch-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 20px 0 0;
+        font-size: 13.5px;
+      }
+      .ch-table th {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 9px;
+        font-weight: 400;
+        color: #aaa;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        text-align: left;
+        padding: 6px 16px;
+        border-bottom: 1px solid #1a1a1a;
+      }
+      .ch-table td {
+        padding: 10px 16px;
+        border-bottom: 0.5px solid #eee;
+        vertical-align: top;
+      }
+      .ch-table .mono {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 12px;
+        white-space: nowrap;
+      }
 
-  .sep {
-    border: none;
-    text-align: center;
-    margin: 56px 0;
-    line-height: 0;
-  }
-  .sep::after {
-    content: '\2022\2009\2009\2022\2009\2009\2022';
-    font-size: 10px;
-    color: #ccc;
-    letter-spacing: 4px;
-  }
+      .sep {
+        border: none;
+        text-align: center;
+        margin: 56px 0;
+        line-height: 0;
+      }
+      .sep::after {
+        content: "\2022\2009\2009\2022\2009\2009\2022";
+        font-size: 10px;
+        color: #ccc;
+        letter-spacing: 4px;
+      }
 
-  blockquote {
-    font-size: 13px;
-    color: #888;
-    font-style: italic;
-    margin: 20px 0 20px 28px;
-    padding-left: 16px;
-    border-left: 1.5px solid #ddd;
-    line-height: 1.6;
-  }
+      blockquote {
+        font-size: 13px;
+        color: #888;
+        font-style: italic;
+        margin: 20px 0 20px 28px;
+        padding-left: 16px;
+        border-left: 1.5px solid #ddd;
+        line-height: 1.6;
+      }
 
-  .colophon {
-    border-top: 0.5px solid #ddd;
-    margin-top: 64px;
-    padding-top: 16px;
-  }
-  .colophon p {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 9px;
-    color: #ccc;
-    letter-spacing: 0.5px;
-  }
+      .colophon {
+        border-top: 0.5px solid #ddd;
+        margin-top: 64px;
+        padding-top: 16px;
+      }
+      .colophon p {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 9px;
+        color: #ccc;
+        letter-spacing: 0.5px;
+      }
 
-  @media (max-width: 768px) {
-    body { padding: 16px 0.75rem 80px; }
-    .memo-head h2 { font-size: 1.15rem; }
-    h3 { font-size: 1.1rem; margin: 36px 0 6px; }
-    h4 { font-size: 1rem; }
-    p { font-size: 13.5px; }
-    pre {
-      padding: 12px 14px;
-      font-size: 10.5px;
-      margin: 16px -0.75rem;
-      width: calc(100% + 1.5rem);
-      border-left: none;
-      border-right: none;
-      border-radius: 0;
-    }
-    pre code { font-size: 10.5px; }
-    .ch-table {
-      font-size: 12px;
-      display: block;
-      overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
-    }
-    .ch-table th, .ch-table td { padding: 6px 8px; }
-    .header-fig img { height: 160px; }
-  }
-</style>
-</head>
-<body>
+      @media (max-width: 768px) {
+        body {
+          padding: 16px 0.75rem 80px;
+        }
+        .memo-head h2 {
+          font-size: 1.15rem;
+        }
+        h3 {
+          font-size: 1.1rem;
+          margin: 36px 0 6px;
+        }
+        h4 {
+          font-size: 1rem;
+        }
+        p {
+          font-size: 13.5px;
+        }
+        pre {
+          padding: 12px 14px;
+          font-size: 10.5px;
+          margin: 16px -0.75rem;
+          width: calc(100% + 1.5rem);
+          border-left: none;
+          border-right: none;
+          border-radius: 0;
+        }
+        pre code {
+          font-size: 10.5px;
+        }
+        .ch-table {
+          font-size: 12px;
+          display: block;
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+        }
+        .ch-table th,
+        .ch-table td {
+          padding: 6px 8px;
+        }
+        .header-fig img {
+          height: 160px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <a class="back" href="index.html">&larr; docs</a>
 
-<a class="back" href="index.html">&larr; docs</a>
+    <div class="memo-head">
+      <h2>1. Email-to-CC-BCC</h2>
+    </div>
 
-<div class="memo-head">
-  <h2>1. Email-to-CC-BCC</h2>
-</div>
+    <figure class="header-fig">
+      <div class="header-stack">
+        <img
+          class="l4"
+          src="https://www.mfab.hu/app/uploads/2023/08/345913.jpg"
+          alt=""
+        />
+        <img
+          class="l3"
+          src="https://www.mfab.hu/app/uploads/2023/08/345913.jpg"
+          alt=""
+        />
+        <img
+          class="l2"
+          src="https://www.mfab.hu/app/uploads/2023/08/345913.jpg"
+          alt=""
+        />
+        <img
+          class="l1"
+          src="https://www.mfab.hu/app/uploads/2023/08/345913.jpg"
+          alt="Marc Chagall"
+        />
+      </div>
+      <figcaption>Marc Chagall.</figcaption>
+    </figure>
 
-<figure class="header-fig">
-  <div class="header-stack">
-    <img class="l4" src="https://www.mfab.hu/app/uploads/2023/08/345913.jpg" alt="">
-    <img class="l3" src="https://www.mfab.hu/app/uploads/2023/08/345913.jpg" alt="">
-    <img class="l2" src="https://www.mfab.hu/app/uploads/2023/08/345913.jpg" alt="">
-    <img class="l1" src="https://www.mfab.hu/app/uploads/2023/08/345913.jpg" alt="Marc Chagall">
-  </div>
-  <figcaption>Marc Chagall.</figcaption>
-</figure>
+    <p class="lede" style="margin-top: 32px">
+      Email-to-CC-BCC is an environment built to evaluate and train models on
+      recipient placement via RLVR (GRPO), using the
+      <a href="https://github.com/saransh-khobragade/verifiers">verifiers</a>
+      framework and t2f-trainer (a slightly adjusted verifiers-rl). The thinking
+      is that the task is a good fit for RL because it has a clear verifiable
+      reward signal (set match against ground truth), structured output (JSON),
+      and enough ambiguity in the CC/BCC split that a model has to reason about
+      roles, sensitivity, and hierarchy rather than pattern match. A synthetic
+      dataset is generated using
+      <a href="https://nvidia-nemo.github.io/DataDesigner/latest/"
+        >NVIDIA NeMo DataDesigner</a
+      >, then used to train Qwen models and compare against OpenAI baselines to
+      gauge what stronger models can do out of the box. The environment supports
+      1, 2, and 3 turn rollouts as a form of curriculum, not increasing
+      difficulty but expanding the number of recipient reassignment decisions
+      the model must handle. Some terminology used throughout comes from
+      verifiers.
+    </p>
 
-<p class="lede" style="margin-top:32px;">Email-to-CC-BCC is an environment built to evaluate and train models on recipient placement via RLVR (GRPO), using the <a href="https://github.com/saransh-khobragade/verifiers">verifiers</a> framework and t2f-trainer (a slightly adjusted verifiers-rl). The thinking is that the task is a good fit for RL because it has a clear verifiable reward signal (set match against ground truth), structured output (JSON), and enough ambiguity in the CC/BCC split that a model has to reason about roles, sensitivity, and hierarchy rather than pattern match. A synthetic dataset is generated using <a href="https://nvidia-nemo.github.io/DataDesigner/latest/">NVIDIA NeMo DataDesigner</a>, then used to train Qwen models and compare against OpenAI baselines to gauge what stronger models can do out of the box. The environment supports 1, 2, and 3 turn rollouts as a form of curriculum, not increasing difficulty but expanding the number of recipient reassignment decisions the model must handle. Some terminology used throughout comes from verifiers.</p>
+    <div class="toc">
+      <a href="#s-task"><span class="toc-num">I</span>Task</a>
+      <a href="#s-dataset"><span class="toc-num">II</span>Dataset</a>
+      <a href="#s-rewards"><span class="toc-num">III</span>Rewards</a>
+      <a href="#s-discussion"><span class="toc-num">IV</span>Results v1</a>
+      <a href="#s-v2"><span class="toc-num">V</span>v2</a>
+      <a href="#s-learnings"><span class="toc-num">VI</span>Learnings</a>
+    </div>
 
-<div class="toc">
-  <a href="#s-task"><span class="toc-num">I</span>Task</a>
-  <a href="#s-dataset"><span class="toc-num">II</span>Dataset</a>
-  <a href="#s-rewards"><span class="toc-num">III</span>Rewards</a>
-  <a href="#s-discussion"><span class="toc-num">IV</span>Results v1</a>
-  <a href="#s-v2"><span class="toc-num">V</span>v2</a>
-  <a href="#s-learnings"><span class="toc-num">VI</span>Learnings</a>
-</div>
-
-
-<!-- ═══════════════════════════════════════════════════════════
+    <!-- ═══════════════════════════════════════════════════════════
      I. TASK
      ═══════════════════════════════════════════════════════════ -->
 
-<h3 id="s-task"><span class="num">I</span>Task</h3>
-<p class="lede">Given 7 people and an email thread, assign each person to To, CC, or BCC. The thread evolves across turns and recipients shift.</p>
+    <h3 id="s-task"><span class="num">I</span>Task</h3>
+    <p class="lede">
+      Given 7 people and an email thread, assign each person to To, CC, or BCC.
+      The thread evolves across turns and recipients shift.
+    </p>
 
-<p>Each row has 7 people with name, email address, and role. The model sees the full roster and an email, then outputs a JSON object placing each relevant person into the correct field. On follow-up turns, a new email arrives in the thread and the model re-evaluates.</p>
+    <p>
+      Each row has 7 people with name, email address, and role. The model sees
+      the full roster and an email, then outputs a JSON object placing each
+      relevant person into the correct field. On follow-up turns, a new email
+      arrives in the thread and the model re-evaluates.
+    </p>
 
-<p><code>load_environment</code> assembles the first prompt from the dataset's <code>email_list</code> and <code>question_1</code> columns:</p>
+    <p>
+      <code>load_environment</code> assembles the first prompt from the
+      dataset's <code>email_list</code> and <code>question_1</code> columns:
+    </p>
 
-<div class="code-block">
-  <span class="code-lang">turn 1</span>
-  <pre><code>You are given an email thread. For each email, assign
+    <div class="code-block">
+      <span class="code-lang">turn 1</span>
+      <pre><code>You are given an email thread. For each email, assign
 the correct To, CC, and BCC recipients. Recipients may
 change between emails as the situation evolves.
 
@@ -332,13 +438,16 @@ a 2-week extension on the Phoenix deliverables...
 
 Reply with JSON only: {<span style="color:#2aa198">"to"</span>: [...], <span style="color:#2aa198">"cc"</span>: [...], <span style="color:#2aa198">"bcc"</span>: [...]}
 Use email addresses, not names.</code></pre>
-</div>
+    </div>
 
-<p>Follow-up turns feed the next email from <code>info["follow_ups"]</code> via <code>env_response</code>:</p>
+    <p>
+      Follow-up turns feed the next email from
+      <code>info["follow_ups"]</code> via <code>env_response</code>:
+    </p>
 
-<div class="code-block">
-  <span class="code-lang">turn 2+</span>
-  <pre><code>Next email in the thread:
+    <div class="code-block">
+      <span class="code-lang">turn 2+</span>
+      <pre><code>Next email in the thread:
 
 Subject: Re: Q3 deadline extension request
 
@@ -346,294 +455,526 @@ Lisa, thanks for looping me in. I've reviewed the timeline
 with the client and can confirm...
 
 Reply with JSON only.</code></pre>
-</div>
+    </div>
 
-<p>Expected output on each turn:</p>
+    <p>Expected output on each turn:</p>
 
-<div class="code-block">
-  <span class="code-lang">json</span>
-  <pre><code>{
+    <div class="code-block">
+      <span class="code-lang">json</span>
+      <pre><code>{
   <span style="color:#268bd2">"to"</span>: [<span style="color:#2aa198">"sarah.chen@acme.com"</span>],
   <span style="color:#268bd2">"cc"</span>: [<span style="color:#2aa198">"mike.t@clientcorp.com"</span>],
   <span style="color:#268bd2">"bcc"</span>: [<span style="color:#2aa198">"lisa.park@acme.com"</span>]
 }</code></pre>
-</div>
+    </div>
 
-<p><code>max_turns</code> controls how many turns the environment runs (1, 2, or 3). The stop condition checks <code>len(trajectory) >= num_turns</code>. Scoring uses Jaccard index per field per turn, averaged across all turns in the rollout.</p>
+    <p>
+      <code>max_turns</code> controls how many turns the environment runs (1, 2,
+      or 3). The stop condition checks
+      <code>len(trajectory) >= num_turns</code>. Scoring uses Jaccard index per
+      field per turn, averaged across all turns in the rollout.
+    </p>
 
-
-<!-- ═══════════════════════════════════════════════════════════
+    <!-- ═══════════════════════════════════════════════════════════
      II. DATASET
      ═══════════════════════════════════════════════════════════ -->
 
-<h3 id="s-dataset"><span class="num">II</span>Dataset</h3>
-<p class="lede">In verifiers, the dataset is the initial prompt of an environment. Each row becomes one rollout, one full trajectory. The framework uses HuggingFace <code>datasets</code> natively, so hosting on HuggingFace and loading via <code>load_dataset</code> is the natural path. That is why this dataset is <a href="https://huggingface.co/datasets/gustofied/email-to-cc-bcc">hosted there</a>.</p>
+    <h3 id="s-dataset"><span class="num">II</span>Dataset</h3>
+    <p class="lede">
+      In verifiers, the dataset is the initial prompt of an environment. Each
+      row becomes one rollout, one full trajectory. The framework uses
+      HuggingFace <code>datasets</code> natively, so hosting on HuggingFace and
+      loading via <code>load_dataset</code> is the natural path. That is why
+      this dataset is
+      <a href="https://huggingface.co/datasets/gustofied/email-to-cc-bcc"
+        >hosted there</a
+      >.
+    </p>
 
-<p>The dataset is a flat parquet with 7 columns. One row is one complete 3-turn scenario:</p>
+    <p>
+      The dataset is a flat parquet with 7 columns. One row is one complete
+      3-turn scenario:
+    </p>
 
-<table class="ch-table">
-  <tr>
-    <th>Column</th>
-    <th>Description</th>
-  </tr>
-  <tr>
-    <td class="mono">email_list</td>
-    <td>The 7 people, always present. Each entry is <code>name &lt;email&gt; - role</code>.</td>
-  </tr>
-  <tr>
-    <td class="mono">question_1</td>
-    <td>Initial email (subject + body). The environment prepends <code>email_list</code> and appends the instruction at runtime.</td>
-  </tr>
-  <tr>
-    <td class="mono">question_2, 3</td>
-    <td>Follow-up replies as the situation evolves (people added, removed, escalation, etc.).</td>
-  </tr>
-  <tr>
-    <td class="mono">answer_1, 2, 3</td>
-    <td>Ground truth JSON: <code>{"to": [...], "cc": [...], "bcc": [...]}</code></td>
-  </tr>
-</table>
+    <table class="ch-table">
+      <tr>
+        <th>Column</th>
+        <th>Description</th>
+      </tr>
+      <tr>
+        <td class="mono">email_list</td>
+        <td>
+          The 7 people, always present. Each entry is
+          <code>name &lt;email&gt; - role</code>.
+        </td>
+      </tr>
+      <tr>
+        <td class="mono">question_1</td>
+        <td>
+          Initial email (subject + body). The environment prepends
+          <code>email_list</code> and appends the instruction at runtime.
+        </td>
+      </tr>
+      <tr>
+        <td class="mono">question_2, 3</td>
+        <td>
+          Follow-up replies as the situation evolves (people added, removed,
+          escalation, etc.).
+        </td>
+      </tr>
+      <tr>
+        <td class="mono">answer_1, 2, 3</td>
+        <td>
+          Ground truth JSON:
+          <code>{"to": [...], "cc": [...], "bcc": [...]}</code>
+        </td>
+      </tr>
+    </table>
 
-<p><code>load_environment</code> reshapes the flat columns into the verifiers format:</p>
+    <p>
+      <code>load_environment</code> reshapes the flat columns into the verifiers
+      format:
+    </p>
 
-<div class="code-block">
-  <span class="code-lang">python</span>
-  <pre><code><span style="color:#2aa198">"prompt"</span>: [{<span style="color:#2aa198">"role"</span>: <span style="color:#2aa198">"user"</span>, <span style="color:#2aa198">"content"</span>: email_list + question_1 + instruction}],
+    <div class="code-block">
+      <span class="code-lang">python</span>
+      <pre><code><span style="color:#2aa198">"prompt"</span>: [{<span style="color:#2aa198">"role"</span>: <span style="color:#2aa198">"user"</span>, <span style="color:#2aa198">"content"</span>: email_list + question_1 + instruction}],
 <span style="color:#2aa198">"info"</span>: {
     <span style="color:#2aa198">"follow_ups"</span>: [question_2, question_3],
     <span style="color:#2aa198">"ground_truths"</span>: [answer_1, answer_2, answer_3],
     <span style="color:#2aa198">"num_turns"</span>: max_turns,
 }</code></pre>
-</div>
+    </div>
 
-<h4 id="s-generation"><span class="sub">a</span>Data Generation</h4>
+    <h4 id="s-generation"><span class="sub">a</span>Data Generation</h4>
 
-<p>A dataset was needed to train on, so <a href="https://nvidia-nemo.github.io/DataDesigner/latest/">DataDesigner</a> was the tool of choice. Below is the thinking behind how the v1 dataset was built. Some of these choices get revisited in later sections as the dataset evolves.</p>
+    <p>
+      A dataset was needed to train on, so
+      <a href="https://nvidia-nemo.github.io/DataDesigner/latest/"
+        >DataDesigner</a
+      >
+      was the tool of choice. Below is the thinking behind how the v1 dataset
+      was built. Some of these choices get revisited in later sections as the
+      dataset evolves.
+    </p>
 
-<ol>
-<li><strong>Sample people</strong> - 7 per row with name, email, role. 2-6 start active, rest are reserve. One company domain per row, one external domain. Roles sampled without replacement.</li>
-<li><strong>Assign recipients per turn</strong> - deterministic. Sensitivity drives BCC, hierarchy drives To vs CC. Changes between turns (escalation, person added, made confidential, etc.) retry if they'd be a no-op.</li>
-<li><strong>LLM writes email content</strong> - given the roster and visible recipients (To/CC only, no BCC), generate realistic email thread. The LLM never sees BCC assignments. v1 used <code>google/gemini-2.5-flash</code> via OpenRouter.</li>
-</ol>
+    <ol>
+      <li>
+        <strong>Sample people</strong> - 7 per row with name, email, role. 2-6
+        start active, rest are reserve. One company domain per row, one external
+        domain. Roles sampled without replacement.
+      </li>
+      <li>
+        <strong>Assign recipients per turn</strong> - deterministic. Sensitivity
+        drives BCC, hierarchy drives To vs CC. Changes between turns
+        (escalation, person added, made confidential, etc.) retry if they'd be a
+        no-op.
+      </li>
+      <li>
+        <strong>LLM writes email content</strong> - given the roster and visible
+        recipients (To/CC only, no BCC), generate realistic email thread. The
+        LLM never sees BCC assignments. v1 used
+        <code>google/gemini-2.5-flash</code> via OpenRouter.
+      </li>
+    </ol>
 
-
-<!-- ═══════════════════════════════════════════════════════════
+    <!-- ═══════════════════════════════════════════════════════════
      IV. REWARDS
      ═══════════════════════════════════════════════════════════ -->
 
-<h3 id="s-rewards"><span class="num">III</span>Rewards</h3>
+    <h3 id="s-rewards"><span class="num">III</span>Rewards</h3>
 
-<p>Verifiers scores the full rollout once at the end. The rubric receives the complete state object, which includes all turns and all ground truths. Each reward function can loop through individual turns, score each one against its ground truth, and average them into a single number. GRPO only sees that final scalar for the entire trajectory, there is no per-turn reward signal to the trainer. But because the state object gives access to all turns, the reward function can bake per-turn correctness into that scalar (e.g. a model that gets turn 1 right but fails turn 3 still gets partial credit). The rubric then combines all functions via weighted sum into one reward for the trainer.</p>
+    <p>
+      Verifiers scores the full rollout once at the end. The rubric receives the
+      complete state object, which includes all turns and all ground truths.
+      Each reward function can loop through individual turns, score each one
+      against its ground truth, and average them into a single number. GRPO only
+      sees that final scalar for the entire trajectory, there is no per-turn
+      reward signal to the trainer. But because the state object gives access to
+      all turns, the reward function can bake per-turn correctness into that
+      scalar (e.g. a model that gets turn 1 right but fails turn 3 still gets
+      partial credit). The rubric then combines all functions via weighted sum
+      into one reward for the trainer.
+    </p>
 
-<table class="ch-table">
-  <tr>
-    <th>Function</th>
-    <th>What</th>
-  </tr>
-  <tr>
-    <td class="mono">to_correct</td>
-    <td>Jaccard on To field</td>
-  </tr>
-  <tr>
-    <td class="mono">cc_correct</td>
-    <td>Jaccard on CC field</td>
-  </tr>
-  <tr>
-    <td class="mono">bcc_correct</td>
-    <td>Jaccard on BCC field</td>
-  </tr>
-</table>
+    <table class="ch-table">
+      <tr>
+        <th>Function</th>
+        <th>What</th>
+      </tr>
+      <tr>
+        <td class="mono">to_correct</td>
+        <td>Jaccard on To field</td>
+      </tr>
+      <tr>
+        <td class="mono">cc_correct</td>
+        <td>Jaccard on CC field</td>
+      </tr>
+      <tr>
+        <td class="mono">bcc_correct</td>
+        <td>Jaccard on BCC field</td>
+      </tr>
+    </table>
 
-<p>Each function averages its score across all expected turns (missing turns count as 0, so a model that stops early is penalized). Jaccard index: <code>|intersection| / |union|</code>, 1.0 if both sets empty. Exception: when GT BCC is empty, empty predictions score 0.2 (small credit) and non-empty predictions score 0.0 (penalizes hallucination), so turns without BCC recipients are not a free point but still lightly regularize against spurious output. Weights are To 0.45, CC 0.45, BCC 0.10. BCC is downweighted because ground truth BCC is empty on ~80% of turns, which inflates the metric without any model skill. The reward signal should come from To and CC where the model actually has to make decisions.</p>
+    <p>
+      Each function averages its score across all expected turns (missing turns
+      count as 0, so a model that stops early is penalized). Jaccard index:
+      <code>|intersection| / |union|</code>, 1.0 if both sets empty. Exception:
+      when GT BCC is empty, empty predictions score 0.2 (small credit) and
+      non-empty predictions score 0.0 (penalizes hallucination), so turns
+      without BCC recipients are not a free point but still lightly regularize
+      against spurious output. Weights are To 0.45, CC 0.45, BCC 0.10. BCC is
+      downweighted because ground truth BCC is empty on ~80% of turns, which
+      inflates the metric without any model skill. The reward signal should come
+      from To and CC where the model actually has to make decisions.
+    </p>
 
-<p><strong>Knobs</strong> (<code>--env-args</code>): <code>max_turns</code> (1, 2, or 3). Slices dataset accordingly.</p>
+    <p>
+      <strong>Knobs</strong> (<code>--env-args</code>):
+      <code>max_turns</code> (1, 2, or 3). Slices dataset accordingly.
+    </p>
 
-<hr class="sep">
+    <hr class="sep" />
 
-
-<!-- ═══════════════════════════════════════════════════════════
+    <!-- ═══════════════════════════════════════════════════════════
      IV. RESULTS V1
      ═══════════════════════════════════════════════════════════ -->
 
-<h3 id="s-discussion"><span class="num">IV</span>Results v1</h3>
+    <h3 id="s-discussion"><span class="num">IV</span>Results v1</h3>
 
-<h4><span class="sub">a</span>Baselines</h4>
+    <h4><span class="sub">a</span>Baselines</h4>
 
-<p>Eval runs against the v1 dataset (3 turns, 3 rollouts per example, Jaccard per field averaged across turns). The n=50 runs are the primary numbers.</p>
+    <p>
+      Eval runs against the v1 dataset (3 turns, 3 rollouts per example, Jaccard
+      per field averaged across turns). The n=50 runs are the primary numbers.
+    </p>
 
-<table class="ch-table">
-  <tr>
-    <th>Model</th>
-    <th>n</th>
-    <th>Reward</th>
-    <th>To</th>
-    <th>CC</th>
-    <th>BCC</th>
-  </tr>
-  <tr>
-    <td class="mono">gpt-4.1-mini</td>
-    <td>10</td>
-    <td>0.443</td>
-    <td>0.722</td>
-    <td>0.367</td>
-    <td>0.238</td>
-  </tr>
-  <tr>
-    <td class="mono">gpt-5</td>
-    <td>10</td>
-    <td>0.435</td>
-    <td>0.628</td>
-    <td><strong>0.427</strong></td>
-    <td>0.250</td>
-  </tr>
-  <tr>
-    <td class="mono">gpt-4.1-mini</td>
-    <td>50</td>
-    <td><strong>0.431</strong></td>
-    <td><strong>0.749</strong></td>
-    <td>0.356</td>
-    <td>0.187</td>
-  </tr>
-  <tr>
-    <td class="mono">claude-sonnet-4.6</td>
-    <td>10</td>
-    <td>0.431</td>
-    <td>0.655</td>
-    <td>0.389</td>
-    <td>0.250</td>
-  </tr>
-  <tr>
-    <td class="mono">gpt-4.1-mini</td>
-    <td>10</td>
-    <td>0.429</td>
-    <td>0.712</td>
-    <td>0.342</td>
-    <td>0.234</td>
-  </tr>
-  <tr>
-    <td class="mono">intellect-3</td>
-    <td>10</td>
-    <td>0.420</td>
-    <td>0.643</td>
-    <td>0.369</td>
-    <td>0.250</td>
-  </tr>
-  <tr>
-    <td class="mono">qwen3-30b-a3b-thinking</td>
-    <td>10</td>
-    <td>0.408</td>
-    <td>0.633</td>
-    <td>0.339</td>
-    <td>0.250</td>
-  </tr>
-  <tr>
-    <td class="mono">deepseek-r1-0528</td>
-    <td>10</td>
-    <td>0.384</td>
-    <td>0.615</td>
-    <td>0.288</td>
-    <td>0.250</td>
-  </tr>
-  <tr>
-    <td class="mono">qwen3-30b-a3b-instruct</td>
-    <td>50</td>
-    <td>0.377</td>
-    <td>0.662</td>
-    <td>0.304</td>
-    <td>0.164</td>
-  </tr>
-  <tr>
-    <td class="mono">qwen3-30b-a3b-instruct</td>
-    <td>10</td>
-    <td>0.348</td>
-    <td>0.493</td>
-    <td>0.320</td>
-    <td>0.230</td>
-  </tr>
-</table>
+    <table class="ch-table">
+      <tr>
+        <th>Model</th>
+        <th>n</th>
+        <th>Reward</th>
+        <th>To</th>
+        <th>CC</th>
+        <th>BCC</th>
+      </tr>
+      <tr>
+        <td class="mono">gpt-4.1-mini</td>
+        <td>10</td>
+        <td>0.443</td>
+        <td>0.722</td>
+        <td>0.367</td>
+        <td>0.238</td>
+      </tr>
+      <tr>
+        <td class="mono">gpt-5</td>
+        <td>10</td>
+        <td>0.435</td>
+        <td>0.628</td>
+        <td><strong>0.427</strong></td>
+        <td>0.250</td>
+      </tr>
+      <tr>
+        <td class="mono">gpt-4.1-mini</td>
+        <td>50</td>
+        <td><strong>0.431</strong></td>
+        <td><strong>0.749</strong></td>
+        <td>0.356</td>
+        <td>0.187</td>
+      </tr>
+      <tr>
+        <td class="mono">claude-sonnet-4.6</td>
+        <td>10</td>
+        <td>0.431</td>
+        <td>0.655</td>
+        <td>0.389</td>
+        <td>0.250</td>
+      </tr>
+      <tr>
+        <td class="mono">gpt-4.1-mini</td>
+        <td>10</td>
+        <td>0.429</td>
+        <td>0.712</td>
+        <td>0.342</td>
+        <td>0.234</td>
+      </tr>
+      <tr>
+        <td class="mono">intellect-3</td>
+        <td>10</td>
+        <td>0.420</td>
+        <td>0.643</td>
+        <td>0.369</td>
+        <td>0.250</td>
+      </tr>
+      <tr>
+        <td class="mono">qwen3-30b-a3b-thinking</td>
+        <td>10</td>
+        <td>0.408</td>
+        <td>0.633</td>
+        <td>0.339</td>
+        <td>0.250</td>
+      </tr>
+      <tr>
+        <td class="mono">deepseek-r1-0528</td>
+        <td>10</td>
+        <td>0.384</td>
+        <td>0.615</td>
+        <td>0.288</td>
+        <td>0.250</td>
+      </tr>
+      <tr>
+        <td class="mono">qwen3-30b-a3b-instruct</td>
+        <td>50</td>
+        <td>0.377</td>
+        <td>0.662</td>
+        <td>0.304</td>
+        <td>0.164</td>
+      </tr>
+      <tr>
+        <td class="mono">qwen3-30b-a3b-instruct</td>
+        <td>10</td>
+        <td>0.348</td>
+        <td>0.493</td>
+        <td>0.320</td>
+        <td>0.230</td>
+      </tr>
+    </table>
 
-<p>Every model lands between 0.35 and 0.44. GPT-5, Claude 4.6, DeepSeek R1, they all hit the same ceiling. This is not a model problem, it is a data ceiling. To is the only field with real variance (0.63-0.75). CC is stuck around 0.3 for everyone. BCC clusters at 0.25 for the n=10 runs (an artifact of small sample + the 0.5-for-empty-empty hack) and drops to 0.16-0.19 at n=50, meaning models almost never attempt BCC.</p>
+    <p>
+      Every model lands between 0.35 and 0.44. GPT-5, Claude 4.6, DeepSeek R1,
+      they all hit the same ceiling. This is not a model problem, it is a data
+      ceiling. To is the only field with real variance (0.63-0.75). CC is stuck
+      around 0.3 for everyone. BCC clusters at 0.25 for the n=10 runs (an
+      artifact of small sample + the 0.5-for-empty-empty hack) and drops to
+      0.16-0.19 at n=50, meaning models almost never attempt BCC.
+    </p>
 
-<p>The gap between Qwen 30B instruct (0.377) and GPT-4.1-mini (0.431) is the space RL would need to close. That gap is real but small, and the ceiling is low. Training on this data would push Qwen toward 0.43 by learning the same surface heuristics frontier models use, but 0.43 is the ceiling with this dataset.</p>
+    <p>
+      The gap between Qwen 30B instruct (0.377) and GPT-4.1-mini (0.431) is the
+      space RL would need to close. That gap is real but small, and the ceiling
+      is low. Training on this data would push Qwen toward 0.43 by learning the
+      same surface heuristics frontier models use, but 0.43 is the ceiling with
+      this dataset.
+    </p>
 
-<p>Looking at individual rollouts, the models are often more correct than the ground truth. Claude Sonnet 4.6 on a complaint email: correctly places the addressee in To, all mentioned stakeholders in CC, empty BCC. Reasoning is sound ("this is a formal complaint where transparency among all parties is important"). The ground truth disagrees on one CC entry because the shuffle happened to assign it differently. DeepSeek R1 on a vendor update: excludes a person from CC because "her support has already been secured," a reasonable reading of the email. The ground truth includes her anyway. In both cases the model is doing better email reasoning than the labels. Training with RL on these labels would push models <em>away</em> from good judgment and <em>toward</em> matching random assignments.</p>
+    <p>
+      Looking at individual rollouts, the models are often more correct than the
+      ground truth. Claude Sonnet 4.6 on a complaint email: correctly places the
+      addressee in To, all mentioned stakeholders in CC, empty BCC. Reasoning is
+      sound ("this is a formal complaint where transparency among all parties is
+      important"). The ground truth disagrees on one CC entry because the
+      shuffle happened to assign it differently. DeepSeek R1 on a vendor update:
+      excludes a person from CC because "her support has already been secured,"
+      a reasonable reading of the email. The ground truth includes her anyway.
+      In both cases the model is doing better email reasoning than the labels.
+      Training with RL on these labels would push models <em>away</em> from good
+      judgment and <em>toward</em> matching random assignments.
+    </p>
 
-<h4><span class="sub">b</span>Why the Ceiling is Low</h4>
+    <h4><span class="sub">b</span>Why the Ceiling is Low</h4>
 
-<p><code>distribute_emails()</code> shuffles active people before assigning To and CC. The ground truth split comes from a random shuffle, not from the email content. The model has some signal (who is addressed, who is asked to act), but it cannot fully recover a random permutation. BCC is also noisy: sensitivity controls <em>whether</em> people go to BCC, but <em>who</em> goes there is still drawn from shuffled active participants. Active people who are greeted in the email can end up in BCC, which is why 75% of BCC recipients appear in the text.</p>
+    <p>
+      <code>distribute_emails()</code> shuffles active people before assigning
+      To and CC. The ground truth split comes from a random shuffle, not from
+      the email content. The model has some signal (who is addressed, who is
+      asked to act), but it cannot fully recover a random permutation. BCC is
+      also noisy: sensitivity controls <em>whether</em> people go to BCC, but
+      <em>who</em> goes there is still drawn from shuffled active participants.
+      Active people who are greeted in the email can end up in BCC, which is why
+      75% of BCC recipients appear in the text.
+    </p>
 
-<p>With the rubric at equal 1/3 weights, two-thirds of the reward signal that GRPO uses to rank rollouts is driven by noise the model cannot learn from, leaving BCC as the only clean signal at 1/3 weight.</p>
+    <p>
+      With the rubric at equal 1/3 weights, two-thirds of the reward signal that
+      GRPO uses to rank rollouts is driven by noise the model cannot learn from,
+      leaving BCC as the only clean signal at 1/3 weight.
+    </p>
 
-<h4><span class="sub">c</span>Rubric Fix (Second-Order)</h4>
+    <h4><span class="sub">c</span>Rubric Fix (Second-Order)</h4>
 
-<p>One option without regenerating data: replace the three-way rubric with <code>visible_correct</code> (Jaccard on To &cup; CC) + <code>bcc_correct</code> + <code>format_correct</code> (valid JSON). Drop individual To/CC scoring. This would get a reward curve going up, but collapsing To and CC into a single visible set is reward shaping for something the model is not actually learning to distinguish. The reward goes up, but the underlying capability is not being trained. Useful to get a first run going, but it should not be mistaken for the real thing. If the goal were just to get learning signal without regenerating data, this is the quickest path, but it is not the option to go for.</p>
+    <p>
+      One option without regenerating data: replace the three-way rubric with
+      <code>visible_correct</code> (Jaccard on To &cup; CC) +
+      <code>bcc_correct</code> + <code>format_correct</code> (valid JSON). Drop
+      individual To/CC scoring. This would get a reward curve going up, but
+      collapsing To and CC into a single visible set is reward shaping for
+      something the model is not actually learning to distinguish. The reward
+      goes up, but the underlying capability is not being trained. Useful to get
+      a first run going, but it should not be mistaken for the real thing. If
+      the goal were just to get learning signal without regenerating data, this
+      is the quickest path, but it is not the option to go for.
+    </p>
 
-<h4><span class="sub">d</span>Data Fix (The Real One)</h4>
+    <h4><span class="sub">d</span>Data Fix (The Real One)</h4>
 
-<p>Replace the shuffle with deterministic rules. The person being asked to act goes to To (picked by scenario-to-role priority), managers and stakeholders go to CC (shaped by hierarchy), compliance observers from reserve go to BCC (when sensitivity is high). Active participants never end up in BCC. This makes the exact To/CC/BCC split derivable from the observation. The LLM generation prompts also need tightening: BCC people should not appear in the email text at all.</p>
+    <p>
+      Replace the shuffle with deterministic rules. The person being asked to
+      act goes to To (picked by scenario-to-role priority), managers and
+      stakeholders go to CC (shaped by hierarchy), compliance observers from
+      reserve go to BCC (when sensitivity is high). Active participants never
+      end up in BCC. This makes the exact To/CC/BCC split derivable from the
+      observation. The LLM generation prompts also need tightening: BCC people
+      should not appear in the email text at all.
+    </p>
 
-<h4><span class="sub">e</span>Known Data Issues</h4>
+    <h4><span class="sub">e</span>Known Data Issues</h4>
 
-<p>Looking at the v1 parquet (5,000 rows):</p>
+    <p>Looking at the v1 parquet (5,000 rows):</p>
 
-<ul>
-<li><strong>BCC recipients mentioned in email text (75%).</strong> The generating LLM was given only visible recipients (To/CC) as a hint, but it mentions BCC people by full name 75% of the time anyway (non-BCC: 64.5%). 1.9% of rows have BCC people directly addressed or greeted.</li>
-<li><strong>Q2 near-duplicates of Q1 (~2%).</strong> 0.8% verbatim, 2.3% sharing the first 100 characters. Answers still differ across turns, but the thread does not evolve for these rows.</li>
-<li><strong>No field overlap.</strong> To/BCC and CC/BCC overlap is 0% across all turns.</li>
-</ul>
+    <ul>
+      <li>
+        <strong>BCC recipients mentioned in email text (75%).</strong> The
+        generating LLM was given only visible recipients (To/CC) as a hint, but
+        it mentions BCC people by full name 75% of the time anyway (non-BCC:
+        64.5%). 1.9% of rows have BCC people directly addressed or greeted.
+      </li>
+      <li>
+        <strong>Q2 near-duplicates of Q1 (~2%).</strong> 0.8% verbatim, 2.3%
+        sharing the first 100 characters. Answers still differ across turns, but
+        the thread does not evolve for these rows.
+      </li>
+      <li>
+        <strong>No field overlap.</strong> To/BCC and CC/BCC overlap is 0%
+        across all turns.
+      </li>
+    </ul>
 
-<p>A check script lives at <code>nuggets/email-to-cc-bcc/check_data.py</code>.</p>
+    <p>
+      A check script lives at
+      <code>nuggets/email-to-cc-bcc/check_data.py</code>.
+    </p>
 
-<h4><span class="sub">f</span>Email Format</h4>
+    <h4><span class="sub">f</span>Email Format</h4>
 
-<p>v1 uses a bare plain-text layout (Subject + body). v2 should add <code>Date:</code> and <code>From:</code> headers to make the emails look like actual emails, without including <code>To:</code>/<code>CC:</code>/<code>BCC:</code> (since that is what the model has to figure out).</p>
+    <p>
+      v1 uses a bare plain-text layout (Subject + body). v2 should add
+      <code>Date:</code> and <code>From:</code> headers to make the emails look
+      like actual emails, without including
+      <code>To:</code>/<code>CC:</code>/<code>BCC:</code> (since that is what
+      the model has to figure out).
+    </p>
 
-<hr class="sep">
+    <hr class="sep" />
 
-
-<!-- ═══════════════════════════════════════════════════════════
+    <!-- ═══════════════════════════════════════════════════════════
      V. V2
      ═══════════════════════════════════════════════════════════ -->
 
-<h3 id="s-v2"><span class="num">V</span>v2</h3>
+    <h3 id="s-v2"><span class="num">V</span>v2</h3>
 
-<h4><span class="sub">a</span>Changes</h4>
+    <h4><span class="sub">a</span>Changes</h4>
 
-<p>v2 rewrites the data generation pipeline to fix the noise problems identified in v1. The core changes:</p>
+    <p>
+      v2 rewrites the data generation pipeline to fix the noise problems
+      identified in v1. The core changes:
+    </p>
 
-<ul>
-  <li><b>Sender exclusion.</b> The sender is picked first and removed from all recipient fields. If removing the sender empties To, the first CC person gets promoted.</li>
-  <li><b>Deterministic routing.</b> To/CC/BCC assignment is based on role priority, not random shuffle. Two separate maps: <code>ACTION_PRIORITY</code> (lower number = more likely action owner, used for To selection) and <code>SENIORITY</code> (higher number = more senior, used for sender selection and "upward" promotion). Using one scale for both was brittle because action ownership and organizational rank do not align.</li>
-  <li><b>BCC from reserve only.</b> Active participants never go to BCC. Compliance mode pulls Legal/HR/Finance from the reserve pool. Broadcast mode moves all external contacts to BCC for privacy, keeping To and CC internal-only.</li>
-  <li><b>Mode/audience coupling.</b> Broadcast mode requires an external audience (with_client, with_vendor, etc.). If the sampled audience is internal-only, mode flips to normal. Without this, broadcast becomes random text decoration with empty BCC and the model cannot learn anything from it.</li>
-  <li><b>Primary action owner in prompt.</b> The LLM prompt includes a "primary action owner" field pointing to the To person. The email must explicitly task or address that person. This closes the learnability gap where v1 labels were deterministic but the email text did not consistently imply the To choice.</li>
-  <li><b>Mentionable-names-only.</b> The LLM prompt only lists To+CC recipients. BCC names are hidden from the generation prompt entirely, so the model cannot leak them into the email text.</li>
-  <li><b>Monotonic timestamps.</b> Each reply is dated after the previous one.</li>
-</ul>
+    <ul>
+      <li>
+        <b>Sender exclusion.</b> The sender is picked first and removed from all
+        recipient fields. If removing the sender empties To, the first CC person
+        gets promoted.
+      </li>
+      <li>
+        <b>Deterministic routing.</b> To/CC/BCC assignment is based on role
+        priority, not random shuffle. Two separate maps:
+        <code>ACTION_PRIORITY</code> (lower number = more likely action owner,
+        used for To selection) and <code>SENIORITY</code> (higher number = more
+        senior, used for sender selection and "upward" promotion). Using one
+        scale for both was brittle because action ownership and organizational
+        rank do not align.
+      </li>
+      <li>
+        <b>BCC from reserve only.</b> Active participants never go to BCC.
+        Compliance mode pulls Legal/HR/Finance from the reserve pool. Broadcast
+        mode moves all external contacts to BCC for privacy, keeping To and CC
+        internal-only.
+      </li>
+      <li>
+        <b>Mode/audience coupling.</b> Broadcast mode requires an external
+        audience (with_client, with_vendor, etc.). If the sampled audience is
+        internal-only, mode flips to normal. Without this, broadcast becomes
+        random text decoration with empty BCC and the model cannot learn
+        anything from it.
+      </li>
+      <li>
+        <b>Primary action owner in prompt.</b> The LLM prompt includes a
+        "primary action owner" field pointing to the To person. The email must
+        explicitly task or address that person. This closes the learnability gap
+        where v1 labels were deterministic but the email text did not
+        consistently imply the To choice.
+      </li>
+      <li>
+        <b>Mentionable-names-only.</b> The LLM prompt only lists To+CC
+        recipients. BCC names are hidden from the generation prompt entirely, so
+        the model cannot leak them into the email text.
+      </li>
+      <li>
+        <b>Monotonic timestamps.</b> Each reply is dated after the previous one.
+      </li>
+    </ul>
 
-<h4><span class="sub">b</span>Validation</h4>
+    <h4><span class="sub">b</span>Validation</h4>
 
-<p>A post-generation validator rejects rows where: the sender appears in any answer field, BCC names (full or first name) appear in the email text, non-mentionable roster names appear in the text, any field overlap exists, To is empty, or a broadcast/compliance cue is present but BCC is empty.</p>
+    <p>
+      A post-generation validator rejects rows where: the sender appears in any
+      answer field, BCC names (full or first name) appear in the email text,
+      non-mentionable roster names appear in the text, any field overlap exists,
+      To is empty, or a broadcast/compliance cue is present but BCC is empty.
+    </p>
 
-<p>When generating synthetic data with LLMs, it is usually cheaper and more reliable to over-generate and then filter with a strict validator than to try to prompt away every failure mode. LLMs will occasionally ignore constraints, drift, or hallucinate details. If you can encode the invariants you actually care about (schema, allowed entities, cue presence, no contradictions) as fast deterministic checks, generate more, validate hard, and keep only what passes. Monitor rejection rates to avoid skewing the distribution.</p>
+    <p>
+      When generating synthetic data with LLMs, it is usually cheaper and more
+      reliable to over-generate and then filter with a strict validator than to
+      try to prompt away every failure mode. LLMs will occasionally ignore
+      constraints, drift, or hallucinate details. If you can encode the
+      invariants you actually care about (schema, allowed entities, cue
+      presence, no contradictions) as fast deterministic checks, generate more,
+      validate hard, and keep only what passes. Monitor rejection rates to avoid
+      skewing the distribution.
+    </p>
 
-<h4><span class="sub">c</span>New dataset</h4>
+    <h4><span class="sub">c</span>New dataset</h4>
 
-<ul>
-  <li>Target ~5000 validated rows after filtering (generated 7500, validator rejects noise).</li>
-  <li>3-turn multi-turn conversations with monotonic dates.</li>
-  <li>Mbox-style email format with <code>Date:</code> and <code>From:</code> headers, replacing v1's bare plain-text layout.</li>
-  <li>Sender excluded from all answer fields. No BCC name leakage in email text.</li>
-  <li>To recipient is always explicitly tasked or addressed in the email body.</li>
-  <li>BCC is only compliance (Legal/HR/Finance from reserve) or broadcast (all externals). Never random.</li>
-  <li>Rubric reweighted to To 0.45, CC 0.45, BCC 0.10. BCC on empty-GT turns: 0.2 for correct empty, 0.0 for spurious non-empty. Non-empty GT uses standard Jaccard.</li>
-</ul>
+    <ul>
+      <li>
+        Target ~5000 validated rows after filtering (generated 7500, validator
+        rejects noise).
+      </li>
+      <li>3-turn multi-turn conversations with monotonic dates.</li>
+      <li>
+        Mbox-style email format with <code>Date:</code> and
+        <code>From:</code> headers, replacing v1's bare plain-text layout.
+      </li>
+      <li>
+        Sender excluded from all answer fields. No BCC name leakage in email
+        text.
+      </li>
+      <li>
+        To recipient is always explicitly tasked or addressed in the email body.
+      </li>
+      <li>
+        BCC is only compliance (Legal/HR/Finance from reserve) or broadcast (all
+        externals). Never random.
+      </li>
+      <li>
+        Rubric reweighted to To 0.45, CC 0.45, BCC 0.10. BCC on empty-GT turns:
+        0.2 for correct empty, 0.0 for spurious non-empty. Non-empty GT uses
+        standard Jaccard.
+      </li>
+    </ul>
 
-<h4><span class="sub">d</span>Actual new dataset</h4>
+    <h4><span class="sub">d</span>Actual new dataset</h4>
 
-<p>Generated 7500 rows and ran <code>validate_row()</code> to filter. 4991 passed (33.5% rejection rate). The validator checks per turn: To not empty, no field overlap, BCC names not in email text, sender not in any answer field, only mentionable names in text, and broadcast/compliance cue implies non-empty BCC.</p>
+    <p>
+      Generated 7500 rows and ran <code>validate_row()</code> to filter. 4991
+      passed (33.5% rejection rate). The validator checks per turn: To not
+      empty, no field overlap, BCC names not in email text, sender not in any
+      answer field, only mentionable names in text, and broadcast/compliance cue
+      implies non-empty BCC.
+    </p>
 
-<pre><code><span style="color:#859900">def</span> <span style="color:#268BD2">validate_row</span>(row):
+    <pre><code><span style="color:#859900">def</span> <span style="color:#268BD2">validate_row</span>(row):
     <span style="color:#859900">for</span> turn <span style="color:#859900">in</span> [<span style="color:#2AA198">1</span>, <span style="color:#2AA198">2</span>, <span style="color:#2AA198">3</span>]:
         answer = json.loads(row[<span style="color:#2AA198">f"answer_{turn}"</span>])
         question = row[<span style="color:#2AA198">f"question_{turn}"</span>]
@@ -656,46 +997,263 @@ Reply with JSON only.</code></pre>
             <span style="color:#859900">return</span> <span style="color:#268BD2">False</span>
     <span style="color:#859900">return</span> <span style="color:#268BD2">True</span></code></pre>
 
-<pre><code>Before: 7500 rows
+    <pre><code>Before: 7500 rows
 Rejected: 2509 (33.5%)
 After: 4991 rows</code></pre>
 
-<p>Quality check on the final 4991 rows:</p>
+    <p>Quality check on the final 4991 rows:</p>
 
-<pre><code>Q2 == Q1 verbatim:        0 (0.0%)
+    <pre><code>Q2 == Q1 verbatim:        0 (0.0%)
 BCC name in email text:   0/4243 (0.0%)
 non-BCC name in text:     28057/28336 (99.0%)
 BCC directly addressed:   8 (0.1% of rows)
 To/BCC overlap:           0
 CC/BCC overlap:           0</code></pre>
 
-<h4><span class="sub">e</span>Takeaways</h4>
+    <h4><span class="sub">e</span>Takeaways</h4>
 
-<p><b>Split architecture.</b> Deterministic code handles ground truth routing, the LLM handles natural language content. Trying to make the LLM do both (v1 with random shuffle for routing) is where noise enters. Keep the verifiable part in code.</p>
+    <p>
+      <b>Split architecture.</b> Deterministic code handles ground truth
+      routing, the LLM handles natural language content. Trying to make the LLM
+      do both (v1 with random shuffle for routing) is where noise enters. Keep
+      the verifiable part in code.
+    </p>
 
-<p><b>Independent sampling of correlated dimensions breaks things.</b> Mode and audience were sampled independently, which created broadcast mode with no externals. Any time two sampled variables have a logical dependency, either couple the sampling or fix it downstream.</p>
+    <p>
+      <b>Independent sampling of correlated dimensions breaks things.</b> Mode
+      and audience were sampled independently, which created broadcast mode with
+      no externals. Any time two sampled variables have a logical dependency,
+      either couple the sampling or fix it downstream.
+    </p>
 
-<p><b>Deterministic labels are necessary but not sufficient.</b> v1's problem was random routing. But even after fixing that, the text still did not imply the To choice. The model needs the email to actually task the To person, otherwise the mapping from text to label is not learnable. Injecting "primary action owner" into the generation prompt closes that gap.</p>
+    <p>
+      <b>Deterministic labels are necessary but not sufficient.</b> v1's problem
+      was random routing. But even after fixing that, the text still did not
+      imply the To choice. The model needs the email to actually task the To
+      person, otherwise the mapping from text to label is not learnable.
+      Injecting "primary action owner" into the generation prompt closes that
+      gap.
+    </p>
 
-<p><b>One priority scale for two concepts fails.</b> Action ownership (who does the work) and seniority (who has authority) are different axes. Junior engineers do the work, VPs send the emails. Conflating them into one number creates contradictions. Split into <code>ACTION_PRIORITY</code> and <code>SENIORITY</code>.</p>
+    <p>
+      <b>One priority scale for two concepts fails.</b> Action ownership (who
+      does the work) and seniority (who has authority) are different axes.
+      Junior engineers do the work, VPs send the emails. Conflating them into
+      one number creates contradictions. Split into
+      <code>ACTION_PRIORITY</code> and <code>SENIORITY</code>.
+    </p>
 
-<p><b>Ceiling test before training.</b> Running frontier models (GPT-5, Claude 4.6) on v1 and seeing them all hit the same ~0.44 wall confirmed the problem was data, not model capability. Saved GPU hours that would have been wasted on bad data.</p>
+    <p>
+      <b>Ceiling test before training.</b> Running frontier models (GPT-5,
+      Claude 4.6) on v1 and seeing them all hit the same ~0.44 wall confirmed
+      the problem was data, not model capability. Saved GPU hours that would
+      have been wasted on bad data.
+    </p>
 
-<p><b>BCC is a hidden-information problem.</b> The model must infer BCC from contextual cues (confidentiality phrases, broadcast language) rather than from who is mentioned. That makes it fundamentally harder than To/CC and explains why BCC scores were consistently lowest across all baselines.</p>
+    <p>
+      <b>BCC is a hidden-information problem.</b> The model must infer BCC from
+      contextual cues (confidentiality phrases, broadcast language) rather than
+      from who is mentioned. That makes it fundamentally harder than To/CC and
+      explains why BCC scores were consistently lowest across all baselines.
+    </p>
 
-<h4><span class="sub">f</span>Evaluation stage</h4>
+    <h4><span class="sub">f</span>Evaluation stage</h4>
 
-<p>First v2 evals (GPT-4.1-mini, GPT-5, equal 1/3 weights) showed reward ~0.59, up from ~0.44 on v1. But bcc_correct at ~0.8 was misleading: ground truth BCC is empty on 80% of turns, and models predict empty BCC 98% of the time. They scored high by doing nothing. Fixed by reweighting to To 0.45, CC 0.45, BCC 0.10 and scoring BCC empty/empty as 0.0.</p>
+    <p>
+      First v2 evals (GPT-4.1-mini, GPT-5, equal 1/3 weights) showed reward
+      ~0.59, up from ~0.44 on v1. But bcc_correct at ~0.8 was misleading: ground
+      truth BCC is empty on 80% of turns, and models predict empty BCC 98% of
+      the time. They scored high by doing nothing. Fixed by reweighting to To
+      0.45, CC 0.45, BCC 0.10 and scoring BCC empty/empty as 0.0.
+    </p>
 
-<p>Scoring BCC empty/empty as 0.0 would not incentivize hallucinating BCC, because on empty-GT turns both empty and non-empty predictions receive 0.0. However, it also removes any reward signal that discourages spurious BCC on those turns, making the BCC objective sparse (only informative on non-empty-GT turns). To keep outputs clean without letting BCC dominate the total reward, a small regularizer is used instead: empty/empty scores 0.2 (tiny credit for correctly leaving BCC empty), non-empty when GT is empty scores 0.0 (no credit for hallucinating). Non-empty GT turns use standard Jaccard. With BCC weighted at 0.10, the regularizer contributes at most 0.02 to the total reward per turn.</p>
+    <p>
+      Scoring BCC empty/empty as 0.0 would not incentivize hallucinating BCC,
+      because on empty-GT turns both empty and non-empty predictions receive
+      0.0. However, it also removes any reward signal that discourages spurious
+      BCC on those turns, making the BCC objective sparse (only informative on
+      non-empty-GT turns). To keep outputs clean without letting BCC dominate
+      the total reward, a small regularizer is used instead: empty/empty scores
+      0.2 (tiny credit for correctly leaving BCC empty), non-empty when GT is
+      empty scores 0.0 (no credit for hallucinating). Non-empty GT turns use
+      standard Jaccard. With BCC weighted at 0.10, the regularizer contributes
+      at most 0.02 to the total reward per turn.
+    </p>
 
-<h3 id="s-learnings"><span class="num">VI</span>Learnings</h3>
+    <p>
+      The n=50 run on GPT-4.1-mini (v0.1.7) gives a clearer picture. 150
+      rollouts, 450 turns total.
+    </p>
 
-<p><b>How <code>load_environment</code> receives arguments.</b> The verifiers framework calls <code>load_environment(env_id=..., **env_args)</code> where <code>env_args</code> comes from the CLI or config file. Any keyword argument defined in <code>load_environment</code> - like <code>max_turns</code>, <code>dataset_name</code>, or <code>dataset_split</code> - can be overridden at eval time without touching the environment code. The <code>**kwargs</code> catch-all absorbs anything extra the framework passes. This means the same environment supports single-turn eval (<code>max_turns=1</code>) or full 3-turn threads (<code>max_turns=3</code>) just by changing the CLI invocation. The environment itself does not need separate single-turn and multi-turn implementations.</p>
+    <table class="ch-table">
+      <tr>
+        <th>Turn</th>
+        <th>To</th>
+        <th>CC</th>
+        <th>BCC</th>
+      </tr>
+      <tr>
+        <td>1</td>
+        <td>0.594</td>
+        <td>0.415</td>
+        <td>0.134</td>
+      </tr>
+      <tr>
+        <td>2</td>
+        <td>0.662</td>
+        <td>0.426</td>
+        <td>0.122</td>
+      </tr>
+      <tr>
+        <td>3</td>
+        <td><b>0.794</b></td>
+        <td>0.279</td>
+        <td>0.124</td>
+      </tr>
+    </table>
 
-<div class="colophon">
-  <p>EMAIL-TO-CC-BCC</p>
-</div>
+    <p>
+      To gets better across turns. Later emails tend to have a single clear
+      action owner, so it is easier to get right. CC goes the other direction,
+      collapsing at turn 3 (86 of 150 rollouts score zero CC on the final turn).
+      The model simplifies by dumping everyone into To and leaving CC empty.
+    </p>
 
-</body>
+    <table class="ch-table">
+      <tr>
+        <th>Pattern</th>
+        <th>Count</th>
+        <th>% of turns</th>
+      </tr>
+      <tr>
+        <td>CC recipient put in To</td>
+        <td>182</td>
+        <td>40%</td>
+      </tr>
+      <tr>
+        <td>Too many in To (3+ when GT has 2 or fewer)</td>
+        <td>107</td>
+        <td>24%</td>
+      </tr>
+      <tr>
+        <td>CC recipients missed entirely</td>
+        <td>99</td>
+        <td>22%</td>
+      </tr>
+      <tr>
+        <td>Sender included as recipient</td>
+        <td>70</td>
+        <td>16%</td>
+      </tr>
+      <tr>
+        <td>Action owner demoted to CC</td>
+        <td>42</td>
+        <td>9%</td>
+      </tr>
+    </table>
+
+    <p>
+      The number one problem is To/CC confusion. 40% of all turns have a CC
+      recipient placed in To instead. The model knows who should be on the
+      email, it just does not distinguish between "must act" and "kept in the
+      loop." The sender-as-recipient error is interesting too: the model
+      includes the email sender (usually in CC) 16% of the time, which is always
+      wrong in the ground truth.
+    </p>
+
+    <p>
+      On BCC: 60% of turns have empty GT, 40% have non-empty. When GT is empty
+      the model correctly predicts empty 97% of the time. When GT is non-empty
+      the model misses it 96% of the time (mean score 0.026). It essentially
+      never predicts BCC. This caps the maximum achievable reward at 0.900 even
+      with perfect To and CC.
+    </p>
+
+    <p>
+      Errors are also deterministic. 11 of 50 examples have near-zero variance
+      across 3 rollouts. The model gives the same answer every time. The hardest
+      example scores 0.118 and fails identically all 3 rollouts. This is good
+      news for training: the mistakes are systematic, not random, so GRPO has
+      patterns to push against.
+    </p>
+
+    <p>
+      The real question is whether this environment is trainable at all.
+      Frontier models top out around 0.45 reward, and the gap between them and
+      smaller models is narrow. The remaining errors are not from lack of
+      capability but from ambiguity: "reply-to bias" (models put the person
+      being replied to in To instead of the action owner) and "all-in-To"
+      (dumping everyone into To, leaving CC empty), both of which are valid
+      email styles that just disagree with the dataset's policy. The next step
+      is to eval a very small model (Qwen 3B or 0.5B). If it scores around 0.10,
+      there is headroom to train it up toward 0.4 with GRPO. If even small
+      models score 0.3+, the task is too easy or too ambiguous for RL to add
+      value, and the environment needs more work before training makes sense.
+    </p>
+
+    <p>
+      BCC carries no signal regardless: all models score ~0.16 no matter the
+      size, just the regularizer on empty-GT turns. At weight 0.10 that is
+      ~0.016 to total reward. Any training signal has to come from To and CC.
+    </p>
+
+    <p>
+      Building environments like this one is harder than it looks. The task is
+      not just "pick the right recipients." There is reasoning behind where to
+      put people, and that reasoning is not well-defined. There is email
+      etiquette, sure, but there is no universal rule for what goes in To vs CC.
+      It depends on the company, its culture, whether "To" means "action owner"
+      or just "the person you are replying to." Different organizations do it
+      differently. So the environment is trying to teach a policy that does not
+      really exist as a single ground truth, which is why even frontier models
+      disagree with the labels in reasonable ways.
+    </p>
+
+    <p>
+      This environment has been a solid learning exercise for building RLVR
+      pipelines: data generation, scoring, rubric design, eval tooling. But for
+      actual training it probably needs either a prompt contract or a data regen
+      that makes the action-owner distinction unambiguous in the email text.
+      Without that, the reward signal is too noisy for the model to learn the
+      right thing. It might be too ambiguous as it stands, and maybe the move is
+      to come back to this environment later with a clearer policy baked into
+      the data. But first, let's see what a smaller model (Qwen 3B or 0.5B) can
+      do. If there is real headroom, it is still worth a training run.
+    </p>
+
+    <h3 id="s-learnings"><span class="num">VI</span>Learnings</h3>
+
+    <p>
+      <b>How <code>load_environment</code> receives arguments.</b> The verifiers
+      framework calls
+      <code>load_environment(env_id=..., **env_args)</code> where
+      <code>env_args</code> comes from the CLI or config file. Any keyword
+      argument defined in <code>load_environment</code> - like
+      <code>max_turns</code>, <code>dataset_name</code>, or
+      <code>dataset_split</code> - can be overridden at eval time without
+      touching the environment code. The <code>**kwargs</code> catch-all absorbs
+      anything extra the framework passes. This means the same environment
+      supports single-turn eval (<code>max_turns=1</code>) or full 3-turn
+      threads (<code>max_turns=3</code>) just by changing the CLI invocation.
+      The environment itself does not need separate single-turn and multi-turn
+      implementations.
+    </p>
+
+    <p>
+      <b>Editable installs: code is live, metadata is not.</b> With
+      <code>pip install -e .</code>, Python imports the source files directly,
+      so code changes (new scoring logic, prompt edits) take effect immediately.
+      But package metadata like the version string is baked into
+      <code>.dist-info</code> at install time. Anything that reads the version
+      via <code>importlib.metadata.version()</code> will see the old number
+      until you reinstall. After bumping the version in
+      <code>pyproject.toml</code>, run <code>uv pip install -e .</code> to
+      update the metadata. This is why the eval viewer can run new code but
+      still tag results with the old version.
+    </p>
+
+    <div class="colophon">
+      <p>EMAIL-TO-CC-BCC</p>
+    </div>
+  </body>
 </html>

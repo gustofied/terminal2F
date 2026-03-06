@@ -777,7 +777,7 @@ wheels = [
 
 [[package]]
 name = "email-to-cc-bcc"
-version = "0.1.6"
+version = "0.1.7"
 source = { editable = "environments/email-to-cc-bcc" }
 dependencies = [
     { name = "verifiers" },
