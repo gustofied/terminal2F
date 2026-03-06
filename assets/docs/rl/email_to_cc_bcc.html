@@ -633,28 +633,28 @@ Provide your answer as JSON.</code></pre>
 
 <p>Generated 7500 rows and ran <code>validate_row()</code> to filter. 4991 passed (33.5% rejection rate). The validator checks per turn: To not empty, no field overlap, BCC names not in email text, sender not in any answer field, only mentionable names in text, and broadcast/compliance cue implies non-empty BCC.</p>
 
-<pre><code>def validate_row(row):
-    for turn in [1, 2, 3]:
-        answer = json.loads(row[f"answer_{turn}"])
-        question = row[f"question_{turn}"]
-        to_set, cc_set, bcc_set = set(answer["to"]), set(answer["cc"]), set(answer["bcc"])
+<pre><code><span style="color:#859900">def</span> <span style="color:#268BD2">validate_row</span>(row):
+    <span style="color:#859900">for</span> turn <span style="color:#859900">in</span> [<span style="color:#2AA198">1</span>, <span style="color:#2AA198">2</span>, <span style="color:#2AA198">3</span>]:
+        answer = json.loads(row[<span style="color:#2AA198">f"answer_{turn}"</span>])
+        question = row[<span style="color:#2AA198">f"question_{turn}"</span>]
+        to_set, cc_set, bcc_set = <span style="color:#268BD2">set</span>(answer[<span style="color:#2AA198">"to"</span>]), <span style="color:#268BD2">set</span>(answer[<span style="color:#2AA198">"cc"</span>]), <span style="color:#268BD2">set</span>(answer[<span style="color:#2AA198">"bcc"</span>])
 
-        if not answer["to"]:                           # empty To
-            return False
-        if to_set & cc_set or to_set & bcc_set or cc_set & bcc_set:  # field overlap
-            return False
-        for bcc_email in answer["bcc"]:                # BCC name leakage
-            name = email_to_name.get(bcc_email, "")
-            if name.lower() in question.lower():
-                return False
-            first = name.split()[0]
-            if len(first) > 2 and first.lower() in question.lower():
-                return False
-        if sender_email in to_set | cc_set | bcc_set:  # sender in fields
-            return False
-        if (has_broadcast_cue or has_compliance_cue) and not bcc_set:  # cue without BCC
-            return False
-    return True</code></pre>
+        <span style="color:#859900">if not</span> answer[<span style="color:#2AA198">"to"</span>]:                           <span style="color:#586E75"># empty To</span>
+            <span style="color:#859900">return</span> <span style="color:#268BD2">False</span>
+        <span style="color:#859900">if</span> to_set & cc_set <span style="color:#859900">or</span> to_set & bcc_set <span style="color:#859900">or</span> cc_set & bcc_set:  <span style="color:#586E75"># field overlap</span>
+            <span style="color:#859900">return</span> <span style="color:#268BD2">False</span>
+        <span style="color:#859900">for</span> bcc_email <span style="color:#859900">in</span> answer[<span style="color:#2AA198">"bcc"</span>]:                <span style="color:#586E75"># BCC name leakage</span>
+            name = email_to_name.get(bcc_email, <span style="color:#2AA198">""</span>)
+            <span style="color:#859900">if</span> name.lower() <span style="color:#859900">in</span> question.lower():
+                <span style="color:#859900">return</span> <span style="color:#268BD2">False</span>
+            first = name.split()[<span style="color:#2AA198">0</span>]
+            <span style="color:#859900">if</span> <span style="color:#268BD2">len</span>(first) > <span style="color:#2AA198">2</span> <span style="color:#859900">and</span> first.lower() <span style="color:#859900">in</span> question.lower():
+                <span style="color:#859900">return</span> <span style="color:#268BD2">False</span>
+        <span style="color:#859900">if</span> sender_email <span style="color:#859900">in</span> to_set | cc_set | bcc_set:  <span style="color:#586E75"># sender in fields</span>
+            <span style="color:#859900">return</span> <span style="color:#268BD2">False</span>
+        <span style="color:#859900">if</span> (has_broadcast_cue <span style="color:#859900">or</span> has_compliance_cue) <span style="color:#859900">and not</span> bcc_set:  <span style="color:#586E75"># cue without BCC</span>
+            <span style="color:#859900">return</span> <span style="color:#268BD2">False</span>
+    <span style="color:#859900">return</span> <span style="color:#268BD2">True</span></code></pre>
 
 <pre><code>Before: 7500 rows
 Rejected: 2509 (33.5%)

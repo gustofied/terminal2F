@@ -44,8 +44,12 @@ def set_overlap(predicted: set, expected: set) -> float:
 
 def score_turn(response: str, ground_truth: str, field: str) -> float:
     """Score a single turn for a single field (to/cc/bcc)."""
-    pred = set(extract_json(response).get(field, []))
-    expected = set(extract_json(ground_truth).get(field, []))
+    pred_obj = extract_json(response)
+    if not pred_obj or not all(k in pred_obj for k in ("to", "cc", "bcc")):
+        return 0.0
+    gt_obj = extract_json(ground_truth)
+    pred = set(pred_obj.get(field, []))
+    expected = set(gt_obj.get(field, []))
     return set_overlap(pred, expected)
 
 
