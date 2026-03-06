@@ -46,8 +46,6 @@ def score_turn(response: str, ground_truth: str, field: str) -> float:
     """Score a single turn for a single field (to/cc/bcc)."""
     pred = set(extract_json(response).get(field, []))
     expected = set(extract_json(ground_truth).get(field, []))
-    if field == "bcc" and not pred and not expected:
-        return 0.5
     return set_overlap(pred, expected)
 
 

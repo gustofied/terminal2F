@@ -10,6 +10,7 @@ Usage:
 from __future__ import annotations
 
 import html
+import importlib
 import json
 import threading
 import webbrowser
@@ -157,6 +158,14 @@ def _render_example_group(example_id, rollouts: list[tuple[int, dict]]) -> str:
 </div>"""
 
 
+def _env_id(m: dict) -> str:
+    return m.get("env_id", "?")
+
+
+def _env_version(m: dict) -> str:
+    return m.get("version_info", {}).get("env_version", "?")
+
+
 def _render_summary_row(eval_data: dict) -> str:
     m = eval_data["metadata"]
     metrics_cells = ""
@@ -164,7 +173,9 @@ def _render_summary_row(eval_data: dict) -> str:
         cls = _score_cls(val) if isinstance(val, (int, float)) and 0 <= val <= 1 else ""
         metrics_cells += f'<td class="{cls}">{_fmt(val)}</td>'
     avg_reward = m.get("avg_reward", 0)
-    return f"""<tr>
+    eid = html.escape(_env_id(m))
+    ever = html.escape(_env_version(m))
+    return f"""<tr data-env="{eid}" data-version="{ever}">
   <td class="mono">{html.escape(str(Path(eval_data['path']).name))}</td>
   <td>{html.escape(m.get('model', '?'))}</td>
   <td class="{_score_cls(avg_reward)}">{_fmt(avg_reward)}</td>
@@ -185,26 +196,41 @@ def _render_summary_headers(eval_data_list: list[dict]) -> str:
 
 
 def generate_html(eval_data_list: list[dict]) -> str:
+    # Sort by env_id, then env_version (descending so latest first)
+    eval_data_list = sorted(
+        eval_data_list,
+        key=lambda ed: (_env_id(ed["metadata"]), _env_version(ed["metadata"])),
+    )
     metric_headers = _render_summary_headers(eval_data_list)
     summary_rows = "\n".join(_render_summary_row(ed) for ed in eval_data_list)
 
     sections = []
     for ed in eval_data_list:
+        m = ed["metadata"]
         dir_name = Path(ed["path"]).name
-        model = ed["metadata"].get("model", "?")
-        sections.append(
+        model = m.get("model", "?")
+        eid_attr = html.escape(_env_id(m))
+        ever_attr = html.escape(_env_version(m))
+
+        parts = [
             f'<h2 class="eval-section">{html.escape(model)} '
             f'<span class="eval-hash">{html.escape(dir_name)}</span></h2>'
-        )
+        ]
 
         # Group by example_id
         by_example: dict[int | str, list[tuple[int, dict]]] = {}
         for i, result in enumerate(ed["results"]):
-            eid = result.get("example_id", i)
-            by_example.setdefault(eid, []).append((i, result))
+            ex_id = result.get("example_id", i)
+            by_example.setdefault(ex_id, []).append((i, result))
 
-        for eid in sorted(by_example):
-            sections.append(_render_example_group(eid, by_example[eid]))
+        for ex_id in sorted(by_example):
+            parts.append(_render_example_group(ex_id, by_example[ex_id]))
+
+        sections.append(
+            f'<div class="eval-block" data-env="{eid_attr}" data-version="{ever_attr}">'
+            + "\n".join(parts)
+            + '</div>'
+        )
 
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -248,6 +274,31 @@ def generate_html(eval_data_list: list[dict]) -> str:
     font-family: 'JetBrains Mono', monospace;
     font-size: 10px; color: #bbb; font-weight: 400;
     letter-spacing: 0.5px;
+  }}
+
+  /* Filter bar */
+  .filter-bar {{
+    display: flex; align-items: center; gap: 10px;
+    padding: 14px 0; margin-bottom: 16px;
+    border-bottom: 0.5px solid #e8e4de;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; letter-spacing: 0.3px;
+  }}
+  .filter-bar label {{
+    color: #aaa; text-transform: uppercase;
+    font-size: 9px; letter-spacing: 1px;
+  }}
+  .filter-bar select {{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; padding: 4px 8px;
+    border: 0.5px solid #ddd; border-radius: 2px;
+    background: #fff; color: #333; outline: none;
+    min-width: 140px;
+  }}
+  .filter-bar select:focus {{ border-color: #aaa; }}
+  .filter-count {{
+    margin-left: auto; color: #bbb;
+    font-size: 9px; letter-spacing: 0.5px;
   }}
 
   /* Summary table */
@@ -438,7 +489,15 @@ def generate_html(eval_data_list: list[dict]) -> str:
   <h1>Eval Viewer</h1>
 </div>
 
-<table class="summary-table">
+<div class="filter-bar">
+  <label>Env</label>
+  <select id="filterEnv"><option value="all">All</option></select>
+  <label>Version</label>
+  <select id="filterVersion"><option value="all">All</option></select>
+  <span id="filterCount" class="filter-count"></span>
+</div>
+
+<table class="summary-table" id="summaryTable">
 <thead><tr>
   <th>Run</th><th>Model</th><th>Reward</th>
   {metric_headers}
@@ -470,6 +529,72 @@ def generate_html(eval_data_list: list[dict]) -> str:
 </div>
 
 <script>
+// --- Populate env/version dropdowns ---
+function populateDropdowns() {{
+  const rows = document.querySelectorAll('#summaryTable tbody tr');
+  const envs = new Set(), versions = new Set();
+  rows.forEach(r => {{
+    envs.add(r.dataset.env);
+    versions.add(r.dataset.version);
+  }});
+  const envSel = document.getElementById('filterEnv');
+  const verSel = document.getElementById('filterVersion');
+  [...envs].sort().forEach(e => {{
+    const o = document.createElement('option');
+    o.value = e; o.textContent = e;
+    envSel.appendChild(o);
+  }});
+  [...versions].sort().forEach(v => {{
+    const o = document.createElement('option');
+    o.value = v; o.textContent = v;
+    verSel.appendChild(o);
+  }});
+}}
+
+// --- Update version dropdown based on selected env ---
+function updateVersionOptions() {{
+  const envVal = document.getElementById('filterEnv').value;
+  const rows = document.querySelectorAll('#summaryTable tbody tr');
+  const versions = new Set();
+  rows.forEach(r => {{
+    if (envVal === 'all' || r.dataset.env === envVal) versions.add(r.dataset.version);
+  }});
+  const verSel = document.getElementById('filterVersion');
+  const cur = verSel.value;
+  verSel.innerHTML = '<option value="all">All</option>';
+  [...versions].sort().forEach(v => {{
+    const o = document.createElement('option');
+    o.value = v; o.textContent = v;
+    verSel.appendChild(o);
+  }});
+  verSel.value = versions.has(cur) ? cur : 'all';
+}}
+
+// --- Main filter: env + version for table rows and detail sections ---
+function filterByEnvVersion() {{
+  const envVal = document.getElementById('filterEnv').value;
+  const verVal = document.getElementById('filterVersion').value;
+
+  // filter summary rows
+  const rows = document.querySelectorAll('#summaryTable tbody tr');
+  let shown = 0;
+  rows.forEach(r => {{
+    const matchEnv = envVal === 'all' || r.dataset.env === envVal;
+    const matchVer = verVal === 'all' || r.dataset.version === verVal;
+    r.style.display = (matchEnv && matchVer) ? '' : 'none';
+    if (matchEnv && matchVer) shown++;
+  }});
+  document.getElementById('filterCount').textContent = shown + '/' + rows.length + ' runs';
+
+  // filter detail sections
+  document.querySelectorAll('.eval-block').forEach(b => {{
+    const matchEnv = envVal === 'all' || b.dataset.env === envVal;
+    const matchVer = verVal === 'all' || b.dataset.version === verVal;
+    b.style.display = (matchEnv && matchVer) ? '' : 'none';
+  }});
+}}
+
+// --- Rollout sort/filter within visible sections ---
 function applyFilters() {{
   const sortBy = document.getElementById('sortBy').value;
   const minR = parseFloat(document.getElementById('minReward').value) || 0;
@@ -487,21 +612,17 @@ function applyFilters() {{
   document.getElementById('countLabel').textContent =
     visible + '/' + groups.length + ' examples';
 
-  // Sort within each eval section
-  document.querySelectorAll('h2.eval-section').forEach(sec => {{
-    const container = sec.parentElement;
-    const sectionGroups = [];
-    let el = sec.nextElementSibling;
-    while (el && el.tagName !== 'H2') {{
-      if (el.classList.contains('example-group')) sectionGroups.push(el);
-      el = el.nextElementSibling;
-    }}
+  // Sort within each eval block
+  document.querySelectorAll('.eval-block').forEach(block => {{
+    const sec = block.querySelector('h2.eval-section');
+    if (!sec) return;
+    const sectionGroups = [...block.querySelectorAll('.example-group')];
     sectionGroups.sort((a, b) => {{
       if (sortBy === 'reward-asc') return parseFloat(a.dataset.reward) - parseFloat(b.dataset.reward);
       if (sortBy === 'reward-desc') return parseFloat(b.dataset.reward) - parseFloat(a.dataset.reward);
       return parseInt(a.dataset.example) - parseInt(b.dataset.example);
     }});
-    sectionGroups.forEach(g => container.insertBefore(g, el));
+    sectionGroups.forEach(g => block.appendChild(g));
   }});
 }}
 
@@ -511,10 +632,17 @@ function toggleAll(expand) {{
   }});
 }}
 
-// Auto-apply on sort change
+// Wire up events
+document.getElementById('filterEnv').addEventListener('change', () => {{
+  updateVersionOptions();
+  filterByEnvVersion();
+}});
+document.getElementById('filterVersion').addEventListener('change', filterByEnvVersion);
 document.getElementById('sortBy').addEventListener('change', applyFilters);
 
-// Start collapsed, show count
+// Init
+populateDropdowns();
+filterByEnvVersion();
 toggleAll(false);
 applyFilters();
 </script>
@@ -580,12 +708,16 @@ def view(eval_dirs: list[Path] | None = None, port: int = 8279) -> None:
 
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):
-            dirs = find_eval_runs() if auto_discover else fixed_dirs
-            data = _load_dirs(dirs)
+            # Reload module so source changes are picked up on refresh
+            mod = importlib.import_module(__name__)
+            importlib.reload(mod)
+
+            dirs = mod.find_eval_runs() if auto_discover else fixed_dirs
+            data = mod._load_dirs(dirs)
             if not data:
                 self.send_error(404, "No valid eval dirs")
                 return
-            content = generate_html(data).encode()
+            content = mod.generate_html(data).encode()
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Content-Length", str(len(content)))

@@ -4,16 +4,15 @@
 
 - **Environment ID**: `email-to-cc-bcc`
 - **Short description**: Given an email scenario with people, roles, and privacy constraints, correctly assign recipients to To, CC, and BCC fields.
-- **Tags**: structured-output, rules, email, single-turn
+- **Tags**: structured-output, rules, email, train, eval, reasoning
 
 ### Datasets
 
 - **Primary dataset(s)**: Synthetic email scenarios with contact lists, role tags, and routing policies
-- **Split sizes**: TBD
 
 ### Task
 
-- **Type**: single-turn
+- **Type**: multi-turn
 - **Output format expectations**: Structured fields — XML tags or JSON with `to`, `cc`, `bcc` arrays of email addresses
 - **Rubric overview**: Verifies correct placement of each recipient based on scenario constraints (who must receive, who should be visible, privacy rules)
 

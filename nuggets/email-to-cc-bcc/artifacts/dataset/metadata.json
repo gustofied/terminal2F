@@ -1,14 +1,15 @@
 {
-  "actual_num_records": 2000,
+  "actual_num_records": 3000,
   "buffer_size": 1000,
   "dataset_name": "dataset",
   "file_paths": {
     "parquet-files": [
       "parquet-files/batch_00000.parquet",
-      "parquet-files/batch_00001.parquet"
+      "parquet-files/batch_00001.parquet",
+      "parquet-files/batch_00002.parquet"
     ]
   },
-  "num_completed_batches": 2,
+  "num_completed_batches": 3,
   "schema": {
     "actual_change_2": "string",
     "actual_change_3": "string",
