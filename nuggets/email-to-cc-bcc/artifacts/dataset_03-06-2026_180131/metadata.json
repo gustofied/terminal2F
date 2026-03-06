@@ -1,0 +1,95 @@
+{
+  "actual_num_records": 500,
+  "buffer_size": 1000,
+  "column_statistics": [
+    {
+      "column_name": "answer_1",
+      "column_type": "general",
+      "num_null": 0,
+      "num_records": 500,
+      "num_unique": 500,
+      "pyarrow_dtype": "string",
+      "simple_dtype": "string"
+    },
+    {
+      "column_name": "question_1",
+      "column_type": "llm-text",
+      "input_tokens_mean": 381.09,
+      "input_tokens_median": 379.0,
+      "input_tokens_stddev": 17.96,
+      "num_null": 0,
+      "num_records": 500,
+      "num_unique": 500,
+      "output_tokens_mean": 234.54,
+      "output_tokens_median": 235.0,
+      "output_tokens_stddev": 37.98,
+      "pyarrow_dtype": "string",
+      "simple_dtype": "string"
+    },
+    {
+      "column_name": "question_2",
+      "column_type": "llm-text",
+      "input_tokens_mean": 583.88,
+      "input_tokens_median": 583.5,
+      "input_tokens_stddev": 48.11,
+      "num_null": 0,
+      "num_records": 500,
+      "num_unique": 500,
+      "output_tokens_mean": 150.71,
+      "output_tokens_median": 149.0,
+      "output_tokens_stddev": 26.69,
+      "pyarrow_dtype": "string",
+      "simple_dtype": "string"
+    },
+    {
+      "column_name": "question_3",
+      "column_type": "llm-text",
+      "input_tokens_mean": 724.04,
+      "input_tokens_median": 725.0,
+      "input_tokens_stddev": 64.7,
+      "num_null": 0,
+      "num_records": 500,
+      "num_unique": 500,
+      "output_tokens_mean": 141.73,
+      "output_tokens_median": 140.5,
+      "output_tokens_stddev": 25.18,
+      "pyarrow_dtype": "string",
+      "simple_dtype": "string"
+    }
+  ],
+  "dataset_name": "dataset",
+  "file_paths": {
+    "parquet-files": [
+      "parquet-files/batch_00000.parquet"
+    ]
+  },
+  "num_completed_batches": 1,
+  "schema": {
+    "actual_change_2": "string",
+    "actual_change_3": "string",
+    "answer_1": "string",
+    "answer_2": "string",
+    "answer_3": "string",
+    "date_1": "string",
+    "date_2": "string",
+    "date_3": "string",
+    "email_list": "string",
+    "mentionable_list_1": "string",
+    "mentionable_list_2": "string",
+    "mentionable_list_3": "string",
+    "mode_cue_1": "string",
+    "mode_cue_2": "string",
+    "mode_cue_3": "string",
+    "question_1": "string",
+    "question_2": "string",
+    "question_3": "string",
+    "sender_1": "string",
+    "sender_2": "string",
+    "sender_3": "string",
+    "to_name_1": "string",
+    "to_name_2": "string",
+    "to_name_3": "string"
+  },
+  "target_num_records": 500,
+  "total_num_batches": 1
+}

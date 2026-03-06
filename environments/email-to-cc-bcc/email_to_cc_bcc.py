@@ -70,19 +70,19 @@ def load_environment(
     dataset = load_dataset(path=dataset_name, split=dataset_split)
     data = []
     for row in dataset:
-        prompt = f"""An email thread is unfolding. For each email, decide who belongs in To, CC, and BCC. Recipients may change as the thread evolves.
+        prompt = f"""You are given an email thread. For each email, assign the correct To, CC, and BCC recipients. Recipients may change between emails as the situation evolves.
 
-Possible recipients:
+Roster:
 {row["email_list"]}
 
 {row["question_1"]}
 
-Provide your answer as JSON: {{"to": [...], "cc": [...], "bcc": [...]}}
+Reply with JSON only: {{"to": [...], "cc": [...], "bcc": [...]}}
 Use email addresses, not names."""
 
         follow_ups = [
-            f"New email in the thread. Re-evaluate recipients.\n\n{row[f'question_{i}']}\n\n"
-            f"Provide your answer as JSON."
+            f"Next email in the thread:\n\n{row[f'question_{i}']}\n\n"
+            f"Reply with JSON only."
             for i in range(2, max_turns + 1)
         ]
 

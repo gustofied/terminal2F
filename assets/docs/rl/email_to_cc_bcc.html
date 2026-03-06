@@ -298,6 +298,7 @@
   <a href="#s-rewards"><span class="toc-num">III</span>Rewards</a>
   <a href="#s-discussion"><span class="toc-num">IV</span>Results v1</a>
   <a href="#s-v2"><span class="toc-num">V</span>v2</a>
+  <a href="#s-learnings"><span class="toc-num">VI</span>Learnings</a>
 </div>
 
 
@@ -610,11 +611,65 @@ Provide your answer as JSON.</code></pre>
   <li><b>Monotonic timestamps.</b> Each reply is dated after the previous one.</li>
 </ul>
 
-<p>A post-generation validator rejects rows where: the sender appears in any answer field, BCC names (full or first name) appear in the email text, non-mentionable roster names appear in the text, any field overlap exists, To is empty, or a broadcast/compliance cue is present but BCC is empty. At n=50 the pass rate sits around 68%, so to land 5000 clean rows you generate roughly 7500 and let the validator filter.</p>
+<h4><span class="sub">b</span>Validation</h4>
+
+<p>A post-generation validator rejects rows where: the sender appears in any answer field, BCC names (full or first name) appear in the email text, non-mentionable roster names appear in the text, any field overlap exists, To is empty, or a broadcast/compliance cue is present but BCC is empty.</p>
 
 <p>When generating synthetic data with LLMs, it is usually cheaper and more reliable to over-generate and then filter with a strict validator than to try to prompt away every failure mode. LLMs will occasionally ignore constraints, drift, or hallucinate details. If you can encode the invariants you actually care about (schema, allowed entities, cue presence, no contradictions) as fast deterministic checks, generate more, validate hard, and keep only what passes. Monitor rejection rates to avoid skewing the distribution.</p>
 
-<h4><span class="sub">b</span>Takeaways</h4>
+<h4><span class="sub">c</span>New dataset</h4>
+
+<ul>
+  <li>Target ~5000 validated rows after filtering (generated 7500, validator rejects noise).</li>
+  <li>3-turn multi-turn conversations with monotonic dates.</li>
+  <li>Mbox-style email format with <code>Date:</code> and <code>From:</code> headers, replacing v1's bare plain-text layout.</li>
+  <li>Sender excluded from all answer fields. No BCC name leakage in email text.</li>
+  <li>To recipient is always explicitly tasked or addressed in the email body.</li>
+  <li>BCC is only compliance (Legal/HR/Finance from reserve) or broadcast (all externals). Never random.</li>
+  <li>Removed the BCC empty-empty 0.5 scoring hack from the environment. Both-empty now scores 1.0 (correct prediction).</li>
+</ul>
+
+<h4><span class="sub">d</span>Actual new dataset</h4>
+
+<p>Generated 7500 rows and ran <code>validate_row()</code> to filter. 4991 passed (33.5% rejection rate). The validator checks per turn: To not empty, no field overlap, BCC names not in email text, sender not in any answer field, only mentionable names in text, and broadcast/compliance cue implies non-empty BCC.</p>
+
+<pre><code>def validate_row(row):
+    for turn in [1, 2, 3]:
+        answer = json.loads(row[f"answer_{turn}"])
+        question = row[f"question_{turn}"]
+        to_set, cc_set, bcc_set = set(answer["to"]), set(answer["cc"]), set(answer["bcc"])
+
+        if not answer["to"]:                           # empty To
+            return False
+        if to_set & cc_set or to_set & bcc_set or cc_set & bcc_set:  # field overlap
+            return False
+        for bcc_email in answer["bcc"]:                # BCC name leakage
+            name = email_to_name.get(bcc_email, "")
+            if name.lower() in question.lower():
+                return False
+            first = name.split()[0]
+            if len(first) > 2 and first.lower() in question.lower():
+                return False
+        if sender_email in to_set | cc_set | bcc_set:  # sender in fields
+            return False
+        if (has_broadcast_cue or has_compliance_cue) and not bcc_set:  # cue without BCC
+            return False
+    return True</code></pre>
+
+<pre><code>Before: 7500 rows
+Rejected: 2509 (33.5%)
+After: 4991 rows</code></pre>
+
+<p>Quality check on the final 4991 rows:</p>
+
+<pre><code>Q2 == Q1 verbatim:        0 (0.0%)
+BCC name in email text:   0/4243 (0.0%)
+non-BCC name in text:     28057/28336 (99.0%)
+BCC directly addressed:   8 (0.1% of rows)
+To/BCC overlap:           0
+CC/BCC overlap:           0</code></pre>
+
+<h4><span class="sub">e</span>Takeaways</h4>
 
 <p><b>Split architecture.</b> Deterministic code handles ground truth routing, the LLM handles natural language content. Trying to make the LLM do both (v1 with random shuffle for routing) is where noise enters. Keep the verifiable part in code.</p>
 
@@ -627,6 +682,10 @@ Provide your answer as JSON.</code></pre>
 <p><b>Ceiling test before training.</b> Running frontier models (GPT-5, Claude 4.6) on v1 and seeing them all hit the same ~0.44 wall confirmed the problem was data, not model capability. Saved GPU hours that would have been wasted on bad data.</p>
 
 <p><b>BCC is a hidden-information problem.</b> The model must infer BCC from contextual cues (confidentiality phrases, broadcast language) rather than from who is mentioned. That makes it fundamentally harder than To/CC and explains why BCC scores were consistently lowest across all baselines.</p>
+
+<h3 id="s-learnings"><span class="num">VI</span>Learnings</h3>
+
+<p><b>How <code>load_environment</code> receives arguments.</b> The verifiers framework calls <code>load_environment(env_id=..., **env_args)</code> where <code>env_args</code> comes from the CLI or config file. Any keyword argument defined in <code>load_environment</code> - like <code>max_turns</code>, <code>dataset_name</code>, or <code>dataset_split</code> - can be overridden at eval time without touching the environment code. The <code>**kwargs</code> catch-all absorbs anything extra the framework passes. This means the same environment supports single-turn eval (<code>max_turns=1</code>) or full 3-turn threads (<code>max_turns=3</code>) just by changing the CLI invocation. The environment itself does not need separate single-turn and multi-turn implementations.</p>
 
 <div class="colophon">
   <p>EMAIL-TO-CC-BCC</p>
