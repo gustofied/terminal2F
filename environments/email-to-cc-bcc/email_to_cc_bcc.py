@@ -48,8 +48,8 @@ def score_turn(response: str, ground_truth: str, field: str) -> float:
     if not pred_obj or not all(k in pred_obj for k in ("to", "cc", "bcc")):
         return 0.0
     gt_obj = extract_json(ground_truth)
-    pred = set(pred_obj.get(field, []))
-    expected = set(gt_obj.get(field, []))
+    pred = {str(x) for x in pred_obj.get(field, []) if not isinstance(x, dict)}
+    expected = {str(x) for x in gt_obj.get(field, []) if not isinstance(x, dict)}
     if field == "bcc" and not expected:
         return 0.2 if not pred else 0.0
     return set_overlap(pred, expected)

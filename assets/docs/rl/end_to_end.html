@@ -330,7 +330,9 @@
 <div class="toc">
   <a href="#s-pieces"><span class="toc-num">I</span>Pieces</a>
   <a href="#s-env-setup"><span class="toc-num">II</span>Environment Setup</a>
-  <a href="#s-training"><span class="toc-num">III</span>Training</a>
+  <a href="#s-eval-remote"><span class="toc-num">III</span>Eval on Remote</a>
+  <a href="#s-training"><span class="toc-num">IV</span>Training</a>
+  <a href="#s-learnings"><span class="toc-num">V</span>Learnings</a>
 </div>
 
 
@@ -456,10 +458,107 @@
 
 
 <!-- ═══════════════════════════════════════════════════════════
-     III. TRAINING
+     III. EVAL ON REMOTE
      ═══════════════════════════════════════════════════════════ -->
 
-<h3 id="s-training"><span class="num">III</span>Training</h3>
+<h3 id="s-eval-remote"><span class="num">III</span>Eval on Remote</h3>
+<p class="lede">Setting up a remote GPU node properly: vLLM serving, environment install, and running evals against a local model endpoint. This is the same setup used for training, just without the trainer. Getting this right first means training is just one more step.</p>
+
+<h4><span class="sub">a</span>SSH in</h4>
+
+<p>With the SSH agent already loaded (see section IV.a), connect to the node:</p>
+
+<div class="code-block">
+  <span class="code-lang">shell</span>
+  <pre><code><span style="color:#268bd2">ssh</span> -i ~/.ssh/primeintellect_ed25519 -p &lt;port&gt; root@&lt;ip&gt;</code></pre>
+</div>
+
+<p>You land in <code>/root/</code>, the root user's home directory. This is ephemeral. All work goes in <code>/workspace/</code>, which is persistent storage mounted by the provider.</p>
+
+<div class="code-block">
+  <span class="code-lang">shell</span>
+  <pre><code>cd /workspace
+mkdir -p &lt;project&gt; &amp;&amp; cd &lt;project&gt;</code></pre>
+</div>
+
+<h4><span class="sub">b</span>Install uv and create venv</h4>
+
+<div class="code-block">
+  <span class="code-lang">shell</span>
+  <pre><code>curl -LsSf https://astral.sh/uv/install.sh | sh
+export PATH="$HOME/.local/bin:$PATH"
+<span style="color:#268bd2">uv venv</span>
+source .venv/bin/activate</code></pre>
+</div>
+
+<h4><span class="sub">c</span>Install vLLM</h4>
+
+<p>The install command depends on the CUDA version on the node (<code>nvidia-smi</code> top right). Check <a href="https://vllm.ai">vllm.ai</a> for the latest wheels. For CUDA 13.0:</p>
+
+<div class="code-block">
+  <span class="code-lang">shell</span>
+  <pre><code><span style="color:#268bd2">uv pip install</span> vllm \
+  --extra-index-url https://wheels.vllm.ai/0.16.0/cu130 \
+  --extra-index-url https://download.pytorch.org/whl/cu130 \
+  --index-strategy unsafe-best-match</code></pre>
+</div>
+
+<h4><span class="sub">d</span>Serve the model</h4>
+
+<div class="code-block">
+  <span class="code-lang">shell</span>
+  <pre><code><span style="color:#268bd2">vllm serve</span> &lt;model-id&gt; --enforce-eager</code></pre>
+</div>
+
+<p>Starts an OpenAI-compatible API on <code>http://localhost:8000</code>. Wait for <code>Application startup complete</code> before running evals. <code>--enforce-eager</code> skips Triton graph compilation, which can fail on newer CUDA versions (13.0+). Slightly slower inference but avoids setup headaches.</p>
+
+<h4><span class="sub">e</span>Run eval</h4>
+
+<p>In a second tmux pane, activate the same venv and install prime + the environment:</p>
+
+<div class="code-block">
+  <span class="code-lang">shell</span>
+  <pre><code>cd /workspace/&lt;project&gt; &amp;&amp; source .venv/bin/activate
+
+<span style="color:#268bd2">uv pip install</span> prime
+<span style="color:#268bd2">prime env install</span> &lt;env-id&gt;</code></pre>
+</div>
+
+<p>Configure the local vLLM endpoint in <code>configs/endpoints.toml</code>:</p>
+
+<div class="block">
+<span class="label">configs/endpoints.toml</span>
+<pre><code>[[endpoint]]
+endpoint_id = <span style="color:#2aa198">"&lt;endpoint-name&gt;"</span>
+model = <span style="color:#2aa198">"&lt;model-id&gt;"</span>
+url = <span style="color:#2aa198">"http://localhost:8000/v1"</span>
+key = <span style="color:#2aa198">"VLLM_API_KEY"</span></code></pre>
+</div>
+
+<p><code>key</code> is the name of an env var, not the key itself. Set a dummy one since vLLM does not need auth:</p>
+
+<div class="code-block">
+  <span class="code-lang">shell</span>
+  <pre><code><span style="color:#268bd2">export</span> VLLM_API_KEY=empty
+<span style="color:#268bd2">prime eval run</span> &lt;env-id&gt; -m &lt;endpoint-name&gt; -n <span style="color:#6c71c4">10</span> -r <span style="color:#6c71c4">3</span></code></pre>
+</div>
+
+<p>If the CLI rejects the model name (validates against Prime's API before checking the local registry), fall back to passing the endpoint directly:</p>
+
+<div class="code-block">
+  <span class="code-lang">shell</span>
+  <pre><code><span style="color:#268bd2">prime eval run</span> &lt;env-id&gt; -m &lt;model-id&gt; -n <span style="color:#6c71c4">10</span> -r <span style="color:#6c71c4">3</span> \
+  -b http://localhost:8000/v1 -k VLLM_API_KEY</code></pre>
+</div>
+
+<hr class="sep">
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     IV. TRAINING
+     ═══════════════════════════════════════════════════════════ -->
+
+<h3 id="s-training"><span class="num">IV</span>Training</h3>
 <p class="lede">Manual setup on a remote GPU node with t2f-trainer. Not the golden path, but the hands-on way to understand what's happening.</p>
 
 <p><code>verifiers-rl</code> is the optional RL trainer inside the verifiers monorepo (<code>packages/verifiers-rl/</code>). Not actively maintained, but intentionally lightweight and readable, good for experimentation and education. <a href="t2f_trainer.html">t2f-trainer</a> is a fork of it, extracted into its own package. That's what the rest of this section uses.</p>
@@ -491,7 +590,7 @@
 <span style="color:#268bd2">nvidia-smi</span>                     <span style="color:#586E75"># should show GPU 0 and GPU 1</span>
 
 cd /workspace
-mkdir -p rl-tutorial &amp;&amp; cd rl-tutorial</code></pre>
+mkdir -p &lt;project&gt; &amp;&amp; cd &lt;project&gt;</code></pre>
 </div>
 
 <h4><span class="sub">c</span>Install uv and create venv</h4>
@@ -499,8 +598,8 @@ mkdir -p rl-tutorial &amp;&amp; cd rl-tutorial</code></pre>
 <div class="code-block">
   <span class="code-lang">shell</span>
   <pre><code>curl -LsSf https://astral.sh/uv/install.sh | sh
-source $HOME/.local/bin/env
-<span style="color:#268bd2">uv venv</span> --python <span style="color:#6c71c4">3.12</span>
+export PATH="$HOME/.local/bin:$PATH"
+<span style="color:#268bd2">uv venv</span>
 source .venv/bin/activate</code></pre>
 </div>
 
@@ -513,12 +612,12 @@ source .venv/bin/activate</code></pre>
   <pre><code><span style="color:#586E75"># t2f-trainer package</span>
 <span style="color:#268bd2">scp</span> -P &lt;port&gt; -i ~/.ssh/primeintellect_ed25519 -r \
   ~/projects/terminal2F/external/t2f-trainer \
-  root@&lt;ip&gt;:/workspace/rl-tutorial/t2f-trainer
+  root@&lt;ip&gt;:/workspace/&lt;project&gt;/t2f-trainer
 
 <span style="color:#586E75"># environment</span>
 <span style="color:#268bd2">scp</span> -P &lt;port&gt; -i ~/.ssh/primeintellect_ed25519 -r \
-  ~/projects/terminal2F/environments/alphabet-sort \
-  root@&lt;ip&gt;:/workspace/rl-tutorial/alphabet-sort</code></pre>
+  ~/projects/terminal2F/environments/&lt;env-name&gt; \
+  root@&lt;ip&gt;:/workspace/&lt;project&gt;/&lt;env-name&gt;</code></pre>
 </div>
 
 <p>Why scp? t2f-trainer is a local package, not on PyPI. The environment is also local/unpublished. If both were published you'd skip scp and just install on the node.</p>
@@ -529,7 +628,7 @@ source .venv/bin/activate</code></pre>
 
 <div class="code-block">
   <span class="code-lang">shell</span>
-  <pre><code>cd /workspace/rl-tutorial
+  <pre><code>cd /workspace/&lt;project&gt;
 <span style="color:#268bd2">uv pip install</span> ./t2f-trainer
 
 <span style="color:#586E75"># If flash-attn OOM's during compile:</span>
@@ -541,21 +640,20 @@ MAX_JOBS=<span style="color:#6c71c4">4</span> <span style="color:#268bd2">uv pip
 <div class="code-block">
   <span class="code-lang">shell</span>
   <pre><code><span style="color:#268bd2">uv pip install</span> wandb
-<span style="color:#268bd2">uv pip install</span> -e ./alphabet-sort</code></pre>
+<span style="color:#268bd2">uv pip install</span> -e ./&lt;env-name&gt;</code></pre>
 </div>
 
 <h4><span class="sub">g</span>Config</h4>
 
 <div class="block">
-<span class="label">configs/t2f-rl/alphabet-sort.toml</span>
-<pre><code>model = <span style="color:#2aa198">"Qwen/Qwen3-4B-Instruct-2507"</span>
+<span class="label">configs/t2f-rl/&lt;env-name&gt;.toml</span>
+<pre><code>model = <span style="color:#2aa198">"&lt;model-id&gt;"</span>
 
 [env]
-id = <span style="color:#2aa198">"kalomaze/alphabet-sort"</span>
+id = <span style="color:#2aa198">"&lt;env-id&gt;"</span>
 
 [env.args]
-min_turns = <span style="color:#6c71c4">3</span>
-max_turns = <span style="color:#6c71c4">5</span>
+<span style="color:#586E75"># environment-specific arguments</span>
 
 [inference]
 gpus = <span style="color:#6c71c4">1</span>
@@ -567,7 +665,7 @@ enforce_eager = <span style="color:#b58900">true</span>
 gpus = <span style="color:#6c71c4">1</span>
 
 [trainer.args]
-run_name = <span style="color:#2aa198">"alphabet-sort"</span>
+run_name = <span style="color:#2aa198">"&lt;run-name&gt;"</span>
 micro_batch_size = <span style="color:#6c71c4">16</span>
 rollouts_per_example = <span style="color:#6c71c4">16</span>
 batch_size = <span style="color:#6c71c4">512</span>
@@ -583,7 +681,7 @@ max_seq_len = <span style="color:#6c71c4">1024</span></code></pre>
 <div class="code-block">
   <span class="code-lang">shell</span>
   <pre><code><span style="color:#268bd2">export</span> HF_TOKEN=your_token
-CUDA_VISIBLE_DEVICES=<span style="color:#6c71c4">0</span> <span style="color:#268bd2">t2f-vllm</span> --model willcb/Qwen3-0.6B \
+CUDA_VISIBLE_DEVICES=<span style="color:#6c71c4">0</span> <span style="color:#268bd2">t2f-vllm</span> --model &lt;model-id&gt; \
   --enforce-eager --disable-log-requests</code></pre>
 </div>
 
@@ -597,10 +695,10 @@ CUDA_VISIBLE_DEVICES=<span style="color:#6c71c4">0</span> <span style="color:#26
 
 <div class="code-block">
   <span class="code-lang">shell</span>
-  <pre><code>cd /workspace/rl-tutorial &amp;&amp; source .venv/bin/activate
+  <pre><code>cd /workspace/&lt;project&gt; &amp;&amp; source .venv/bin/activate
 <span style="color:#268bd2">export</span> HF_TOKEN=your_token
 <span style="color:#268bd2">export</span> WANDB_API_KEY=your_key
-CUDA_VISIBLE_DEVICES=<span style="color:#6c71c4">1</span> <span style="color:#268bd2">t2f-rl</span> @ configs/t2f-rl/alphabet-sort.toml</code></pre>
+CUDA_VISIBLE_DEVICES=<span style="color:#6c71c4">1</span> <span style="color:#268bd2">t2f-rl</span> @ configs/t2f-rl/&lt;env-name&gt;.toml</code></pre>
 </div>
 
 <h4><span class="sub">j</span>What happens</h4>
@@ -639,6 +737,10 @@ CUDA_VISIBLE_DEVICES=<span style="color:#6c71c4">1</span> <span style="color:#26
     <td>Back to 3 with updated weights</td>
   </tr>
 </table>
+
+<h3 id="s-learnings"><span class="num">V</span>Learnings</h3>
+
+<p><b>Clicking links in Ghostty + tmux.</b> tmux intercepts the mouse, so Cmd+click does not work. Use Shift+Cmd+click to bypass tmux and let Ghostty handle the link.</p>
 
 <div class="colophon">
   <p>END-TO-END</p>

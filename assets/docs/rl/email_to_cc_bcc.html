@@ -624,9 +624,8 @@ Reply with JSON only.</code></pre>
       non-empty predictions score 0.0 (penalizes hallucination), so turns
       without BCC recipients are not a free point but still lightly regularize
       against spurious output. Weights are To 0.45, CC 0.45, BCC 0.10. BCC is
-      downweighted because ground truth BCC is empty on ~80% of turns, which
-      inflates the metric without any model skill. The reward signal should come
-      from To and CC where the model actually has to make decisions.
+      downweighted because ground truth BCC is empty on ~60% of turns, which
+      inflates the metric without any model skill. This is not to make BCC learn fast; it is to prevent reward inflation from empty/empty while still discouraging spammy BCC.
     </p>
 
     <p>
@@ -1062,22 +1061,19 @@ CC/BCC overlap:           0</code></pre>
     <p>
       First v2 evals (GPT-4.1-mini, GPT-5, equal 1/3 weights) showed reward
       ~0.59, up from ~0.44 on v1. But bcc_correct at ~0.8 was misleading: ground
-      truth BCC is empty on 80% of turns, and models predict empty BCC 98% of
+      truth BCC is empty on ~60% of turns, and models predict empty BCC 97% of
       the time. They scored high by doing nothing. Fixed by reweighting to To
       0.45, CC 0.45, BCC 0.10 and scoring BCC empty/empty as 0.0.
     </p>
 
     <p>
-      Scoring BCC empty/empty as 0.0 would not incentivize hallucinating BCC,
-      because on empty-GT turns both empty and non-empty predictions receive
-      0.0. However, it also removes any reward signal that discourages spurious
-      BCC on those turns, making the BCC objective sparse (only informative on
-      non-empty-GT turns). To keep outputs clean without letting BCC dominate
-      the total reward, a small regularizer is used instead: empty/empty scores
-      0.2 (tiny credit for correctly leaving BCC empty), non-empty when GT is
-      empty scores 0.0 (no credit for hallucinating). Non-empty GT turns use
-      standard Jaccard. With BCC weighted at 0.10, the regularizer contributes
-      at most 0.02 to the total reward per turn.
+      A small regularizer handles the empty BCC case: empty/empty scores 0.2
+      (tiny credit for correctly leaving BCC empty), non-empty when GT is empty
+      scores 0.0 (penalizes hallucination). Non-empty GT turns use standard
+      Jaccard. With BCC weighted at 0.10, the regularizer contributes at most
+      0.02 to the total reward per turn. This is a reasonable tradeoff: it
+      prevents empty/empty from inflating the reward while still giving a small
+      signal against spammy BCC predictions.
     </p>
 
     <p>
@@ -1165,8 +1161,8 @@ CC/BCC overlap:           0</code></pre>
       On BCC: 60% of turns have empty GT, 40% have non-empty. When GT is empty
       the model correctly predicts empty 97% of the time. When GT is non-empty
       the model misses it 96% of the time (mean score 0.026). It essentially
-      never predicts BCC. This caps the maximum achievable reward at 0.900 even
-      with perfect To and CC.
+      never predicts BCC. Even perfect To and CC cannot reach 1.0 unless the
+      model also hits BCC on the turns where GT BCC is non-empty.
     </p>
 
     <p>
@@ -1192,9 +1188,12 @@ CC/BCC overlap:           0</code></pre>
     </p>
 
     <p>
-      BCC carries no signal regardless: all models score ~0.16 no matter the
-      size, just the regularizer on empty-GT turns. At weight 0.10 that is
-      ~0.016 to total reward. Any training signal has to come from To and CC.
+      BCC carries no signal in practice: all models score ~0.13 no matter the
+      size, just the regularizer on empty-GT turns. The v2 dataset does make BCC
+      inferable (compliance roles from reserve, broadcast mode for externals),
+      but models still default to "BCC is rare, leave it empty." They are
+      following general email etiquette rather than reading the cues in the
+      scenario. Any training signal has to come from To and CC.
     </p>
 
     <p>
@@ -1250,6 +1249,16 @@ CC/BCC overlap:           0</code></pre>
       <code>pyproject.toml</code>, run <code>uv pip install -e .</code> to
       update the metadata. This is why the eval viewer can run new code but
       still tag results with the old version.
+    </p>
+
+    <p>
+      <b>Small models output dicts, not strings.</b> When a 0.6B model sees
+      "reply with JSON", it sometimes wraps email addresses in objects like
+      <code>[{"email": "alice@..."}]</code> instead of plain strings.
+      Calling <code>set()</code> on that list crashes with
+      <code>unhashable type: 'dict'</code>. The fix: filter out non-string
+      elements and cast the rest with <code>str()</code>. Always assume the
+      model will find creative ways to break your parser.
     </p>
 
     <div class="colophon">
