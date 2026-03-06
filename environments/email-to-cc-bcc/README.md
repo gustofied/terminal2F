@@ -8,7 +8,8 @@
 
 ### Datasets
 
-- **Primary dataset(s)**: `gustofied/email-to-cc-bcc` - synthetic 3-turn email threads with contact rosters, role tags, and deterministic ground-truth routing.
+- **Primary dataset(s)**: `gustofied/email-to-cc-bcc` (Hugging Face)
+- **Split sizes**: ~5000 rows (train)
 
 ### Task
 
@@ -23,8 +24,16 @@ prime eval run email-to-cc-bcc
 ```
 
 ```bash
-prime eval run email-to-cc-bcc -m gpt-4.1-mini -n 20 -r 3
+prime eval run email-to-cc-bcc -m gpt-4.1-mini -n 20 -r 3 -t 1024
 ```
+
+### Environment Arguments
+
+| Arg | Type | Default | Description |
+| --- | ---- | ------- | ----------- |
+| `dataset_name` | str | `gustofied/email-to-cc-bcc` | HuggingFace dataset path |
+| `dataset_split` | str | `train` | Dataset split to use |
+| `max_turns` | int | `3` | Number of turns per conversation |
 
 ### Metrics
 
