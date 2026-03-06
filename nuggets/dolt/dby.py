@@ -58,11 +58,26 @@ def main():
         else:
             raise
 
-    # conn.execute("CREATE TABLE IF NOT EXISTS students( id int8, name text)")
-    # conn.execute("SELECT  dolt_add('students')")
-    # conn.execute("SELECT  dolt_commit('-m', 'Testing commit')")
-    print("\n=== dolt_status ===")
-    print_table(conn.execute("SELECT * FROM dolt_status"))
+    # Insert an employee and commit
+    conn.execute("INSERT INTO employees VALUES (1, 'Adams', 'John') ON CONFLICT DO NOTHING")
+    conn.execute("SELECT dolt_commit('-am', 'Added John Adams')")
+
+    # Update the employee and commit
+    conn.execute("UPDATE employees SET first_name = 'Jonathan' WHERE id = 1")
+    conn.execute("SELECT dolt_commit('-am', 'Changed John to Jonathan')")
+
+    # Update again and commit
+    conn.execute("UPDATE employees SET last_name = 'Adamson' WHERE id = 1")
+    conn.execute("SELECT dolt_commit('-am', 'Changed Adams to Adamson')")
+
+    # Now check the full history of this specific row
+    print("\n=== history of employee id=1 ===")
+    print_table(conn.execute("""
+        SELECT id, first_name, last_name, commit_hash, commit_date
+        FROM dolt_history_employees
+        WHERE id = 1
+        ORDER BY commit_date
+    """))
 
     print("\n=== dolt_log ===")
     print_table(conn.execute("SELECT * FROM dolt_log"))
