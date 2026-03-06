@@ -297,6 +297,7 @@
   <a href="#s-dataset"><span class="toc-num">II</span>Dataset</a>
   <a href="#s-rewards"><span class="toc-num">III</span>Rewards</a>
   <a href="#s-discussion"><span class="toc-num">IV</span>Results v1</a>
+  <a href="#s-v2"><span class="toc-num">V</span>v2</a>
 </div>
 
 
@@ -411,7 +412,7 @@ Provide your answer as JSON.</code></pre>
 <ol>
 <li><strong>Sample people</strong> - 7 per row with name, email, role. 2-6 start active, rest are reserve. One company domain per row, one external domain. Roles sampled without replacement.</li>
 <li><strong>Assign recipients per turn</strong> - deterministic. Sensitivity drives BCC, hierarchy drives To vs CC. Changes between turns (escalation, person added, made confidential, etc.) retry if they'd be a no-op.</li>
-<li><strong>LLM writes email content</strong> - given the roster and visible recipients (To/CC only, no BCC), generate realistic email thread. The LLM never sees BCC assignments.</li>
+<li><strong>LLM writes email content</strong> - given the roster and visible recipients (To/CC only, no BCC), generate realistic email thread. The LLM never sees BCC assignments. v1 used <code>google/gemini-2.5-flash</code> via OpenRouter.</li>
 </ol>
 
 
@@ -582,9 +583,50 @@ Provide your answer as JSON.</code></pre>
 
 <p>A check script lives at <code>nuggets/email-to-cc-bcc/check_data.py</code>.</p>
 
-<h4><span class="sub">f</span>mbox Format</h4>
+<h4><span class="sub">f</span>Email Format</h4>
 
-<p>mbox is a standard mail format. The current dataset uses a custom plain-text layout, but mbox gives real structure: proper headers, threading, multipart bodies. Python stdlib has <code>mailbox.mbox</code> built in. Worth exploring for a future version.</p>
+<p>v1 uses a bare plain-text layout (Subject + body). v2 should add <code>Date:</code> and <code>From:</code> headers to make the emails look like actual emails, without including <code>To:</code>/<code>CC:</code>/<code>BCC:</code> (since that is what the model has to figure out).</p>
+
+<hr class="sep">
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     V. V2
+     ═══════════════════════════════════════════════════════════ -->
+
+<h3 id="s-v2"><span class="num">V</span>v2</h3>
+
+<h4><span class="sub">a</span>Changes</h4>
+
+<p>v2 rewrites the data generation pipeline to fix the noise problems identified in v1. The core changes:</p>
+
+<ul>
+  <li><b>Sender exclusion.</b> The sender is picked first and removed from all recipient fields. If removing the sender empties To, the first CC person gets promoted.</li>
+  <li><b>Deterministic routing.</b> To/CC/BCC assignment is based on role priority, not random shuffle. Two separate maps: <code>ACTION_PRIORITY</code> (lower number = more likely action owner, used for To selection) and <code>SENIORITY</code> (higher number = more senior, used for sender selection and "upward" promotion). Using one scale for both was brittle because action ownership and organizational rank do not align.</li>
+  <li><b>BCC from reserve only.</b> Active participants never go to BCC. Compliance mode pulls Legal/HR/Finance from the reserve pool. Broadcast mode moves all external contacts to BCC for privacy, keeping To and CC internal-only.</li>
+  <li><b>Mode/audience coupling.</b> Broadcast mode requires an external audience (with_client, with_vendor, etc.). If the sampled audience is internal-only, mode flips to normal. Without this, broadcast becomes random text decoration with empty BCC and the model cannot learn anything from it.</li>
+  <li><b>Primary action owner in prompt.</b> The LLM prompt includes a "primary action owner" field pointing to the To person. The email must explicitly task or address that person. This closes the learnability gap where v1 labels were deterministic but the email text did not consistently imply the To choice.</li>
+  <li><b>Mentionable-names-only.</b> The LLM prompt only lists To+CC recipients. BCC names are hidden from the generation prompt entirely, so the model cannot leak them into the email text.</li>
+  <li><b>Monotonic timestamps.</b> Each reply is dated after the previous one.</li>
+</ul>
+
+<p>A post-generation validator rejects rows where: the sender appears in any answer field, BCC names (full or first name) appear in the email text, non-mentionable roster names appear in the text, any field overlap exists, To is empty, or a broadcast/compliance cue is present but BCC is empty. At n=50 the pass rate sits around 68%, so to land 5000 clean rows you generate roughly 7500 and let the validator filter.</p>
+
+<p>When generating synthetic data with LLMs, it is usually cheaper and more reliable to over-generate and then filter with a strict validator than to try to prompt away every failure mode. LLMs will occasionally ignore constraints, drift, or hallucinate details. If you can encode the invariants you actually care about (schema, allowed entities, cue presence, no contradictions) as fast deterministic checks, generate more, validate hard, and keep only what passes. Monitor rejection rates to avoid skewing the distribution.</p>
+
+<h4><span class="sub">b</span>Takeaways</h4>
+
+<p><b>Split architecture.</b> Deterministic code handles ground truth routing, the LLM handles natural language content. Trying to make the LLM do both (v1 with random shuffle for routing) is where noise enters. Keep the verifiable part in code.</p>
+
+<p><b>Independent sampling of correlated dimensions breaks things.</b> Mode and audience were sampled independently, which created broadcast mode with no externals. Any time two sampled variables have a logical dependency, either couple the sampling or fix it downstream.</p>
+
+<p><b>Deterministic labels are necessary but not sufficient.</b> v1's problem was random routing. But even after fixing that, the text still did not imply the To choice. The model needs the email to actually task the To person, otherwise the mapping from text to label is not learnable. Injecting "primary action owner" into the generation prompt closes that gap.</p>
+
+<p><b>One priority scale for two concepts fails.</b> Action ownership (who does the work) and seniority (who has authority) are different axes. Junior engineers do the work, VPs send the emails. Conflating them into one number creates contradictions. Split into <code>ACTION_PRIORITY</code> and <code>SENIORITY</code>.</p>
+
+<p><b>Ceiling test before training.</b> Running frontier models (GPT-5, Claude 4.6) on v1 and seeing them all hit the same ~0.44 wall confirmed the problem was data, not model capability. Saved GPU hours that would have been wasted on bad data.</p>
+
+<p><b>BCC is a hidden-information problem.</b> The model must infer BCC from contextual cues (confidentiality phrases, broadcast language) rather than from who is mentioned. That makes it fundamentally harder than To/CC and explains why BCC scores were consistently lowest across all baselines.</p>
 
 <div class="colophon">
   <p>EMAIL-TO-CC-BCC</p>

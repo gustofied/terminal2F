@@ -1,0 +1,40 @@
+{
+  "actual_num_records": 2000,
+  "buffer_size": 1000,
+  "dataset_name": "dataset",
+  "file_paths": {
+    "parquet-files": [
+      "parquet-files/batch_00000.parquet",
+      "parquet-files/batch_00001.parquet"
+    ]
+  },
+  "num_completed_batches": 2,
+  "schema": {
+    "actual_change_2": "string",
+    "actual_change_3": "string",
+    "answer_1": "string",
+    "answer_2": "string",
+    "answer_3": "string",
+    "date_1": "string",
+    "date_2": "string",
+    "date_3": "string",
+    "email_list": "string",
+    "mentionable_list_1": "string",
+    "mentionable_list_2": "string",
+    "mentionable_list_3": "string",
+    "mode_cue_1": "string",
+    "mode_cue_2": "string",
+    "mode_cue_3": "string",
+    "question_1": "string",
+    "question_2": "string",
+    "question_3": "string",
+    "sender_1": "string",
+    "sender_2": "string",
+    "sender_3": "string",
+    "to_name_1": "string",
+    "to_name_2": "string",
+    "to_name_3": "string"
+  },
+  "target_num_records": 7500,
+  "total_num_batches": 8
+}

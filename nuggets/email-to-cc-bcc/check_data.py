@@ -6,10 +6,7 @@ from pathlib import Path
 
 import pandas as pd
 
-PARQUET = Path(__file__).parent / "v1.parquet"
-
-
-def check(path: Path = PARQUET):
+def check(path: Path):
     df = pd.read_parquet(path)
     n = len(df)
     print(f"rows: {n}\n")
@@ -80,4 +77,6 @@ def check(path: Path = PARQUET):
 
 
 if __name__ == "__main__":
-    check()
+    import sys
+    path = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(__file__).parent / "v1.parquet"
+    check(path)
