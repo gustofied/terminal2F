@@ -50,6 +50,8 @@ def score_turn(response: str, ground_truth: str, field: str) -> float:
     gt_obj = extract_json(ground_truth)
     pred = set(pred_obj.get(field, []))
     expected = set(gt_obj.get(field, []))
+    if field == "bcc" and not expected:
+        return 0.2 if not pred else 0.0
     return set_overlap(pred, expected)
 
 
@@ -112,7 +114,7 @@ Use email addresses, not names."""
 
     rubric = vf.Rubric(
         funcs=[to_correct, cc_correct, bcc_correct],
-        weights=[1/3, 1/3, 1/3],
+        weights=[0.45, 0.45, 0.10],
     )
 
     return EmailEnv(
