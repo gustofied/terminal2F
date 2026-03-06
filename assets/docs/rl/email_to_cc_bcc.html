@@ -626,7 +626,7 @@ Reply with JSON only.</code></pre>
   <li>Sender excluded from all answer fields. No BCC name leakage in email text.</li>
   <li>To recipient is always explicitly tasked or addressed in the email body.</li>
   <li>BCC is only compliance (Legal/HR/Finance from reserve) or broadcast (all externals). Never random.</li>
-  <li>Rubric reweighted to To 0.45, CC 0.45, BCC 0.10. BCC empty/empty now scores 0.0 instead of 1.0.</li>
+  <li>Rubric reweighted to To 0.45, CC 0.45, BCC 0.10. BCC on empty-GT turns: 0.2 for correct empty, 0.0 for spurious non-empty. Non-empty GT uses standard Jaccard.</li>
 </ul>
 
 <h4><span class="sub">d</span>Actual new dataset</h4>
