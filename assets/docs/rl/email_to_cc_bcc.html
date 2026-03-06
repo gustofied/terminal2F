@@ -683,6 +683,8 @@ CC/BCC overlap:           0</code></pre>
 
 <p><b>BCC is a hidden-information problem.</b> The model must infer BCC from contextual cues (confidentiality phrases, broadcast language) rather than from who is mentioned. That makes it fundamentally harder than To/CC and explains why BCC scores were consistently lowest across all baselines.</p>
 
+<h4><span class="sub">f</span>Evaluation stage</h4>
+
 <h3 id="s-learnings"><span class="num">VI</span>Learnings</h3>
 
 <p><b>How <code>load_environment</code> receives arguments.</b> The verifiers framework calls <code>load_environment(env_id=..., **env_args)</code> where <code>env_args</code> comes from the CLI or config file. Any keyword argument defined in <code>load_environment</code> - like <code>max_turns</code>, <code>dataset_name</code>, or <code>dataset_split</code> - can be overridden at eval time without touching the environment code. The <code>**kwargs</code> catch-all absorbs anything extra the framework passes. This means the same environment supports single-turn eval (<code>max_turns=1</code>) or full 3-turn threads (<code>max_turns=3</code>) just by changing the CLI invocation. The environment itself does not need separate single-turn and multi-turn implementations.</p>
