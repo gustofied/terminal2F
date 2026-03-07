@@ -1,7 +1,6 @@
 <!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
+<html lang="en"><head>
+    <meta charset="utf-8">
     <title>1. Email-to-CC-BCC</title>
     <style>
       @import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&display=swap");
@@ -336,7 +335,7 @@
     </style>
   </head>
   <body>
-    <a class="back" href="index.html">&larr; docs</a>
+    <a class="back" href="index.html">← docs</a>
 
     <div class="memo-head">
       <h2>1. Email-to-CC-BCC</h2>
@@ -344,31 +343,15 @@
 
     <figure class="header-fig">
       <div class="header-stack">
-        <img
-          class="l4"
-          src="https://www.mfab.hu/app/uploads/2023/08/345913.jpg"
-          alt=""
-        />
-        <img
-          class="l3"
-          src="https://www.mfab.hu/app/uploads/2023/08/345913.jpg"
-          alt=""
-        />
-        <img
-          class="l2"
-          src="https://www.mfab.hu/app/uploads/2023/08/345913.jpg"
-          alt=""
-        />
-        <img
-          class="l1"
-          src="https://www.mfab.hu/app/uploads/2023/08/345913.jpg"
-          alt="Marc Chagall"
-        />
+        <img class="l4" src="https://www.mfab.hu/app/uploads/2023/08/345913.jpg" alt="">
+        <img class="l3" src="https://www.mfab.hu/app/uploads/2023/08/345913.jpg" alt="">
+        <img class="l2" src="https://www.mfab.hu/app/uploads/2023/08/345913.jpg" alt="">
+        <img class="l1" src="https://www.mfab.hu/app/uploads/2023/08/345913.jpg" alt="Marc Chagall">
       </div>
       <figcaption>Marc Chagall.</figcaption>
     </figure>
 
-    <p class="lede" style="margin-top: 32px">
+    <p class="lede" style="margin-top: 32px;">
       Email-to-CC-BCC is an environment built to evaluate and train models on
       recipient placement via RLVR (GRPO), using the
       <a href="https://github.com/saransh-khobragade/verifiers">verifiers</a>
@@ -378,9 +361,7 @@
       and enough ambiguity in the CC/BCC split that a model has to reason about
       roles, sensitivity, and hierarchy rather than pattern match. A synthetic
       dataset is generated using
-      <a href="https://nvidia-nemo.github.io/DataDesigner/latest/"
-        >NVIDIA NeMo DataDesigner</a
-      >, then used to train Qwen models and compare against OpenAI baselines to
+      <a href="https://nvidia-nemo.github.io/DataDesigner/latest/">NVIDIA NeMo DataDesigner</a>, then used to train Qwen models and compare against OpenAI baselines to
       gauge what stronger models can do out of the box. The environment supports
       1, 2, and 3 turn rollouts as a form of curriculum, not increasing
       difficulty but expanding the number of recipient reassignment decisions
@@ -471,7 +452,7 @@ Reply with JSON only.</code></pre>
     <p>
       <code>max_turns</code> controls how many turns the environment runs (1, 2,
       or 3). The stop condition checks
-      <code>len(trajectory) >= num_turns</code>. Scoring uses Jaccard index per
+      <code>len(trajectory) &gt;= num_turns</code>. Scoring uses Jaccard index per
       field per turn, averaged across all turns in the rollout.
     </p>
 
@@ -486,9 +467,7 @@ Reply with JSON only.</code></pre>
       HuggingFace <code>datasets</code> natively, so hosting on HuggingFace and
       loading via <code>load_dataset</code> is the natural path. That is why
       this dataset is
-      <a href="https://huggingface.co/datasets/gustofied/email-to-cc-bcc"
-        >hosted there</a
-      >.
+      <a href="https://huggingface.co/datasets/gustofied/email-to-cc-bcc">hosted there</a>.
     </p>
 
     <p>
@@ -497,7 +476,7 @@ Reply with JSON only.</code></pre>
     </p>
 
     <table class="ch-table">
-      <tr>
+      <tbody><tr>
         <th>Column</th>
         <th>Description</th>
       </tr>
@@ -529,7 +508,7 @@ Reply with JSON only.</code></pre>
           <code>{"to": [...], "cc": [...], "bcc": [...]}</code>
         </td>
       </tr>
-    </table>
+    </tbody></table>
 
     <p>
       <code>load_environment</code> reshapes the flat columns into the verifiers
@@ -550,9 +529,7 @@ Reply with JSON only.</code></pre>
 
     <p>
       A dataset was needed to train on, so
-      <a href="https://nvidia-nemo.github.io/DataDesigner/latest/"
-        >DataDesigner</a
-      >
+      <a href="https://nvidia-nemo.github.io/DataDesigner/latest/">DataDesigner</a>
       was the tool of choice. Below is the thinking behind how the v1 dataset
       was built. Some of these choices get revisited in later sections as the
       dataset evolves.
@@ -598,7 +575,7 @@ Reply with JSON only.</code></pre>
     </p>
 
     <table class="ch-table">
-      <tr>
+      <tbody><tr>
         <th>Function</th>
         <th>What</th>
       </tr>
@@ -614,7 +591,7 @@ Reply with JSON only.</code></pre>
         <td class="mono">bcc_correct</td>
         <td>Jaccard on BCC field</td>
       </tr>
-    </table>
+    </tbody></table>
 
     <p>
       Each function averages its score across all expected turns (missing turns
@@ -633,7 +610,7 @@ Reply with JSON only.</code></pre>
       <code>max_turns</code> (1, 2, or 3). Slices dataset accordingly.
     </p>
 
-    <hr class="sep" />
+    <hr class="sep">
 
     <!-- ═══════════════════════════════════════════════════════════
      IV. RESULTS V1
@@ -649,7 +626,7 @@ Reply with JSON only.</code></pre>
     </p>
 
     <table class="ch-table">
-      <tr>
+      <tbody><tr>
         <th>Model</th>
         <th>n</th>
         <th>Reward</th>
@@ -737,7 +714,7 @@ Reply with JSON only.</code></pre>
         <td>0.320</td>
         <td>0.230</td>
       </tr>
-    </table>
+    </tbody></table>
 
     <p>
       Every model lands between 0.35 and 0.44. GPT-5, Claude 4.6, DeepSeek R1,
@@ -753,8 +730,7 @@ Reply with JSON only.</code></pre>
       space RL would need to close. That gap is real but small, and the ceiling
       is low. Training on this data would push Qwen toward 0.43 by learning the
       same surface heuristics frontier models use, but 0.43 is the ceiling with
-      this dataset.
-    </p>
+      this dataset.</p>
 
     <p>
       Looking at individual rollouts, the models are often more correct than the
@@ -793,7 +769,7 @@ Reply with JSON only.</code></pre>
 
     <p>
       One option without regenerating data: replace the three-way rubric with
-      <code>visible_correct</code> (Jaccard on To &cup; CC) +
+      <code>visible_correct</code> (Jaccard on To ∪ CC) +
       <code>bcc_correct</code> + <code>format_correct</code> (valid JSON). Drop
       individual To/CC scoring. This would get a reward curve going up, but
       collapsing To and CC into a single visible set is reward shaping for
@@ -853,7 +829,7 @@ Reply with JSON only.</code></pre>
       the model has to figure out).
     </p>
 
-    <hr class="sep" />
+    <hr class="sep">
 
     <!-- ═══════════════════════════════════════════════════════════
      V. V2
@@ -981,14 +957,14 @@ Reply with JSON only.</code></pre>
 
         <span style="color:#859900">if not</span> answer[<span style="color:#2AA198">"to"</span>]:                           <span style="color:#586E75"># empty To</span>
             <span style="color:#859900">return</span> <span style="color:#268BD2">False</span>
-        <span style="color:#859900">if</span> to_set & cc_set <span style="color:#859900">or</span> to_set & bcc_set <span style="color:#859900">or</span> cc_set & bcc_set:  <span style="color:#586E75"># field overlap</span>
+        <span style="color:#859900">if</span> to_set &amp; cc_set <span style="color:#859900">or</span> to_set &amp; bcc_set <span style="color:#859900">or</span> cc_set &amp; bcc_set:  <span style="color:#586E75"># field overlap</span>
             <span style="color:#859900">return</span> <span style="color:#268BD2">False</span>
         <span style="color:#859900">for</span> bcc_email <span style="color:#859900">in</span> answer[<span style="color:#2AA198">"bcc"</span>]:                <span style="color:#586E75"># BCC name leakage</span>
             name = email_to_name.get(bcc_email, <span style="color:#2AA198">""</span>)
             <span style="color:#859900">if</span> name.lower() <span style="color:#859900">in</span> question.lower():
                 <span style="color:#859900">return</span> <span style="color:#268BD2">False</span>
             first = name.split()[<span style="color:#2AA198">0</span>]
-            <span style="color:#859900">if</span> <span style="color:#268BD2">len</span>(first) > <span style="color:#2AA198">2</span> <span style="color:#859900">and</span> first.lower() <span style="color:#859900">in</span> question.lower():
+            <span style="color:#859900">if</span> <span style="color:#268BD2">len</span>(first) &gt; <span style="color:#2AA198">2</span> <span style="color:#859900">and</span> first.lower() <span style="color:#859900">in</span> question.lower():
                 <span style="color:#859900">return</span> <span style="color:#268BD2">False</span>
         <span style="color:#859900">if</span> sender_email <span style="color:#859900">in</span> to_set | cc_set | bcc_set:  <span style="color:#586E75"># sender in fields</span>
             <span style="color:#859900">return</span> <span style="color:#268BD2">False</span>
@@ -1082,7 +1058,7 @@ CC/BCC overlap:           0</code></pre>
     </p>
 
     <table class="ch-table">
-      <tr>
+      <tbody><tr>
         <th>Turn</th>
         <th>To</th>
         <th>CC</th>
@@ -1106,7 +1082,7 @@ CC/BCC overlap:           0</code></pre>
         <td>0.279</td>
         <td>0.124</td>
       </tr>
-    </table>
+    </tbody></table>
 
     <p>
       To gets better across turns. Later emails tend to have a single clear
@@ -1116,7 +1092,7 @@ CC/BCC overlap:           0</code></pre>
     </p>
 
     <table class="ch-table">
-      <tr>
+      <tbody><tr>
         <th>Pattern</th>
         <th>Count</th>
         <th>% of turns</th>
@@ -1146,7 +1122,7 @@ CC/BCC overlap:           0</code></pre>
         <td>42</td>
         <td>9%</td>
       </tr>
-    </table>
+    </tbody></table>
 
     <p>
       The number one problem is To/CC confusion. 40% of all turns have a CC
@@ -1220,6 +1196,88 @@ CC/BCC overlap:           0</code></pre>
       do. If there is real headroom, it is still worth a training run.
     </p>
 
+    <p>
+      <b>Qwen3-0.6B (n=50, v0.1.9).</b> Ran this on two RTX 6000 Ada GPUs
+      via vLLM. The headroom is real.
+    </p>
+
+    <table class="ch-table">
+      <thead>
+        <tr><th>Metric</th><th class="mono">Qwen3-0.6B</th><th class="mono">GPT-4.1-mini</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>reward</td><td class="mono">0.108</td><td class="mono">0.488</td></tr>
+        <tr><td>to_correct</td><td class="mono">0.049</td><td class="mono">0.683</td></tr>
+        <tr><td>cc_correct</td><td class="mono">0.180</td><td class="mono">0.373</td></tr>
+        <tr><td>bcc_correct</td><td class="mono">0.048</td><td class="mono">0.127</td></tr>
+        <tr><td>error_rate</td><td class="mono">0.0%</td><td class="mono">0.0%</td></tr>
+      </tbody>
+    </table>
+
+    <p>
+      Five times worse overall. To is nearly zero (0.049), CC carries the only
+      partial signal (0.180), BCC is dead as expected. But 85% of rollouts get
+      some reward, and the reward distribution clusters around 0.1-0.2 with a
+      long tail. Not random, just bad.
+    </p>
+
+    <p>
+      The interesting part is variance. Average spread per example (max minus
+      min across 3 rollouts) is 0.112, and zero examples have zero spread.
+      Every single example produces different rewards across its rollouts. That
+      is exactly what GRPO needs: it compares rollouts within the same example
+      and updates toward the better ones. If a model gives the same answer
+      every time, there is no gradient. Here there always is.
+    </p>
+
+    <p>
+      One new problem: format degrades across turns.
+    </p>
+
+    <table class="ch-table">
+      <thead>
+        <tr><th>Turn</th><th>Valid JSON</th><th class="mono">%</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="mono">1</td><td class="mono">150 / 150</td><td class="mono">100%</td></tr>
+        <tr><td class="mono">2</td><td class="mono">120 / 150</td><td class="mono">80%</td></tr>
+        <tr><td class="mono">3</td><td class="mono">93 / 150</td><td class="mono">62%</td></tr>
+      </tbody>
+    </table>
+
+    <p>
+      Turn 1 is perfect. By turn 3 almost 40% of responses fail to produce
+      valid JSON, mostly the model getting stuck in its thinking block and
+      never outputting an answer. GPT-4.1-mini does not have this problem at
+      all, it produces valid JSON on every turn. So format compliance is
+      something the 0.6B model would need to learn through training, not just
+      recipient logic. That is actually a clear, learnable objective: every
+      response must end with a JSON object. The signal is binary and
+      unambiguous, unlike the To/CC placement which is fuzzy.
+    </p>
+
+    <p>
+      So there are two things to learn here: (1) always output JSON, and (2)
+      put the right people in the right fields. The first one is easy for RL to
+      reward. The second one is harder because of the ambiguity discussed above.
+      But the 0.6B model is so far from the frontier that even partial learning
+      on both axes would show meaningful improvement. Worth a run.
+    </p>
+
+    <p>
+      One thing worth checking: is the problem reasoning or just model size?
+      Qwen3-0.6B is a thinking model, it wraps every answer in
+      <code>&lt;think&gt;</code> blocks. All 450 turns use them. The model
+      reasons through the scenario, often correctly identifying roles and
+      relationships, then still outputs the wrong recipients. But our parser
+      does not care about the thinking tokens. It finds the last JSON object in
+      the response, so <code>&lt;think&gt;...&lt;/think&gt;</code> followed by
+      JSON parses fine. A non-reasoning model of the same size might actually
+      do better here, since it would not burn its token budget on chain-of-thought
+      that leads nowhere. Could be worth a side-by-side: same parameter count,
+      reasoning on vs off.
+    </p>
+
     <h3 id="s-learnings"><span class="num">VI</span>Learnings</h3>
 
     <p>
@@ -1264,5 +1322,7 @@ CC/BCC overlap:           0</code></pre>
     <div class="colophon">
       <p>EMAIL-TO-CC-BCC</p>
     </div>
-  </body>
-</html>
+
+    
+  
+<script src="../edit.js"></script></body></html>
