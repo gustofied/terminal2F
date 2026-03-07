@@ -1278,6 +1278,136 @@ CC/BCC overlap:           0</code></pre>
       reasoning on vs off.
     </p>
 
+    <h4><span class="sub">g</span>Next up</h4>
+
+    <p>
+      So let's do a &nbsp;few targeted evals to
+      figure out what is actually going wrong. The turn-3 JSON collapse
+      (62% valid) is the biggest open question: is it a reasoning problem
+      or a format problem? And separately, does the 3-turn setup hurt more
+      than it helps at this model size?
+    </p>
+
+    <p><b>1. Reasoning vs non-reasoning.</b> Run the same eval set with
+      two variants of the same model size:
+    </p>
+
+    <ul>
+      <li>Qwen3-0.6B thinking (already ran, baseline)</li>
+      <li>Qwen3-0.6B with thinking disabled, or Qwen2.5-0.5B-Instruct</li>
+    </ul>
+
+    <p>
+      Track two things: JSON validity per turn, and conditional To/CC
+      scores (only on turns where JSON is valid). If the non-reasoning
+      model has much higher JSON validity but similar To/CC scores, the
+      problem is format stability, not capability. The thinking tokens are
+      wasting the context window and causing the model to lose track of the
+      output format. If non-reasoning fixes JSON but To/CC gets worse, then
+      reasoning does help with placement, it just cannot maintain format.
+      Either way, separating "can it produce valid JSON" from "can it place
+      recipients correctly" tells you what training needs to fix first.
+    </p>
+
+    <p><b>2. Fewer turns.</b> Run <code>max_turns=1</code> on the 0.6B
+      model. Turn 1 already has 100% JSON validity, so this isolates
+      recipient placement quality without the format collapse. If reward
+      jumps significantly (say from 0.108 to 0.2+), the 3-turn setup is
+      dragging the score down more than the actual placement errors.
+      Could be worth starting training on single-turn first as a
+      curriculum, then scaling to 3 turns once the model has learned basic
+      format and placement.
+    </p>
+
+    <p><b>3. What to look for.</b></p>
+
+    <ul>
+      <li>Does disabling thinking fix JSON validity on later turns?</li>
+      <li>Does single-turn eval show meaningfully higher reward?</li>
+      <li>Is the To/CC confusion consistent across setups, or does it
+        shift with turns and reasoning mode?</li>
+    </ul>
+
+    <p>
+      The answers shape the training strategy. If format is the bottleneck,
+      training on single-turn first makes sense, the model learns "always
+      output JSON" before tackling multi-turn. If placement is the
+      bottleneck, jump straight to 3-turn training and let GRPO handle
+      format as a side effect.
+    </p>
+
+    <p>
+      One idea if format turns out to be the bottleneck: do GRPO on
+      single-turn first, get the model to reliably output valid JSON with
+      decent placement. Then collect good multi-turn trajectories from
+      that model and SFT on them. So RL teaches format and basic
+      placement on turn 1, then SFT on multi-turn data teaches the model
+      to maintain that across all three turns. Otherwise 3-turn GRPO is
+      trying to learn from rollouts where 40% of turn-3 responses are
+      not even parseable.
+    </p>
+
+    <p>
+      Why this works: right now 3-turn GRPO is dominated by "can you even
+      emit JSON on turn 3." Most of the learning signal goes to format
+      survival, not recipient logic. Single-turn GRPO gives clean, dense
+      signal: valid JSON, schema compliance, To/CC split. Then SFT teaches
+      persistence, repeat the behavior across turns without needing RL to
+      solve long-horizon formatting from scratch.
+    </p>
+
+    <p>
+      The caveat: SFT-ing on rollouts that are only moderately correct
+      (To/CC confusion but still some reward) means distilling the model's
+      own biases into the multi-turn behavior. "Reply-to bias" and
+      "all-in-To" get baked in as learned patterns. So for the SFT data,
+      better to use ground truth trajectories (the dataset already has
+      <code>answer_1/2/3</code>), or filter rollouts very strictly. Ground
+      truth is the safer option. The training example is just the full
+      conversation: user gives roster + email, assistant replies with the
+      GT JSON, repeat for all three turns. This directly teaches "every
+      turn ends in clean JSON" and "keep doing it across turns."
+    </p>
+
+    <p>
+      A practical recipe:
+    </p>
+
+    <ul>
+      <li><b>Phase A: GRPO warmup on <code>max_turns=1</code>.</b>
+        Same environment, just single-turn. Make format correctness
+        strongly rewarded. Goal is ~99% valid JSON and decent To/CC.
+      </li>
+      <li><b>Phase B: SFT on multi-turn GT data.</b>
+        Build training examples from the dataset's ground truth
+        answers. Full 3-turn conversations with clean JSON on every
+        turn. This teaches the model to maintain format across turns.
+        Can mix in a small fraction of high-quality model rollouts to
+        match the model's own style, but GT should be the backbone.
+      </li>
+      <li><b>Phase C: GRPO again on <code>max_turns=2</code> then 3.</b>
+        Now the model can survive multi-turn formatting, so GRPO has room
+        to actually optimize To/CC placement across turns. SFT taught
+        stability and imitation, GRPO teaches policy optimization.
+      </li>
+    </ul>
+
+    <p>
+      Going the rollout-SFT route instead of GT means filtering hard. Only
+      keep rollouts where: valid JSON on all turns, keys are exactly
+      <code>to, cc, bcc</code> with list values, no sender address in
+      outputs, To/CC scores above a threshold (say
+      <code>to_correct >= 0.8</code> and <code>cc_correct >= 0.6</code>),
+      and no extra text outside the JSON. Otherwise you end up distilling
+      exactly the errors you are trying to remove.
+    </p>
+
+    <p>
+      None of this requires a prompt contract. It is all on the
+      environment and training side: curriculum, reward shaping, SFT
+      sequencing. The prompt stays minimal.
+    </p>
+
     <h3 id="s-learnings"><span class="num">VI</span>Learnings</h3>
 
     <p>

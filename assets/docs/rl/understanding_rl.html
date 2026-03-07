@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Language Model Post-Training with Math, some Illustrations, and in Code</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, serif;
+      font-size: 14.5px;
+      line-height: 1.72;
+      color: #2a2a2a;
+      background: #fdfcfa;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 72px 1rem 120px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a.back {
+      font-family: 'JetBrains Mono', monospace; font-size: 9.5px;
+      color: #bbb; text-decoration: none; letter-spacing: 0.5px;
+    }
+    a.back:hover { color: #1a1a1a; }
+
+    .memo-head {
+      border-top: 2.5px solid #1a1a1a;
+      border-bottom: none;
+      padding: 20px 0 0;
+      margin-bottom: 0;
+    }
+    .memo-head h2 {
+      font-size: 1.6rem;
+      font-weight: normal;
+      color: #333;
+      line-height: 1.25;
+      margin: 0;
+    }
+
+    h3 {
+      font-size: 1.1rem;
+      font-weight: normal;
+      color: #333;
+      margin: 36px 0 6px;
+    }
+    h3 .num {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: #aaa;
+      margin-right: 6px;
+    }
+    h4 {
+      font-size: 1rem;
+      font-weight: normal;
+      color: #333;
+      margin: 24px 0 4px;
+    }
+    h4 .sub {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: #bbb;
+      margin-right: 5px;
+    }
+
+    p { margin: 10px 0; }
+    .lede { margin-top: 32px; }
+
+    ul, ol { margin: 12px 0 12px 22px; }
+    li { margin: 5px 0; color: #333; }
+    li::marker { color: #bbb; }
+
+    code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: #1a1a1a;
+      background: #f5f4f0;
+      padding: 1.5px 5px;
+      border-bottom: 1px solid #ddd;
+    }
+    .code-block { position: relative; margin: 20px 0; }
+    .code-block pre { margin: 0; }
+    .code-lang {
+      position: absolute; top: 0; right: 0;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 8.5px; font-weight: 400;
+      color: #bbb; letter-spacing: 0.8px;
+      text-transform: uppercase;
+      padding: 5px 10px; user-select: none;
+    }
+    pre {
+      margin: 20px 0;
+      padding: 16px 20px;
+      background: #f5f4f0;
+      border: 0.5px solid #e8e4de;
+      overflow-x: auto;
+      line-height: 1.5;
+    }
+    pre code {
+      background: none; padding: 0; border: none; font-size: 12px;
+    }
+
+    .ch-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0 0;
+      font-size: 13.5px;
+    }
+    .ch-table th {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9px; font-weight: 400;
+      color: #aaa; letter-spacing: 1px;
+      text-transform: uppercase; text-align: left;
+      padding: 6px 16px;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    .ch-table td {
+      padding: 10px 16px;
+      border-bottom: 0.5px solid #eee;
+      vertical-align: top;
+    }
+    .ch-table .mono {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px; white-space: nowrap;
+    }
+
+    strong { font-weight: 700; color: #1a1a1a; }
+    a { color: #268bd2; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    blockquote {
+      font-size: 13px; color: #888; font-style: italic;
+      margin: 20px 0 20px 28px;
+      padding-left: 16px;
+      border-left: 1.5px solid #ddd;
+      line-height: 1.6;
+    }
+
+    .sep {
+      border: none; text-align: center;
+      margin: 56px 0; line-height: 0;
+    }
+    .sep::after {
+      content: '\2022\2009\2009\2022\2009\2009\2022';
+      font-size: 10px; color: #ccc; letter-spacing: 4px;
+    }
+
+    .colophon {
+      border-top: 0.5px solid #ddd;
+      margin-top: 64px;
+      padding-top: 16px;
+    }
+    .colophon p {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9px; color: #ccc; letter-spacing: 0.5px;
+    }
+
+    .toc {
+      margin: 32px 0 40px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px; color: #999; letter-spacing: 0.3px;
+      display: flex; flex-wrap: wrap;
+      gap: 8px 20px; align-items: baseline;
+    }
+    .toc a { color: #666; text-decoration: none; }
+    .toc a:hover { color: #1a1a1a; }
+    .toc .toc-num {
+      color: #aaa; font-size: 9px; margin-right: 3px;
+    }
+
+    @media (max-width: 768px) {
+      body { padding: 16px 0.75rem 80px; }
+      .memo-head h2 { font-size: 1.15rem; }
+      h3 { font-size: 1.1rem; margin: 36px 0 6px; }
+      p { font-size: 13.5px; }
+      pre { padding: 12px 14px; font-size: 10.5px; }
+      pre code { font-size: 10.5px; }
+      .ch-table { font-size: 12px; display: block; overflow-x: auto; }
+      .ch-table th, .ch-table td { padding: 6px 8px; }
+    }
+  </style>
+</head>
+<body>
+  <a class="back" href="index.html">&larr; docs</a>
+
+  <div class="memo-head" style="border-bottom:none; padding-bottom:0;">
+    <h2>Language Model Post-Training with Math, some Illustrations, and in Code</h2>
+  </div>
+
+  <figure style="margin:16px 0 0; overflow:hidden; border-radius:2px;">
+    <div style="position:relative; height:220px;">
+      <img style="position:absolute; left:50%; transform:translateX(-50%); width:100%; height:220px; object-fit:cover; object-position:center 35%; display:block; opacity:0.3;" src="https://www.goethehaus.cloud/wp-content/uploads/2025/07/Allee-in-der-Villa-Borghese-Johann-Wolfgang-von-Goethe.jpg" alt="">
+      <img style="position:absolute; left:50%; transform:translateX(-50%); width:96%; height:220px; object-fit:cover; object-position:center 32%; display:block; opacity:0.5;" src="https://www.goethehaus.cloud/wp-content/uploads/2025/07/Allee-in-der-Villa-Borghese-Johann-Wolfgang-von-Goethe.jpg" alt="">
+      <img style="position:absolute; left:50%; transform:translateX(-50%); width:92%; height:220px; object-fit:cover; object-position:center 30%; display:block; opacity:0.72;" src="https://www.goethehaus.cloud/wp-content/uploads/2025/07/Allee-in-der-Villa-Borghese-Johann-Wolfgang-von-Goethe.jpg" alt="">
+      <img style="position:absolute; left:50%; transform:translateX(-50%); width:88%; height:220px; object-fit:cover; object-position:center 50%; display:block; opacity:1;" src="https://www.goethehaus.cloud/wp-content/uploads/2025/07/Allee-in-der-Villa-Borghese-Johann-Wolfgang-von-Goethe.jpg" alt="Allee in der Villa Borghese, Goethe">
+    </div>
+    <figcaption style="font-family:'JetBrains Mono',monospace; font-size:11px; color:#bbb; letter-spacing:0.5px; margin-top:8px; text-align:center;">Johann Wolfgang von Goethe, <a href="https://www.art-prints-on-demand.com/a/von-goethe-johann-wolfgan/allee-in-der-villa-borghe.html" style="color:#bbb; text-decoration:none; border-bottom:0.5px solid #ddd;"><em style="color:#bbb">Allee in der Villa Borghese</em></a>, 1787.</figcaption>
+  </figure>
+
+  <div class="colophon">
+    <p>LANGUAGE MODEL POST-TRAINING</p>
+  </div>
+
+  <script src="../edit.js"></script>
+</body>
+</html>
