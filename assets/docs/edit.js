@@ -2,8 +2,7 @@
 (function () {
   if (document.getElementById('edit-bar')) return; // prevent double init
 
-  const SELECTOR = 'p, li, td, blockquote, figcaption';
-  const SKIP = '#edit-bar, #edit-bar *';
+  const SELECTOR = 'h1, h2, h3, h4, h5, h6, p, li, td, th, blockquote, figcaption, pre code';
   let editing = false;
 
   // build bar
