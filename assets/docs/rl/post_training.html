@@ -1,0 +1,486 @@
+<!doctype html>
+<html lang="en"><head>
+  <meta charset="utf-8">
+  <title>Large Language Model Post-Training With Math, Some Illustrations, and in Code</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, serif;
+      font-size: 14.5px;
+      line-height: 1.72;
+      color: #2a2a2a;
+      background: #fdfcfa;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 72px 1rem 120px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a.back {
+      font-family: 'JetBrains Mono', monospace; font-size: 9.5px;
+      color: #bbb; text-decoration: none; letter-spacing: 0.5px;
+    }
+    a.back:hover { color: #1a1a1a; }
+
+    .memo-head {
+      border-top: 2.5px solid #1a1a1a;
+      border-bottom: none;
+      padding: 20px 0 0;
+      margin-bottom: 0;
+    }
+    .memo-head h2 {
+      font-size: 1.6rem;
+      font-weight: normal;
+      color: #333;
+      line-height: 1.25;
+      margin: 0;
+    }
+
+    h3 {
+      font-size: 1.1rem;
+      font-weight: normal;
+      color: #333;
+      margin: 36px 0 6px;
+    }
+    h3 .num {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: #aaa;
+      margin-right: 6px;
+    }
+    h4 {
+      font-size: 1rem;
+      font-weight: normal;
+      color: #333;
+      margin: 24px 0 4px;
+    }
+    h4 .sub {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: #bbb;
+      margin-right: 5px;
+    }
+
+    p { margin: 10px 0; }
+    .lede { margin-top: 32px; }
+
+    ul, ol { margin: 12px 0 12px 22px; }
+    li { margin: 5px 0; color: #333; }
+    li::marker { color: #bbb; }
+
+    code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: #1a1a1a;
+      background: #f5f4f0;
+      padding: 1.5px 5px;
+      border-bottom: 1px solid #ddd;
+    }
+    .code-block { position: relative; margin: 20px 0; }
+    .code-block pre { margin: 0; }
+    .code-lang {
+      position: absolute; top: 0; right: 0;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 8.5px; font-weight: 400;
+      color: #bbb; letter-spacing: 0.8px;
+      text-transform: uppercase;
+      padding: 5px 10px; user-select: none;
+    }
+    pre {
+      margin: 20px 0;
+      padding: 16px 20px;
+      background: #f5f4f0;
+      border: 0.5px solid #e8e4de;
+      overflow-x: auto;
+      line-height: 1.5;
+    }
+    pre code {
+      background: none; padding: 0; border: none; font-size: 12px;
+    }
+
+    .ch-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0 0;
+      font-size: 13.5px;
+    }
+    .ch-table th {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9px; font-weight: 400;
+      color: #aaa; letter-spacing: 1px;
+      text-transform: uppercase; text-align: left;
+      padding: 6px 16px;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    .ch-table td {
+      padding: 10px 16px;
+      border-bottom: 0.5px solid #eee;
+      vertical-align: top;
+    }
+    .ch-table .mono {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px; white-space: nowrap;
+    }
+
+    strong { font-weight: 700; color: #1a1a1a; }
+    a { color: #268bd2; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    blockquote {
+      font-size: 13px; color: #888; font-style: italic;
+      margin: 20px 0 20px 28px;
+      padding-left: 16px;
+      border-left: 1.5px solid #ddd;
+      line-height: 1.6;
+    }
+
+    .sep {
+      border: none; text-align: center;
+      margin: 56px 0; line-height: 0;
+    }
+    .sep::after {
+      content: '\2022\2009\2009\2022\2009\2009\2022';
+      font-size: 10px; color: #ccc; letter-spacing: 4px;
+    }
+
+    .colophon {
+      border-top: 0.5px solid #ddd;
+      margin-top: 64px;
+      padding-top: 16px;
+    }
+    .colophon p {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9px; color: #ccc; letter-spacing: 0.5px;
+    }
+
+    .toc {
+      margin: 32px 0 40px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px; color: #999; letter-spacing: 0.3px;
+      display: flex; flex-wrap: wrap;
+      gap: 8px 20px; align-items: baseline;
+    }
+    .toc a { color: #666; text-decoration: none; }
+    .toc a:hover { color: #1a1a1a; }
+    .toc .toc-num {
+      color: #aaa; font-size: 9px; margin-right: 3px;
+    }
+
+    @media (max-width: 768px) {
+      body { padding: 16px 0.75rem 80px; }
+      .memo-head h2 { font-size: 1.15rem; }
+      h3 { font-size: 1.1rem; margin: 36px 0 6px; }
+      p { font-size: 13.5px; }
+      pre { padding: 12px 14px; font-size: 10.5px; }
+      pre code { font-size: 10.5px; }
+      .ch-table { font-size: 12px; display: block; overflow-x: auto; }
+      .ch-table th, .ch-table td { padding: 6px 8px; }
+      .neuron-fig { float: none !important; width: 100% !important; max-width: 100% !important; margin: 24px 0 !important; }
+    }
+  </style>
+</head>
+<body>
+  <a class="back" href="index.html">← docs</a>
+
+  <div class="memo-head" style="border-bottom:none; padding-bottom:0;">
+    <h2>Large Language Model Post-Training With Math, Some Illustrations, and in Code</h2>
+  </div>
+
+  <figure style="margin:16px 0 0; overflow:hidden; border-radius:2px;">
+    <div style="position:relative; height:220px;">
+      <img style="position:absolute; left:50%; transform:translateX(-50%); width:100%; height:220px; object-fit:cover; object-position:center 30%; display:block; opacity:0.5;" src="https://www.mfab.hu/app/uploads/2023/08/345913.jpg" alt="">
+      <img style="position:absolute; left:50%; transform:translateX(-50%); width:98%; height:220px; object-fit:cover; object-position:center 30%; display:block; opacity:0.7;" src="https://www.mfab.hu/app/uploads/2023/08/345913.jpg" alt="">
+      <img style="position:absolute; left:50%; transform:translateX(-50%); width:96%; height:220px; object-fit:cover; object-position:center 30%; display:block; opacity:0.85;" src="https://www.mfab.hu/app/uploads/2023/08/345913.jpg" alt="">
+      <img style="position:absolute; left:50%; transform:translateX(-50%); width:94%; height:220px; object-fit:cover; object-position:center 50%; display:block; opacity:1;" src="https://www.goethehaus.cloud/wp-content/uploads/2025/07/Allee-in-der-Villa-Borghese-Johann-Wolfgang-von-Goethe.jpg" alt="Allee in der Villa Borghese, Goethe">
+    </div>
+    <figcaption style="font-family: &quot;JetBrains Mono&quot;, monospace; font-size: 11px; color: rgb(187, 187, 187); letter-spacing: 0.5px; margin-top: 8px; text-align: center;">Johann Wolfgang von Goethe, <a href="https://www.art-prints-on-demand.com/a/von-goethe-johann-wolfgan/allee-in-der-villa-borghe.html" style="color:#bbb; text-decoration:none; border-bottom:0.5px solid #ddd;"><em style="color:#bbb">Allee in der Villa Borghese</em></a>, 1787.</figcaption>
+  </figure>
+
+  <p class="lede">This exemplar entry writes and gives us understanding of Language Model, and with specifics into Post-Training. The entry looks at some math, some illustrations made, and how its coded, by looking at Verifiers-RL.</p>
+
+  <div class="toc">
+    <a href="#s-logit"><span class="toc-num">I</span>Logit, Softmax, and Logprobs</a>
+  </div>
+
+  <h3 id="s-logit"><span class="num">I</span>&nbsp;Logit, Softmax, and Logprobs</h3>
+
+  <div class="neuron-fig" style="float:right; margin:-8px 0 8px 28px; max-width:280px; width:38%;">
+
+    <!-- illustration 1: words → vocabulary table -->
+    <svg viewBox="0 0 280 140" style="width:100%;height:auto;display:block;font-family:'JetBrains Mono',monospace;">
+      <defs>
+        <marker id="v-arrow" viewBox="0 0 10 6" refX="10" refY="3" markerWidth="7" markerHeight="4.5" orient="auto">
+          <path d="M0,0 L10,3 L0,6 Z" fill="#bbb"></path>
+        </marker>
+      </defs>
+
+      <!-- scattered words -->
+      <text x="8" y="22" font-size="9" fill="#bbb">the</text>
+      <text x="42" y="14" font-size="9" fill="#bbb">cat</text>
+      <text x="28" y="42" font-size="9" fill="#bbb">are</text>
+      <text x="6" y="60" font-size="9" fill="#bbb">run</text>
+      <text x="48" y="54" font-size="9" fill="#bbb">is</text>
+      <text x="14" y="82" font-size="9" fill="#bbb">they</text>
+      <text x="44" y="76" font-size="9" fill="#bbb">.</text>
+      <text x="8" y="100" font-size="9" fill="#bbb">hello</text>
+      <text x="42" y="96" font-size="8" fill="#ddd">...</text>
+
+      <!-- arrow -->
+      <line x1="62" y1="62" x2="88" y2="62" stroke="#ccc" stroke-width="0.5" marker-end="url(#v-arrow)"></line>
+
+      <!-- vocab table -->
+      <rect x="92" y="4" width="180" height="118" rx="2" fill="#fafaf8" stroke="#1a1a1a" stroke-width="0.8"></rect>
+      <rect x="93" y="5" width="178" height="18" rx="1" fill="#f0efeb" stroke="none"></rect>
+      <text x="145" y="17" font-size="7" fill="#1a1a1a" letter-spacing="0.5">TOKEN</text>
+      <text x="254" y="17" font-size="7" fill="#1a1a1a" text-anchor="end" letter-spacing="0.5">ID</text>
+      <line x1="92" y1="23" x2="272" y2="23" stroke="#ddd" stroke-width="0.5"></line>
+      <line x1="210" y1="5" x2="210" y2="122" stroke="#eee" stroke-width="0.5"></line>
+
+      <text x="102" y="36" font-size="8.5" fill="#555">the</text>
+      <text x="262" y="36" text-anchor="end" font-size="8.5" fill="#555">262</text>
+      <line x1="98" y1="40" x2="266" y2="40" stroke="#f0efeb" stroke-width="0.5"></line>
+
+      <text x="102" y="50" font-size="8.5" fill="#555">they</text>
+      <text x="262" y="50" text-anchor="end" font-size="8.5" fill="#555">484</text>
+      <line x1="98" y1="54" x2="266" y2="54" stroke="#f0efeb" stroke-width="0.5"></line>
+
+      <text x="102" y="64" font-size="8.5" fill="#555">Ġhello</text>
+      <text x="262" y="64" text-anchor="end" font-size="8.5" fill="#555">31373</text>
+      <line x1="98" y1="68" x2="266" y2="68" stroke="#f0efeb" stroke-width="0.5"></line>
+
+      <text x="102" y="78" font-size="8.5" fill="#555">Ġrun</text>
+      <text x="262" y="78" text-anchor="end" font-size="8.5" fill="#555">1057</text>
+      <line x1="98" y1="82" x2="266" y2="82" stroke="#f0efeb" stroke-width="0.5"></line>
+
+      <text x="102" y="92" font-size="8.5" fill="#555">ning</text>
+      <text x="262" y="92" text-anchor="end" font-size="8.5" fill="#555">768</text>
+      <line x1="98" y1="96" x2="266" y2="96" stroke="#f0efeb" stroke-width="0.5"></line>
+
+      <text x="182" y="108" text-anchor="middle" font-size="8" fill="#ddd">...</text>
+
+      <text x="102" y="118" font-size="8.5" fill="#555">.</text>
+      <text x="262" y="118" text-anchor="end" font-size="8.5" fill="#555">13</text>
+
+      <text x="182" y="136" text-anchor="middle" font-size="7" fill="#bbb" letter-spacing="0.8">VOCABULARY (50,257 entries)</text>
+    </svg>
+
+    <!-- illustration 2: token IDs → network → logit vector (IDs + scores) -->
+    <svg viewBox="0 0 280 130" style="width:100%;height:auto;display:block;font-family:'JetBrains Mono',monospace;margin-top:16px;">
+      <!-- input token IDs -->
+      <rect x="4" y="38" width="54" height="40" rx="2" fill="#fafaf8" stroke="#1a1a1a" stroke-width="0.8"></rect>
+      <text x="31" y="55" text-anchor="middle" font-size="8" fill="#555">484</text>
+      <text x="31" y="67" text-anchor="middle" font-size="8" fill="#555">533</text>
+      <text x="31" y="30" text-anchor="middle" font-size="7" fill="#bbb" letter-spacing="0.3">INPUT IDs</text>
+
+      <!-- arrow -->
+      <line x1="58" y1="58" x2="82" y2="58" stroke="#ccc" stroke-width="0.5" marker-end="url(#v-arrow)"></line>
+
+      <!-- network box -->
+      <rect x="86" y="38" width="60" height="40" rx="2" fill="#fafaf8" stroke="#1a1a1a" stroke-width="0.8"></rect>
+      <text x="116" y="56" text-anchor="middle" font-size="7.5" fill="#1a1a1a">neural</text>
+      <text x="116" y="66" text-anchor="middle" font-size="7.5" fill="#1a1a1a">network</text>
+      <text x="116" y="90" text-anchor="middle" font-size="6.5" fill="#bbb" letter-spacing="0.3">RL ADJUSTS THIS</text>
+
+      <!-- arrow -->
+      <line x1="146" y1="58" x2="170" y2="58" stroke="#ccc" stroke-width="0.5" marker-end="url(#v-arrow)"></line>
+
+      <!-- logit vector: ID → logit score -->
+      <rect x="174" y="8" width="98" height="100" rx="2" fill="none" stroke="#ddd" stroke-width="0.5"></rect>
+
+      <text x="184" y="22" font-size="6.5" fill="#bbb" letter-spacing="0.3">ID</text>
+      <text x="262" y="22" text-anchor="end" font-size="6.5" fill="#bbb" letter-spacing="0.3">LOGIT</text>
+
+      <text x="184" y="36" font-size="8" fill="#999">262</text>
+      <text x="262" y="36" text-anchor="end" font-size="8" fill="#999">2.1</text>
+      <text x="184" y="50" font-size="8" fill="#999">9246</text>
+      <text x="262" y="50" text-anchor="end" font-size="8" fill="#999">-0.4</text>
+      <text x="184" y="64" font-size="8" fill="#1a1a1a" font-weight="500">1057</text>
+      <text x="262" y="64" text-anchor="end" font-size="8" fill="#1a1a1a" font-weight="500">12.4</text>
+      <text x="184" y="78" font-size="8" fill="#999">533</text>
+      <text x="262" y="78" text-anchor="end" font-size="8" fill="#999">5.3</text>
+      <text x="223" y="92" text-anchor="middle" font-size="8" fill="#ddd">...</text>
+      <text x="184" y="104" font-size="8" fill="#999">29119</text>
+      <text x="262" y="104" text-anchor="end" font-size="8" fill="#999">-8.1</text>
+
+      <text x="223" y="122" text-anchor="middle" font-size="7" fill="#bbb" letter-spacing="0.5">LOGITS (50,257 scores)</text>
+    </svg>
+
+    <!-- illustration 3: softmax table with bar chart -->
+    <svg viewBox="0 0 280 140" style="width:100%;height:auto;display:block;font-family:'JetBrains Mono',monospace;margin-top:16px;">
+      <!-- bar chart on the left -->
+      <rect x="4" y="20" width="3" height="12" rx="1" fill="#ddd"></rect>
+      <rect x="4" y="36" width="1" height="12" rx="1" fill="#ddd"></rect>
+      <rect x="4" y="52" width="58" height="12" rx="1" fill="#1a1a1a"></rect>
+      <rect x="4" y="68" width="18" height="12" rx="1" fill="#ddd"></rect>
+      <rect x="4" y="84" width="8" height="12" rx="1" fill="#ddd"></rect>
+      <rect x="4" y="108" width="1" height="12" rx="1" fill="#ddd"></rect>
+
+      <!-- softmax table -->
+      <rect x="70" y="4" width="140" height="118" rx="2" fill="#fafaf8" stroke="#1a1a1a" stroke-width="0.8"></rect>
+      <rect x="71" y="5" width="138" height="16" rx="1" fill="#f0efeb" stroke="none"></rect>
+      <text x="105" y="16" font-size="6.5" fill="#1a1a1a" letter-spacing="0.4">ID</text>
+      <text x="190" y="16" font-size="6.5" fill="#1a1a1a" text-anchor="end" letter-spacing="0.4">P</text>
+      <line x1="70" y1="21" x2="210" y2="21" stroke="#ddd" stroke-width="0.5"></line>
+      <line x1="148" y1="5" x2="148" y2="122" stroke="#eee" stroke-width="0.5"></line>
+
+      <text x="82" y="34" font-size="8" fill="#999">262</text>
+      <text x="200" y="34" text-anchor="end" font-size="8" fill="#999">0.04</text>
+
+      <text x="82" y="48" font-size="8" fill="#999">9246</text>
+      <text x="200" y="48" text-anchor="end" font-size="8" fill="#999">0.01</text>
+
+      <text x="82" y="62" font-size="8" fill="#1a1a1a" font-weight="500">1057</text>
+      <text x="200" y="62" text-anchor="end" font-size="8" fill="#1a1a1a" font-weight="500">0.72</text>
+
+      <text x="82" y="76" font-size="8" fill="#999">533</text>
+      <text x="200" y="76" text-anchor="end" font-size="8" fill="#999">0.14</text>
+
+      <text x="82" y="90" font-size="8" fill="#999">484</text>
+      <text x="200" y="90" text-anchor="end" font-size="8" fill="#999">0.06</text>
+
+      <text x="140" y="104" text-anchor="middle" font-size="8" fill="#ddd">...</text>
+
+      <text x="82" y="118" font-size="8" fill="#999">29119</text>
+      <text x="200" y="118" text-anchor="end" font-size="8" fill="#999">0.00</text>
+
+      <!-- sum = 1 annotation -->
+      <text x="220" y="68" font-size="7.5" fill="#bbb">= 1.0</text>
+      <text x="220" y="78" font-size="6.5" fill="#bbb" letter-spacing="0.2">sums to 1</text>
+
+      <!-- label -->
+      <text x="140" y="136" text-anchor="middle" font-size="7" fill="#bbb" letter-spacing="0.8">SOFTMAX</text>
+    </svg>
+
+    <!-- illustration 4: stacked distributions = rollout -->
+    <svg viewBox="0 0 280 130" style="width:100%;height:auto;display:block;font-family:'JetBrains Mono',monospace;margin-top:16px;">
+      <!-- row 1 - token 1 distribution -->
+      <text x="4" y="16" font-size="6.5" fill="#bbb">t1</text>
+      <rect x="18" y="8" width="4" height="10" rx="1" fill="#ddd"></rect>
+      <rect x="24" y="8" width="2" height="10" rx="1" fill="#ddd"></rect>
+      <rect x="30" y="4" width="44" height="14" rx="1" fill="#1a1a1a"></rect>
+      <rect x="76" y="8" width="12" height="10" rx="1" fill="#ddd"></rect>
+      <rect x="90" y="8" width="6" height="10" rx="1" fill="#ddd"></rect>
+      <rect x="98" y="8" width="2" height="10" rx="1" fill="#eee"></rect>
+      <rect x="102" y="8" width="3" height="10" rx="1" fill="#eee"></rect>
+      <rect x="107" y="8" width="1" height="10" rx="1" fill="#eee"></rect>
+
+      <!-- row 2 - token 2 distribution -->
+      <text x="4" y="36" font-size="6.5" fill="#bbb">t2</text>
+      <rect x="18" y="28" width="28" height="10" rx="1" fill="#ddd"></rect>
+      <rect x="48" y="28" width="8" height="10" rx="1" fill="#ddd"></rect>
+      <rect x="58" y="28" width="3" height="10" rx="1" fill="#ddd"></rect>
+      <rect x="63" y="24" width="38" height="14" rx="1" fill="#1a1a1a"></rect>
+      <rect x="103" y="28" width="5" height="10" rx="1" fill="#ddd"></rect>
+      <rect x="110" y="28" width="2" height="10" rx="1" fill="#eee"></rect>
+
+      <!-- row 3 - token 3 distribution -->
+      <text x="4" y="56" font-size="6.5" fill="#bbb">t3</text>
+      <rect x="18" y="48" width="6" height="10" rx="1" fill="#ddd"></rect>
+      <rect x="26" y="44" width="50" height="14" rx="1" fill="#1a1a1a"></rect>
+      <rect x="78" y="48" width="14" height="10" rx="1" fill="#ddd"></rect>
+      <rect x="94" y="48" width="4" height="10" rx="1" fill="#ddd"></rect>
+      <rect x="100" y="48" width="2" height="10" rx="1" fill="#eee"></rect>
+      <rect x="104" y="48" width="6" height="10" rx="1" fill="#eee"></rect>
+
+      <!-- dots -->
+      <text x="60" y="74" font-size="8" fill="#ddd">...</text>
+
+      <!-- row n - token n distribution -->
+      <text x="4" y="92" font-size="6.5" fill="#bbb">tn</text>
+      <rect x="18" y="84" width="10" height="10" rx="1" fill="#ddd"></rect>
+      <rect x="30" y="84" width="16" height="10" rx="1" fill="#ddd"></rect>
+      <rect x="48" y="84" width="4" height="10" rx="1" fill="#ddd"></rect>
+      <rect x="54" y="84" width="2" height="10" rx="1" fill="#eee"></rect>
+      <rect x="58" y="80" width="42" height="14" rx="1" fill="#1a1a1a"></rect>
+      <rect x="102" y="84" width="8" height="10" rx="1" fill="#ddd"></rect>
+
+      <!-- brace -->
+      <text x="122" y="58" font-size="50" fill="#ddd" font-weight="100">}</text>
+
+      <!-- label -->
+      <text x="170" y="48" font-size="8.5" fill="#1a1a1a">rollout</text>
+      <text x="170" y="62" font-size="7" fill="#bbb">n distributions</text>
+      <text x="170" y="74" font-size="7" fill="#bbb">over 50,257 tokens</text>
+
+      <!-- annotation -->
+      <text x="140" y="120" text-anchor="middle" font-size="7" fill="#bbb" letter-spacing="0.5">FULL RESPONSE</text>
+    </svg>
+  </div>
+
+  <p>Instead of zig-zagging I simplify. An LLM neural network has one job: produce a value for each token in its vocabulary. These values are called logits. Apply softmax and take the log, and you get logprobs, the key values trainers use to do reinforcement learning on language models. It's the ingredient, so let's look at what logprobs are, where we find them in the formulas, and some intricacies.</p>
+
+  <p>The key to understand is that LLMs do a full pass through the network for each token. On every pass, it assigns a value to each token in its vocabulary, highest to the one it deems most likely. Then the decoder, which is another stage, picks one, feeds it back in, and does another full pass. This is what you call autoregressive. So with 10 tokens said by the LLM, you get 10 vectors of logits. But what do these raw numbers tell you? Not much on their own. A logit of 12.4 versus 11.9, is that a big gap? You can't say. That's where softmax comes in. This network, the thing that produces these logit values, is exactly what reinforcement learning adjusts. RL nudges the weights so the network produces different logits next time, favoring tokens that led to higher reward.</p>
+
+  <p>Mathematically: the logit vector <strong>z</strong> passes through softmax to get probabilities, and taking the log gives you logprobs. These logprobs, always between minus infinity and 0, are what appear in every RL training formula. They measure how confident the model was in each token it produced, and that confidence signal is exactly what the trainer uses to adjust the weights.</p>
+
+  <p>When an LLM is writing to you, its output is on a per-token level, one token at a time. A token is that a word? Is that the grammar? Is that the sentence? I'm unsure. The model's grammar of the language says what tokens you can have, so not characters. An LLM or any computer doesn't understand what the character is, it's a token either way. Hey, there might be talking. Hey, there. Now, they. Why they? What's the probability of "they"? Well, that's up to the model, how it was trained. It is a probability it gives, which stems from its logit, which is the final number of the final layer in the neural network, which is assigned to each of them, and the one with the highest often is the one picked. By the way, when you give a prompt to a model, the prompt tokens are all processed in parallel in one pass, because the prompt is already fully known so there is nothing to predict yet. It is only during generation that the model goes one token at a time, since each new token depends on the one before it.</p>
+
+  <p>So what actually happens when a model produces a single token? Step by step:</p>
+
+  <ol>
+    <li>The network runs a forward pass on the input sequence. The final linear layer outputs a vector of logits, one number per entry in the vocabulary.</li>
+    <li>An activation function (softmax) turns those logits into probabilities that sum to 1.</li>
+    <li>A token is selected from that distribution (argmax, sampling, top-k, whatever the decoding strategy is). This gives you a token ID, just an integer.</li>
+    <li>The tokenizer maps that ID back to actual text. That text is the output you see.</li>
+  </ol>
+
+  <p>The logits are the raw output of the <em>network</em>. The token is the raw output of the <em>system</em>. The network never sees or produces text, it only produces numbers. Everything from step 2 onward is decoding logic that sits outside the neural network itself.</p>
+
+  <p>The important thing to know for an LLM is that the logits are the final numerical outputs of the model, which are transformed into probabilities of picking a new token.</p>
+
+  <p>Remember from the previous post that tokenizers have a vocabulary that contains all of the tokens the model has been trained on. In OpenAI's GPT2, the vocab contains 50,257 tokens. There is one logit value per token; thus, the final output of an LLM is a vector of 50,257 numbers that is associated with each input token. So if your text has 5 tokens, then the final output of the model will be a matrix of size 5x50257.</p>
+
+  <p>Temperature is worth noting here because it operates on the logits, before softmax, not after. You divide each logit by T, then apply softmax. A high T squashes the logits closer together so softmax produces a flatter, more uniform distribution. A low T stretches the gaps so softmax becomes spikier, concentrating probability on the top token. It has to happen before softmax because if you scaled after, the probabilities would no longer sum to 1.</p>
+
+  <p>Softmax is a way to transform any set of numbers into a probability distribution. What's a probability distribution? A probability is the chance of something happening or being observed, like "30% chance of rain" or ".00000001% chance of winning the lottery." A probability distribution is a set of probabilities that sum to 100% (or to 1 if not scaled up by 100). For example, "30% chance of rain" is not a probability distribution, but if we'd add to the set "70% chance of no-rain" then we'd have a probability distribution.</p>
+
+  <p>The vocabulary is a two-way lookup table. In one direction, encode: you give it text, it gives you token IDs. "they" becomes 4821. Those IDs are the numbers that get fed into the network. In the other direction, decode: the model outputs scores over all IDs, one gets picked, and the tokenizer maps that ID back to text. 4821 becomes "they" again. The model only ever touches the numbers. Text exists on both sides of the model but never inside it.</p>
+
+  <p>Logprobs are the natural logarithm of the softmax output. Softmax gives you a probability between 0 and 1, and taking ln of that gives you a number between minus infinity and 0. A probability close to 1 becomes a logprob close to 0. A tiny probability becomes a hugely negative logprob. This is useful because the log stretches out the differences at the low end. Going from probability 0.001 to 0.002 is nearly invisible on a 0-to-1 scale, but in log space it is the difference between -6.9 and -6.2, a meaningful jump the gradient can act on. At the top end the opposite happens: going from 0.95 to 0.96 barely moves the logprob. So the model gets strong signal when it improves on things it is bad at, and does not waste effort squeezing tiny gains where it is already confident. This is why training works in log space.</p>
+
+  <p>Temperature and sampling strategy are two separate things. Temperature reshapes the distribution, it does not decide what gets picked. The sampling strategy decides how to pick from the distribution. Greedy (argmax) always picks the highest probability token. Top-k limits the selection to the k most probable tokens, then samples among those. Top-p (nucleus sampling) keeps the smallest set of tokens whose cumulative probability exceeds p, then samples from that set. Multinomial sampling picks randomly according to the full probability weights. You can combine them: temperature first to control the shape, then a sampling strategy to pick from the result.</p>
+
+  <div style="margin:36px 0; border:0.5px solid #e8e4de; border-radius:3px; background:#fafaf8; padding:24px 28px;">
+
+    <div style="margin-bottom:6px;">
+      <strong style="font-size:12px; color:#1a1a1a;">Softmax</strong>
+    </div>
+    <div style="margin-bottom:20px; padding-left:8px;">
+      $$p_i = \frac{e^{z_i}}{\sum_j e^{z_j}}$$
+    </div>
+
+    <div style="margin-bottom:6px;">
+      <strong style="font-size:12px; color:#1a1a1a;">Logprob</strong>
+    </div>
+    <div style="margin-bottom:20px; padding-left:8px;">
+      $$\log p_i = z_i - \log \sum_j e^{z_j}$$
+    </div>
+
+    <div style="border-top:0.5px solid #e8e4de; margin:20px 0;"></div>
+
+    <div style="margin-bottom:6px;">
+      <strong style="font-size:12px; color:#1a1a1a;">The term in RL formulas</strong>
+    </div>
+    <div style="padding-left:8px;">
+      $$\log \pi_\theta(a_t \mid s_t)$$
+    </div>
+    <p style="font-size:12.5px; color:#888; margin-top:8px; padding-left:8px;">The logprob of action $a_t$ given state $s_t$ under policy $\pi_\theta$. This is the term that appears in Policy Gradient, REINFORCE, PPO, GRPO, and every other RL training loss.</p>
+
+  </div>
+
+  <div style=”clear:both;”></div>
+
+  <div class="colophon">
+    <p>LANGUAGE MODEL POST-TRAINING</p>
+  </div>
+
+  
+
+
+<script src="../edit.js"></script></body></html>
