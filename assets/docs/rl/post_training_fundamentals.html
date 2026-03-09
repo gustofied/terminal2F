@@ -4,7 +4,7 @@
   <title>Large Language Model Post-Training With Math, Some Illustrations, and in Code</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
-  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}], ignoredTags:['script','noscript','style','textarea','pre','code','h1','h2','h3','h4']});"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&display=swap');
 
@@ -48,11 +48,12 @@
       color: #333;
       margin: 36px 0 6px;
     }
-    h3 .num {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 10px;
-      color: #aaa;
+    h3 span.num {
+      font-family: 'JetBrains Mono', monospace !important;
+      font-size: 10px !important;
+      color: #aaa !important;
       margin-right: 6px;
+      letter-spacing: 0.5px;
     }
     h4 {
       font-size: 1rem;
@@ -149,6 +150,54 @@
       font-size: 10px; color: #ccc; letter-spacing: 4px;
     }
 
+    .marginalia {
+      float: right;
+      width: 200px;
+      margin: 4px -20px 12px 24px;
+      padding: 14px 16px;
+      background: #f5f4f0;
+      border-left: 2px solid #e8e4de;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9.5px;
+      line-height: 1.6;
+      color: #888;
+    }
+    .marginalia p { margin: 6px 0; font-size: 9.5px; }
+    .marginalia .mar-title {
+      font-size: 8px;
+      letter-spacing: 0.8px;
+      color: #bbb;
+      margin-bottom: 8px;
+    }
+    @media (max-width: 768px) {
+      .marginalia { float: none; width: 100%; margin: 16px 0; }
+    }
+
+    .note-hover {
+      position: relative;
+      border-bottom: 1px dotted #bbb;
+      cursor: help;
+    }
+    .note-hover .note-pop {
+      display: none;
+      position: absolute;
+      left: 0;
+      bottom: calc(100% + 8px);
+      width: 320px;
+      padding: 14px 16px;
+      background: #1a1a1a;
+      color: #ccc;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9.5px;
+      line-height: 1.7;
+      border-radius: 3px;
+      z-index: 100;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+    }
+    .note-hover .note-pop p { margin: 6px 0; font-size: 9.5px; color: #ccc; }
+    .note-hover .note-pop .katex { color: #eee; }
+    .note-hover:hover .note-pop { display: block; }
+
     .colophon {
       border-top: 0.5px solid #ddd;
       margin-top: 64px;
@@ -170,6 +219,7 @@
     .toc a:hover { color: #1a1a1a; }
     .toc .toc-num {
       color: #aaa; font-size: 9px; margin-right: 3px;
+      display: inline-block; width: 14px;
     }
 
     @media (max-width: 768px) {
@@ -205,7 +255,9 @@
   <p class="lede">This exemplar entry writes and gives us understanding of Language Model, and with specifics into Post-Training. The entry looks at some math, some illustrations made, and how its coded, by looking at Verifiers-RL.</p>
 
   <div class="toc">
-    <a href="#s-logit"><span class="toc-num">I</span>Logit, Softmax, and Logprobs</a>
+    <a href="#s-logit"><span class="toc-num">I</span> Logit, Softmax, and Logprobs</a>
+    <a href="#s-advantage"><span class="toc-num">II</span> Advantage, Gradient, and Descent</a>
+    <a href="#s-notation"><span class="toc-num">III</span> Ab Extra</a>
   </div>
 
   <h3 id="s-logit"><span class="num">I</span>&nbsp;Logit, Softmax, and Logprobs</h3>
@@ -415,7 +467,7 @@
 
   <p>Instead of zig-zagging I simplify. An LLM neural network has one job: produce a value for each token in its vocabulary. These values are called logits. Apply softmax and take the log, and you get logprobs, the key values trainers use to do reinforcement learning on language models. It's the ingredient, so let's look at what logprobs are, where we find them in the formulas, and some intricacies.</p>
 
-  <p>The key to understand is that LLMs do a full pass through the network for each token. On every pass, it assigns a value to each token in its vocabulary, highest to the one it deems most likely. Then the decoder, which is another stage, picks one, feeds it back in, and does another full pass. This is what you call autoregressive. So with 10 tokens said by the LLM, you get 10 vectors of logits. But what do these raw numbers tell you? Not much on their own. A logit of 12.4 versus 11.9, is that a big gap? You can't say. That's where softmax comes in. This network, the thing that produces these logit values, is exactly what reinforcement learning adjusts. RL nudges the weights so the network produces different logits next time, favoring tokens that led to higher reward.</p>
+  <p>The key to understand is that LLMs do a full pass through the network for each token. On every pass, it assigns a value to each token in its vocabulary, highest to the one it deems most likely. Then the decoder, which is another stage, picks one, feeds it back in, and does another full pass. This is what you call <a href="#term-autoregressive" style="color:#666; border-bottom:0.5px dotted #bbb; text-decoration:none;">autoregressive</a>. So with 10 tokens said by the LLM, you get 10 vectors of logits. But what do these raw numbers tell you? Not much on their own. A logit of 12.4 versus 11.9, is that a big gap? You can't say. That's where softmax comes in. This network, the thing that produces these logit values, is exactly what reinforcement learning adjusts. RL nudges the weights so the network produces different logits next time, favoring tokens that led to higher reward.</p>
 
   <p>Mathematically: the logit vector <strong>z</strong> passes through softmax to get probabilities, and taking the log gives you logprobs. These logprobs, always between minus infinity and 0, are what appear in every RL training formula. They measure how confident the model was in each token it produced, and that confidence signal is exactly what the trainer uses to adjust the weights.</p>
 
@@ -472,9 +524,73 @@
     </div>
     <p style="font-size:12.5px; color:#888; margin-top:8px; padding-left:8px;">The logprob of action $a_t$ given state $s_t$ under policy $\pi_\theta$. This is the term that appears in Policy Gradient, REINFORCE, PPO, GRPO, and every other RL training loss.</p>
 
+
   </div>
 
-  <div style=”clear:both;”></div>
+  <p>$\pi_\theta$ is the policy, the model's behavior as defined by its current weights $\theta$. It takes a state $s_t$ (the sequence so far) and returns a probability distribution over all actions (every token in the vocabulary). $\pi_\theta(a_t \mid s_t)$ is the softmax probability assigned to the token that was actually chosen at step $t$. Since softmax is a coupled function where all probabilities must sum to 1, the formulas only need this one value. Adjusting the probability of the chosen token automatically redistributes probability across the entire vocabulary. That is why $\log \pi_\theta(a_t \mid s_t)$, a single logprob per token, is enough for RL to work with.</p>
+
+  <p>Now imagine you could manually adjust these logprobs. You look at the model's output, you see which token it picked and how confident it was, and you nudge the probability up or down. Push one logprob up, softmax redistributes, and next time the model is more likely to pick that token. Push it down, and the model avoids it. You are manually reshaping the model's behavior one logprob at a time.</p>
+
+  <p>[illustration: softmax distribution before and after adjusting a logprob, showing how the whole distribution shifts]</p>
+
+  <p>But here is the thing to keep in mind: the logprob is an output, not an input. You cannot reach into the network and change a logprob directly. The logprob comes from the weights. To make a logprob go up or down, you have to change the weights that produced it. Gradient descent is the mechanism that figures out which weights to nudge and by how much so that the logprob moves in the direction you want. That is what $\nabla_\theta \log \pi_\theta(a_t \mid s_t)$ means in the formulas: the gradient of the logprob with respect to every weight in the network. It tells you the direction to push the weights so that this particular logprob changes.</p>
+
+  <p>So the picture is: you see a logprob you want to be higher, but you cannot touch it directly. You compute the gradient, which tells you how to adjust the weights, and the logprob changes as a consequence. Now scale that by a signal that says whether the choice was good or bad, and you have training. That signal is called the advantage.</p>
+
+  <div style="clear:both;"></div>
+
+  <h3 id="s-advantage"><span class="num">II</span>&nbsp;Advantage, Gradient, and Descent</h3>
+
+  <p>The key insight is: logprob x advantage = the update signal. Every algorithm is a variation on that. The differences are in how they compute the advantage and how they keep the updates stable.</p>
+
+  <div style="min-height:60vh;"></div>
+
+  <hr class="sep">
+
+  <h3 id="s-notation"><span class="num">III</span>&nbsp;Ab Extra</h3>
+
+  <div id="term-autoregressive" style="margin:20px 0;">
+    <p style="font-family:'JetBrains Mono',monospace; font-size:11px; color:#666; letter-spacing:0.3px; margin-bottom:8px;"><strong style="color:#1a1a1a;">autoregressive</strong></p>
+    <div style="margin-bottom:12px;">
+      $$p(y_1, \ldots, y_T \mid x) = \prod_{t=1}^{T} p(y_t \mid x, y_{&lt;t})$$
+    </div>
+    <p>The model reads the entire prefix (prompt + tokens generated so far). It outputs one logit per vocabulary token for the next token.</p>
+    <p>Generation is autoregressive:</p>
+    <ol>
+      <li>Start with the prompt as the prefix</li>
+      <li>Predict the distribution for the next token given the full current prefix</li>
+      <li>Pick one token (argmax or sampling)</li>
+      <li>Append it to the prefix</li>
+      <li>Repeat</li>
+    </ol>
+    <p>So each next token is conditional on all previous tokens, including the one you just generated. Autoregressive, self-feeding.</p>
+  </div>
+
+  <hr class="sep">
+
+  <h3>Writing Ideas</h3>
+
+  <div style="margin:16px 0; padding:16px 20px; background:#f5f4f0; border:0.5px solid #e8e4de; border-radius:2px;">
+    <p style="font-family:'JetBrains Mono',monospace; font-size:8px; color:#bbb; letter-spacing:0.8px; margin-bottom:10px;">SECTION II FLOW</p>
+    <p>You want the model to give perfect completions. That's the ideal, the expected return. But you don't have perfect completions. You have rollouts. The model generates responses, some are better than others.</p>
+    <p>The question becomes: given these rollouts with their rewards, how do you nudge the model to do more of the good stuff and less of the bad?</p>
+    <p>For each token in each rollout, you have its logprob (how committed the model was) and the advantage (was this rollout better or worse than average). Multiply them. That's your gradient. Update the weights.</p>
+    <ol>
+      <li><strong>Expected return</strong> - you want the model to give perfect completions. That's the ideal.</li>
+      <li><strong>Reality</strong> - you don't have perfect completions. You have rollouts. The model generates responses, some are better than others.</li>
+      <li><strong>The question</strong> - given these rollouts with their rewards, how do you nudge the model to do more of the good stuff and less of the bad?</li>
+      <li><strong>The answer</strong> - for each token in each rollout, you have its logprob (how committed the model was) and the advantage (was this rollout better or worse than average). Multiply them. That's your gradient. Update the weights.</li>
+    </ol>
+    <p>So you arrive at the policy gradient formula not from a derivation, but from a practical need: I have rollouts, what do I do with them. The formula falls out of that need.</p>
+  </div>
+
+  <div style="margin:16px 0; padding:16px 20px; background:#f5f4f0; border:0.5px solid #e8e4de; border-radius:2px;">
+    <p style="font-family:'JetBrains Mono',monospace; font-size:8px; color:#bbb; letter-spacing:0.8px; margin-bottom:10px;">WHY GRPO OVER TREE SEARCH</p>
+    <p>In a tree structure (chess, go), each node has limited branches and you can look ahead to estimate future return. Classic RL uses a value function (critic) for this: "given where you are now, how good is the future likely to be."</p>
+    <p>With an LLM, you have 50,257 options at every single token position. The branching factor makes tree search impossible. You cannot evaluate all paths.</p>
+    <p>GRPO's insight: don't try to estimate the future at each token. Just run multiple full responses, score them at the end, compare against each other. That's your signal. No critic network, no value estimation, no tree. Just sample, score, compare.</p>
+    <p>[illustration idea: tree with few branches (chess) vs impossibly wide tree (LLM) vs GRPO approach of just running multiple full paths and comparing scores]</p>
+  </div>
 
   <div class="colophon">
     <p>LANGUAGE MODEL POST-TRAINING</p>

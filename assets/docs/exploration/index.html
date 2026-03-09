@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Docs</title>
+<title>Exploration</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&display=swap');
 
@@ -66,67 +66,11 @@
     padding: 1.5px 5px;
     border-bottom: 1px solid #ddd;
   }
-  .code-block {
-    position: relative;
-    margin: 20px 0;
-  }
-  .code-block pre {
-    margin: 0;
-  }
-  .code-lang {
-    position: absolute;
-    top: 0;
-    right: 0;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 8.5px;
-    font-weight: 400;
-    color: #bbb;
-    letter-spacing: 0.8px;
-    text-transform: uppercase;
-    padding: 5px 10px;
-    user-select: none;
-  }
-  pre {
-    margin: 20px 0;
-    padding: 16px 20px;
-    background: #f5f4f0;
-    border: 0.5px solid #e8e4de;
-    overflow-x: auto;
-    line-height: 1.5;
-  }
-  pre code {
-    background: none;
-    padding: 0;
-    border: none;
-    font-size: 12px;
-  }
+
   strong { font-weight: 700; color: #1a1a1a; }
   em { color: #555; }
   a { color: #268bd2; text-decoration: none; }
   a:hover { text-decoration: underline; }
-
-  blockquote {
-    font-size: 13px;
-    color: #888;
-    font-style: italic;
-    margin: 20px 0 20px 28px;
-    padding-left: 16px;
-    border-left: 1.5px solid #ddd;
-    line-height: 1.6;
-  }
-
-  hr {
-    border: none;
-    text-align: center;
-    margin: 56px 0;
-    line-height: 0;
-  }
-  hr::after {
-    content: '\2022\2009\2009\2022\2009\2009\2022';
-    font-size: 10px;
-    color: #ccc;
-    letter-spacing: 4px;
-  }
 
   .colophon {
     border-top: 0.5px solid #ddd;
@@ -143,15 +87,19 @@
 </style>
 </head>
 <body>
+    <a class="back" href="../index.html">&larr; docs</a>
     <div class="memo-head">
-      <h1>Docs</h1>
+      <h1>Exploration</h1>
     </div>
+    <p style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #999;">2 documents</p>
+    <h2>Databases</h2>
     <ul>
-        <li><a href="recognizers/index.html">RECOGNIZERS</a> <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #999;">(1 docs)</span></li>
-        <li><a href="rl/index.html">RL</a> <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #999;">(13 docs)</span></li>
-        <li><a href="exploration/index.html">EXPLORATION</a> <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #999;">(2 docs)</span></li>
-        <li><a href="live-editing.html">LIVE EDITING</a> <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #999;">(tooling)</span></li>
+        <li><a href="doltgres.html">Doltgres</a> - git for your database, agents and versioned data</li>
     </ul>
-    <script src="edit.js"></script>
+    <h2>Languages</h2>
+    <ul>
+        <li><a href="erlang.html">Erlang</a> - FSMs, BEAM VM, and the Elixir agent connection</li>
+    </ul>
+    <script src="../edit.js"></script>
   </body>
 </html>

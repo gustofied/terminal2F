@@ -1,0 +1,482 @@
+<!doctype html>
+<html lang="en"><head>
+    <meta charset="utf-8">
+    <title>Doltgres</title>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&display=swap");
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: "Palatino Linotype", "Book Antiqua", Palatino, serif;
+        font-size: 14.5px;
+        line-height: 1.72;
+        color: #2a2a2a;
+        background: #fdfcfa;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 72px 1rem 120px;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      a.back {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 9.5px;
+        color: #bbb;
+        text-decoration: none;
+        letter-spacing: 0.5px;
+      }
+      a.back:hover {
+        color: #1a1a1a;
+      }
+
+      .memo-head {
+        border-top: 2.5px solid #1a1a1a;
+        border-bottom: none;
+        padding: 20px 0 0;
+        margin-bottom: 0;
+      }
+      .memo-head h2 {
+        font-size: 1.6rem;
+        font-weight: normal;
+        color: #333;
+        line-height: 1.25;
+        margin: 0;
+      }
+
+      .header-fig {
+        margin: 16px 0 0;
+        overflow: hidden;
+        border-radius: 2px;
+      }
+      .header-stack {
+        position: relative;
+        height: 220px;
+      }
+      .header-stack img {
+        position: absolute;
+        left: 50%;
+        transform: translateX(-50%);
+        height: 220px;
+        object-fit: cover;
+        object-position: center 30%;
+        display: block;
+      }
+      .header-stack .l4 {
+        width: 100%;
+        opacity: 0.5;
+      }
+      .header-stack .l3 {
+        width: 98%;
+        opacity: 0.7;
+      }
+      .header-stack .l2 {
+        width: 96%;
+        opacity: 0.85;
+      }
+      .header-stack .l1 {
+        width: 94%;
+        opacity: 1;
+      }
+      .header-fig figcaption {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 11px;
+        color: #bbb;
+        letter-spacing: 0.5px;
+        margin-top: 8px;
+        text-align: center;
+      }
+      .header-fig figcaption em {
+        color: #bbb;
+      }
+
+      .toc {
+        margin: 32px 0 40px;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 10px;
+        color: #999;
+        letter-spacing: 0.3px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 20px;
+        align-items: baseline;
+      }
+      .toc a {
+        color: #666;
+        text-decoration: none;
+      }
+      .toc a:hover {
+        color: #1a1a1a;
+        text-decoration: none;
+      }
+      .toc .toc-num {
+        color: #aaa;
+        font-size: 9px;
+        margin-right: 3px;
+      }
+
+      h3 {
+        font-size: 1.3rem;
+        font-weight: normal;
+        color: #333;
+        margin: 64px 0 10px;
+      }
+      h3 .num {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 10px;
+        font-weight: 400;
+        color: #aaa;
+        letter-spacing: 1px;
+        display: block;
+        margin-bottom: 2px;
+      }
+      h4 {
+        font-size: 1.1rem;
+        font-weight: normal;
+        color: #333;
+        margin: 44px 0 6px;
+      }
+      p {
+        margin: 14px 0;
+      }
+      .lede {
+        font-size: 15px;
+        color: #555;
+        line-height: 1.68;
+      }
+      a {
+        color: #268bd2;
+        text-decoration: none;
+      }
+      a:hover {
+        text-decoration: underline;
+      }
+      em {
+        color: #555;
+      }
+
+      code {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 11.5px;
+        color: #586e75;
+        background: #fdf6e3;
+        padding: 2px 7px;
+        border-bottom: 0.5px solid #eee8d5;
+      }
+      .code-block {
+        position: relative;
+        margin: 24px 0;
+      }
+      .code-block pre {
+        margin: 0;
+      }
+      .code-lang {
+        position: absolute;
+        top: 0;
+        right: 0;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 8.5px;
+        font-weight: 400;
+        color: #bbb;
+        letter-spacing: 0.8px;
+        text-transform: uppercase;
+        padding: 5px 10px;
+        user-select: none;
+      }
+      pre {
+        margin: 24px 0;
+        padding: 18px 22px;
+        background: #f5f4f0;
+        border: 0.5px solid #e8e4de;
+        overflow-x: auto;
+        line-height: 1.55;
+      }
+      pre code {
+        background: none;
+        padding: 0;
+        border: none;
+        font-size: 12px;
+      }
+      strong {
+        font-weight: 700;
+        color: #1a1a1a;
+      }
+
+      ul,
+      ol {
+        margin: 12px 0 12px 22px;
+      }
+      li {
+        margin: 5px 0;
+        color: #333;
+      }
+      li::marker {
+        color: #bbb;
+      }
+
+      blockquote {
+        font-size: 13px;
+        color: #888;
+        font-style: italic;
+        margin: 20px 0 20px 28px;
+        padding-left: 16px;
+        border-left: 1.5px solid #ddd;
+        line-height: 1.6;
+      }
+
+      hr {
+        border: none;
+        text-align: center;
+        margin: 56px 0;
+        line-height: 0;
+      }
+      hr::after {
+        content: '\2022\2009\2009\2022\2009\2009\2022';
+        font-size: 10px;
+        color: #ccc;
+        letter-spacing: 4px;
+      }
+
+      .colophon {
+        border-top: 0.5px solid #ddd;
+        margin-top: 64px;
+        padding-top: 16px;
+      }
+      .colophon p {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 9px;
+        color: #ccc;
+        letter-spacing: 0.5px;
+      }
+
+      @media (max-width: 600px) {
+        body { padding: 48px 1rem 80px; }
+        .header-stack { height: 160px; }
+        .header-stack img { height: 160px; }
+      }
+    </style>
+  </head>
+  <body>
+    <a class="back" href="index.html">← exploration</a>
+
+    <div class="memo-head">
+      <h2>Doltgres</h2>
+    </div>
+
+    <figure class="header-fig">
+      <div class="header-stack">
+        <img class="l4" src="https://glasstire.com/wp-content/uploads/2022/01/J.M.W.-Turner-Slave-Ship-Slavers-Throwing-Overboard-the-Dead-and-Dying-Typhoon-Coming-On-detail-of-ship-photo-by-Ruben-Cordova-scaled.jpg" alt="">
+        <img class="l3" src="https://glasstire.com/wp-content/uploads/2022/01/J.M.W.-Turner-Slave-Ship-Slavers-Throwing-Overboard-the-Dead-and-Dying-Typhoon-Coming-On-detail-of-ship-photo-by-Ruben-Cordova-scaled.jpg" alt="">
+        <img class="l2" src="https://glasstire.com/wp-content/uploads/2022/01/J.M.W.-Turner-Slave-Ship-Slavers-Throwing-Overboard-the-Dead-and-Dying-Typhoon-Coming-On-detail-of-ship-photo-by-Ruben-Cordova-scaled.jpg" alt="">
+        <img class="l1" src="https://glasstire.com/wp-content/uploads/2022/01/J.M.W.-Turner-Slave-Ship-Slavers-Throwing-Overboard-the-Dead-and-Dying-Typhoon-Coming-On-detail-of-ship-photo-by-Ruben-Cordova-scaled.jpg" alt="J.M.W. Turner">
+      </div>
+      <figcaption>J.M.W. Turner, "The Burning of the Houses of Lords and Commons, October 16, 1834" (detail), 1835, oil on canvas, Cleveland Museum of Art. Photo: Ruben C. Cordova. <a href="https://glasstire.com/wp-content/uploads/2022/01/J.M.W.-Turner-Slave-Ship-Slavers-Throwing-Overboard-the-Dead-and-Dying-Typhoon-Coming-On-detail-of-ship-photo-by-Ruben-Cordova-scaled.jpg" style="color:#bbb; text-decoration:underline; text-decoration-color:#ccc;">more</a></figcaption>
+    </figure>
+
+    <p class="lede" style="margin-top: 32px;">
+      Doltgres is Dolt with the Postgres wire protocol. The engine underneath is
+      Dolt (MySQL-rooted), but it speaks Postgres - so psycopg, ORMs, and standard
+      tooling connect normally. The core idea: git for your database. Every data
+      change can be a commit. Tables have branches. You can diff, merge, and roll
+      back at the row level. An agent needs a safe copy of the world it is about to
+      change - not a sandbox, not a container, but a branch.
+    </p>
+
+    <div class="toc">
+      <a href="#s-why"><span class="toc-num">I</span>Why it matters</a>
+      <a href="#s-learnings-a"><span class="toc-num">II</span>Learnings</a>
+    </div>
+
+    <h3 id="s-why"><span class="num">I</span>Why it matters for agents</h3>
+
+    <p>
+      Two layers of need emerge when agents interact with databases:
+    </p>
+    <ul>
+      <li><strong>RL layer</strong> - forkable state, fast reset, isolated concurrent
+        worlds, diffable outcomes, replayability. The database as a training
+        environment.</li>
+      <li><strong>Lovable layer</strong> - human-readable versioned history,
+        debugging, benchmarking, artifacts. The database as an auditable record.</li>
+    </ul>
+    <p>
+      Doltgres handles both because branching is cheap (no VMs, no containers, just
+      a logical fork inside the same process) and the history is rich (row-level
+      diffs, commit messages, per-row timelines). The primitive both layers share:
+      a safe copy of the world before you change it.
+    </p>
+
+    <h3 id="s-learnings-a"><span class="num">II.a</span>Learnings: server</h3>
+
+    <p>
+      When running doltgres, the engine is Dolt, which thinks in MySQL. Doltgres
+      just translates the Postgres wire protocol into that engine. So all the Dolt
+      docs and examples when found in MySQL-flavored style, are the same concepts
+      that work, you just need to adjust the syntax.
+    </p>
+
+    <p>
+      To see what configuration is available, run <code>doltgres -config-help</code>.
+      This prints the full config.yaml reference:
+    </p>
+
+    <div class="code-block"><span class="code-lang">yaml</span>
+<pre><code><span style="color:#859900">log_level</span>: info                          <span style="color:#93a1a1"># debug | info | warn | error</span>
+
+<span style="color:#859900">encode_logged_query</span>: false               <span style="color:#93a1a1"># encode SQL in logs (binary safety)</span>
+
+<span style="color:#268bd2">behavior</span>:
+  <span style="color:#859900">read_only</span>: false                       <span style="color:#93a1a1"># reject all writes if true</span>
+  <span style="color:#859900">dolt_transaction_commit</span>: false         <span style="color:#93a1a1"># auto dolt_commit on every tx</span>
+
+<span style="color:#268bd2">user</span>:
+  <span style="color:#859900">name</span>: postgres
+  <span style="color:#859900">password</span>: password
+
+<span style="color:#268bd2">listener</span>:
+  <span style="color:#859900">host</span>: localhost
+  <span style="color:#859900">port</span>: 5432
+  <span style="color:#859900">read_timeout_millis</span>: 28800000          <span style="color:#93a1a1"># 8 hours</span>
+  <span style="color:#859900">write_timeout_millis</span>: 28800000         <span style="color:#93a1a1"># 8 hours</span>
+  <span style="color:#859900">allow_cleartext_passwords</span>: false
+
+<span style="color:#859900">data_dir</span>: ~/doltgres/databases            <span style="color:#93a1a1"># where databases live on disk</span>
+
+<span style="color:#859900">cfg_dir</span>: .doltcfg
+<span style="color:#859900">privilege_file</span>: .doltcfg/privileges.db   <span style="color:#93a1a1"># user privileges</span>
+<span style="color:#859900">auth_file</span>: .doltcfg/auth.db              <span style="color:#93a1a1"># authentication data</span>
+<span style="color:#859900">branch_control_file</span>: .doltcfg/branch_control.db  <span style="color:#93a1a1"># branch permissions</span></code></pre></div>
+
+    <p>The interesting ones for agents:</p>
+    <ul>
+      <li><code>dolt_transaction_commit</code> - when true, every SQL transaction
+        automatically becomes a Dolt commit. Agents don't need to call
+        <code>dolt_commit()</code> explicitly. Can also be set per-session via
+        <code>SET dolt_transaction_commit = 1;</code> so only that connection
+        auto-versions, not every admin query.</li>
+      <li><code>branch_control_file</code> - branch-level permissions. Restrict
+        which agents can write to which branches.</li>
+      <li><code>read_only</code> - give agents read-only access to main while they
+        write to their own branch on a separate connection.</li>
+    </ul>
+
+    <h3 id="s-learnings-b"><span class="num">II.b</span>Learnings: commits</h3>
+
+    <p>
+      A transaction is a group of operations that either all succeed or all fail -
+      all or nothing. Without transactions, if an error occurs mid-way, the
+      database could end up in an inconsistent state. This is atomicity, the A in
+      ACID.
+    </p>
+
+    <p><div><div>In normal databases, "commit" only means finalizing a transaction. There's no standalone concept of committing outside of that.</div></div><div><br></div>
+      Inside a transaction, each <code>INSERT</code>, <code>SELECT</code>,
+      <code>UPDATE</code>, <code>DELETE</code> is a <strong>statement</strong>.
+      Statements are the verbs. Tables are the nouns. Schemas define the shape of
+      the nouns. The hierarchy:
+    <div><br></div><div><br></div></p>
+
+    <div class="code-block"><span class="code-lang">text</span>
+<pre><code>Transaction
+  └── Statement  (INSERT INTO employees ...)
+  └── Statement  (UPDATE accounts SET ...)
+  └── Statement  (SELECT * FROM ...)
+  └── COMMIT or ROLLBACK</code></pre></div>
+
+    <p>
+      Dolt adds a layer on top. A <strong>Dolt commit</strong> is a permanent
+      versioned snapshot - like a git commit. It has a hash, a message, an author,
+      a timestamp. You can go back to it, diff against it, branch from it. It lives
+      forever in <code>dolt_log</code>. Multiple database transactions can happen
+      between Dolt commits:
+    </p>
+
+    <div class="code-block"><span class="code-lang">text</span>
+<pre><code>Dolt commit  (versioned snapshot: hash, message, author)
+  └── Transaction
+  │     └── Statement
+  │     └── Statement
+  │     └── COMMIT
+  └── Transaction
+  │     └── Statement
+  │     └── COMMIT
+  └── dolt_commit('-am', 'description')</code></pre></div>
+
+    <p>
+      The bridge between the two: <code>dolt_transaction_commit = 1</code>. When
+      set, every database transaction COMMIT also creates a Dolt commit. Without
+      it, you can commit hundreds of database transactions and Dolt sees nothing -
+      the data changes, but there is no versioned history. You would have to
+      manually call <code>dolt_commit()</code> to snapshot.
+    </p>
+
+    <p>
+      When you call <code>conn.execute("INSERT ...")</code> in psycopg, you are
+      just running a SQL statement. But the database always works in transactions -
+      there is no way around it. With <code>autocommit = True</code>, every
+      statement is silently wrapped in its own BEGIN/COMMIT. With autocommit off
+      (the default), psycopg opens a transaction on the first statement and holds
+      it open until you explicitly call <code>conn.commit()</code> or
+      <code>conn.rollback()</code>. This means you can batch related writes and
+      commit them as one unit - and with <code>dolt_transaction_commit = 1</code>,
+      that whole batch becomes a single Dolt commit instead of N separate ones.
+    </p>
+
+    <p>
+      The <code>dolt_transaction_commit</code> setting controls whether Dolt
+      automatically snapshots on every transaction commit:
+    </p>
+
+    <h4>false (default) - manual snapshots</h4>
+    <div class="code-block"><span class="code-lang">text</span>
+<pre><code>INSERT  →  tx commits  →  data changes ✓  →  dolt history: nothing
+INSERT  →  tx commits  →  data changes ✓  →  dolt history: nothing
+SELECT dolt_commit('-am', 'msg')           →  dolt history: one commit (both inserts)</code></pre></div>
+    <p>
+      You control when to snapshot. Good for admin work - keep the log clean,
+      write meaningful commit messages.
+    </p>
+
+    <h4>true - automatic snapshots</h4>
+    <div class="code-block"><span class="code-lang">text</span>
+<pre><code>INSERT  →  tx commits  →  data changes ✓  →  dolt history: commit
+INSERT  →  tx commits  →  data changes ✓  →  dolt history: commit</code></pre></div>
+    <p>
+      Every transaction commit creates a Dolt commit. Nothing slips through. Good
+      for agent connections where you want full tracking. The tradeoff: the log
+      gets noisy and commit messages are auto-generated, not meaningful.
+    </p>
+
+    <p>
+      Best of both worlds: leave it <code>false</code> in the server config, then
+      <code>SET dolt_transaction_commit = 1</code> only on agent connections.
+      Your admin queries stay clean, agent writes are fully tracked.
+    </p>
+
+    <h3 id="s-learnings-c"><span class="num">II.c</span>Branch permissions</h3>
+
+    <p>
+      Doltgres currently supports only a single user and password, specified in the
+      config. No multi-user access management yet. The config references a
+      <code>branch_control_file</code> which hints that branch-level permissions
+      are coming (or partially there), but for now everyone connects as the same
+      user with full access.
+    </p>
+
+    <p>
+      Ideally for agents you would want separate users per role: an admin with full
+      access, an agent user that can only write to its own branch, a read-only user
+      for dashboards. That is not possible yet. For local exploration the single
+      user is fine, but it is worth tracking as Doltgres matures.
+    </p>
+
+    <div class="colophon">
+      <p>DOLTGRES</p>
+    </div>
+
+  
+<script src="../edit.js"></script></body></html>

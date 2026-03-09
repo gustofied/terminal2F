@@ -1,0 +1,22 @@
+log_level: info
+
+behavior:
+  read_only: false
+  dolt_transaction_commit: false
+
+user:
+  name: postgres
+  password: password
+
+listener:
+  host: localhost
+  port: 5432
+  read_timeout_millis: 28800000
+  write_timeout_millis: 28800000
+
+data_dir: ./data
+
+cfg_dir: .doltcfg
+privilege_file: .doltcfg/privileges.db
+auth_file: .doltcfg/auth.db
+branch_control_file: .doltcfg/branch_control.db
