@@ -98,7 +98,30 @@ def main():
         except Exception as e:
             print(f"  {name}: {e}")
 
-    print("\n=== dolt_log ===")
+    # agent1 inserts a row and commits
+    print("\n=== agent1 writes ===")
+    a1 = psycopg.connect("host=127.0.0.1 user=agent1 password=agent1pass dbname=getting_started")
+    a1.autocommit = True
+    a1.execute("INSERT INTO persons VALUES (1, 'Smith', 'Alice', '123 Main St', 'Oslo')")
+    a1.execute("SELECT dolt_commit('-Am', 'agent1: add Alice Smith')")
+    print("  agent1 committed")
+    a1.close()
+
+    # agent2 inserts a row and commits
+    print("\n=== agent2 writes ===")
+    a2 = psycopg.connect("host=127.0.0.1 user=agent2 password=agent2pass dbname=getting_started")
+    a2.autocommit = True
+    a2.execute("INSERT INTO persons VALUES (2, 'Jones', 'Bob', '456 Oak Ave', 'Bergen')")
+    a2.execute("SELECT dolt_commit('-Am', 'agent2: add Bob Jones')")
+    print("  agent2 committed")
+    a2.close()
+
+    # see who did what
+    print("\n=== persons ===")
+    conn = fresh_conn()
+    print_table(conn.execute("SELECT * FROM persons"))
+
+    print("\n=== dolt_log (attribution) ===")
     print_table(conn.execute("SELECT commit_hash, committer, message FROM dolt_log"))
 
     conn.close()
