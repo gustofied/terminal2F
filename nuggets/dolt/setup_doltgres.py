@@ -9,10 +9,10 @@ def is_installed():
 def install():
     if is_installed():
         print("doltgres already installed")
-        return
-    r = requests.get('https://github.com/dolthub/doltgresql/releases/latest/download/install.sh')
-    r.raise_for_status()
-    subprocess.run(["sudo", "bash", "-c", r.text], check=True)
+    else:
+        r = requests.get('https://github.com/dolthub/doltgresql/releases/latest/download/install.sh')
+        r.raise_for_status()
+        subprocess.run(["sudo", "bash", "-c", r.text], check=True)
 
 
 if __name__ == "__main__":

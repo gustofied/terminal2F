@@ -278,17 +278,23 @@
     </figure>
 
     <p class="lede" style="margin-top: 32px;">
-      Doltgres is Dolt with the Postgres wire protocol. The engine underneath is
-      Dolt (MySQL-rooted), but it speaks Postgres - so psycopg, ORMs, and standard
-      tooling connect normally. The core idea: git for your database. Every data
-      change can be a commit. Tables have branches. You can diff, merge, and roll
-      back at the row level. An agent needs a safe copy of the world it is about to
-      change - not a sandbox, not a container, but a branch.
+      Doltgres is a Postgres-wire server built on the Dolt engine. It lets
+      Postgres clients connect normally while exposing Dolt's version-control
+      model through SQL. The core idea is Git for database state: you can
+      branch, diff, merge, and commit database changes, with row-level history
+      underneath. Every transaction can be turned into a versioned commit. An
+      agent needs a safe copy of the world it is about to change — not a
+      sandbox, not a container, but a branch.
     </p>
 
     <div class="toc">
       <a href="#s-why"><span class="toc-num">I</span>Why it matters</a>
-      <a href="#s-learnings-a"><span class="toc-num">II</span>Learnings</a>
+      <a href="#s-learnings-a"><span class="toc-num">II.a</span>Server</a>
+      <a href="#s-learnings-b"><span class="toc-num">II.b</span>Commits</a>
+      <a href="#s-learnings-c"><span class="toc-num">II.c</span>Multi-user</a>
+      <a href="#s-learnings-d"><span class="toc-num">II.d</span>Branches</a>
+      <a href="#s-learnings-e"><span class="toc-num">II.e</span>Branch permissions</a>
+      <a href="#s-learnings-f"><span class="toc-num">II.f</span>dolt vs doltgres</a>
     </div>
 
     <h3 id="s-why"><span class="num">I</span>Why it matters for agents</h3>
@@ -297,10 +303,10 @@
       Two layers of need emerge when agents interact with databases:
     </p>
     <ul>
-      <li><strong>RL layer</strong> - forkable state, fast reset, isolated concurrent
+      <li><strong>RL layer</strong> — forkable state, fast reset, isolated concurrent
         worlds, diffable outcomes, replayability. The database as a training
         environment.</li>
-      <li><strong>Lovable layer</strong> - human-readable versioned history,
+      <li><strong>Product layer</strong> — human-readable versioned history,
         debugging, benchmarking, artifacts. The database as an auditable record.</li>
     </ul>
     <p>
@@ -313,10 +319,9 @@
     <h3 id="s-learnings-a"><span class="num">II.a</span>Learnings: server</h3>
 
     <p>
-      When running doltgres, the engine is Dolt, which thinks in MySQL. Doltgres
-      just translates the Postgres wire protocol into that engine. So all the Dolt
-      docs and examples when found in MySQL-flavored style, are the same concepts
-      that work, you just need to adjust the syntax.
+      The engine underneath is Dolt, which thinks in MySQL. Doltgres translates
+      the Postgres wire protocol into that engine. Dolt docs and examples are
+      MySQL-flavored, but the same concepts apply — you just adjust the syntax.
     </p>
 
     <p>
@@ -457,68 +462,209 @@ INSERT  →  tx commits  →  data changes ✓  →  dolt history: commit</code>
       Your admin queries stay clean, agent writes are fully tracked.
     </p>
 
-    <h3 id="s-learnings-c"><span class="num">II.c</span>Branch permissions</h3>
+    <h3 id="s-learnings-c"><span class="num">II.c</span>Multi-user</h3>
 
     <p>
-      Two system tables control branch permissions:
+      Multi-user works, but with workarounds. Postgres-style
+      <code>CREATE USER ... WITH PASSWORD</code> corrupts
+      <code>privileges.db</code>. The fix: create users MySQL-style (no
+      <code>WITH PASSWORD</code>), set the password separately with
+      <code>ALTER USER</code>, and <strong>reconnect between every privilege
+      operation</strong> — the psycopg session gets corrupted after each
+      privilege change.
+    </p>
+
+    <p>The full recipe via psycopg:</p>
+
+    <div class="code-block"><span class="code-lang">python</span>
+<pre><code><span style="color:#93a1a1"># each step needs its own connection (reconnect between every step)</span>
+
+<span style="color:#93a1a1"># 1. create user (MySQL-style, NO "WITH PASSWORD")</span>
+conn.execute('CREATE USER "agent1@localhost"')
+
+<span style="color:#93a1a1"># 2. set password separately (ALTER USER is safe)</span>
+conn.execute('ALTER USER "agent1@localhost" WITH PASSWORD \'agent1pass\'')
+
+<span style="color:#93a1a1"># 3. grant database access</span>
+conn.execute('GRANT ALL ON DATABASE getting_started TO "agent1@localhost"')
+
+<span style="color:#93a1a1"># 4. grant schema access (needed to create tables)</span>
+conn.execute('GRANT ALL ON SCHEMA public TO "agent1@localhost"')
+
+<span style="color:#93a1a1"># 5. grant table access (needed for existing tables)</span>
+conn.execute('GRANT ALL ON ALL TABLES IN SCHEMA public TO "agent1@localhost"')</code></pre></div>
+
+    <p>
+      Why separate users matter: <strong>attribution</strong>. Each user's writes
+      show up in <code>dolt_log</code> under their name. If both agents use
+      <code>postgres</code>, every commit says "postgres" and you can't tell who
+      did what. With separate users, agent1's commits show
+      <code>agent1@localhost</code> and you get git-blame for your database.
+    </p>
+
+    <p>
+      When you need it: multi-agent setups, or human + agent workflows where you
+      want to distinguish who made which changes. Single-agent RL with reset
+      loops: one user is fine.
+    </p>
+
+    <h3 id="s-learnings-d"><span class="num">II.d</span>Branches and isolation</h3>
+
+    <p>
+      Branches give each agent its own isolated copy of the database. Creating
+      branches is a SQL operation:
+    </p>
+
+    <div class="code-block"><span class="code-lang">sql</span>
+<pre><code>SELECT dolt_branch('dev1', 'main');
+SELECT dolt_branch('dev2', 'main');</code></pre></div>
+
+    <p>
+      The cleanest way to connect an agent to its branch: put the branch name
+      directly in the connection string. No <code>dolt_checkout()</code> needed.
+    </p>
+
+    <div class="code-block"><span class="code-lang">python</span>
+<pre><code><span style="color:#93a1a1"># agent1 connects directly to dev1 branch</span>
+a1 = psycopg.connect(
+    "host=127.0.0.1 user=agent1@localhost password=agent1pass "
+    "dbname=getting_started/dev1"
+)
+a1.autocommit = True
+
+<span style="color:#93a1a1"># agent2 connects directly to dev2 branch</span>
+a2 = psycopg.connect(
+    "host=127.0.0.1 user=agent2@localhost password=agent2pass "
+    "dbname=getting_started/dev2"
+)
+a2.autocommit = True</code></pre></div>
+
+    <p>
+      Each branch behaves like its own writable database. Agent1 creates tables
+      and inserts data on dev1, agent2 does the same on dev2, and main stays
+      clean. Merging is a separate privileged operation your orchestrator does
+      when the work looks good:
+    </p>
+
+    <div class="code-block"><span class="code-lang">sql</span>
+<pre><code><span style="color:#93a1a1">-- from main, merge agent1's work</span>
+SELECT dolt_merge('dev1');</code></pre></div>
+
+    <p>
+      This is the Cursor/PR model for databases: agents work on their branch,
+      merging to main is a review step. The agent doesn't need permission to
+      merge because merging isn't in its toolkit.
+    </p>
+
+    <h3 id="s-learnings-e"><span class="num">II.e</span>Branch permissions (broken)</h3>
+
+    <p>
+      Two system tables are supposed to control branch permissions:
       <code>dolt_branch_control</code> (who can write to which branches) and
       <code>dolt_branch_namespace_control</code> (who can create which branch
-      names). Three permission levels: <strong>admin</strong> (full control),
-      <strong>write</strong> (can write to the branch), and <strong>read</strong>
-      (everyone has this by default, can't be revoked). Pattern matching uses
-      LIKE-style wildcards (<code>%</code> = any, <code>_</code> = one char).
+      names). Three permission levels: <strong>admin</strong>,
+      <strong>write</strong>, and <strong>read</strong> (everyone has read by
+      default). Pattern matching uses LIKE-style wildcards.
     </p>
 
     <p>
-      The catch: these tables match on <code>user</code> and <code>host</code>,
-      but Doltgres currently only supports a single user (<code>postgres</code>).
-      So you can't actually differentiate between an agent and an admin - they
-      both connect as <code>postgres</code> and get the same permissions. Branch
-      safety is convention (the agent code only writes to its branch), not
-      database-enforced.
+      In practice, we could not modify <code>dolt_branch_control</code>
+      through the Postgres wire protocol. Simple INSERTs failed with a
+      MySQL-to-Postgres type translation error on the system table's internal
+      varchar columns. Parameterized INSERTs crashed the server. And DELETEs
+      were blocked because the <code>postgres</code> user lacks the required
+      SUPER privilege — in our setup, the auto-created
+      <code>root@localhost</code> superuser was not usable through the Postgres
+      client path we were testing.
     </p>
 
     <p>
-      Attempting <code>CREATE USER</code> via psycopg crashed the privilege system
-      with <code>role "public" does not exist</code> - the Postgres wire protocol
-      expects a <code>public</code> role that Dolt's MySQL-based privilege engine
-      doesn't create. The corrupted <code>privileges.db</code> file persists and
-      breaks all subsequent connections until manually deleted.
-    </p>
-
-    <h4>TODO: multi-user via Dolt CLI</h4>
-    <p>
-      Dolt (MySQL side) has full multi-user support. The idea: use the
-      <code>dolt</code> CLI to create users and privileges in MySQL syntax that
-      Dolt actually understands, then start Doltgres and see if it reads those
-      privilege files and enforces them over the Postgres wire protocol.
-    </p>
-    <ol>
-      <li>Install <code>dolt</code> CLI</li>
-      <li>Use <code>dolt sql</code> to create users:
-        <code>CREATE USER 'agent1'@'%' IDENTIFIED BY 'agent1pass'</code></li>
-      <li>Grant branch-specific permissions:
-        <code>INSERT INTO dolt_branch_control VALUES ('getting_started', 'agent1-%', 'agent1', '%', 'write')</code></li>
-      <li>Start <code>doltgres</code> and test if <code>agent1</code> can connect
-        via psycopg and is restricted to its branch</li>
-    </ol>
-    <p>
-      The privilege data lives in <code>privileges.db</code> - same file
-      regardless of whether you go through Dolt or Doltgres. If Dolt creates the
-      users properly, Doltgres might just pick them up.
+      The docs show branch permissions working, but the examples use port 3306
+      (MySQL) and <code>--user=root</code> (a dolt server flag). These appear
+      to be inherited from the dolt docs and not fully ported to doltgres yet.
+      Doltgres describes itself as beta software, so this may improve.
     </p>
 
     <blockquote>
-      Since the agent connects as postgres same as you, the branch control table
-      can't tell you apart. If you restrict a branch, it's restricted for everyone
-      including you. What you can do is enforce it in application code: the agent's
-      Python script only ever calls dolt_checkout('agent-branch') and writes there.
-      It's convention, not database-level enforcement. True branch restriction
-      (agent can only write to agent-*, you can write to main) requires different
-      usernames, which Doltgres doesn't fully support yet. So for now: branching
-      gives you isolation and auditability, not access control. The agent works on
-      its branch, you can diff and review before merging. If the agent writes to
-      main by accident, that's a code bug, not something the database prevents.
+      Use Doltgres for branching, not for branch permissions yet. Route each
+      agent to its assigned branch in the connection string, and treat
+      authorization as an application-level concern.
+    </blockquote>
+
+    <p>
+      But do we even need branch permissions? The orchestrator assigns each
+      agent its branch, and the agent connects directly to it. The database
+      gives you write isolation through branches. Your code gives you
+      authorization through routing. For both RL (where the harness controls
+      everything) and for a product app (where an agent works alongside you),
+      this is enough.
+    </p>
+
+    <p>
+      Branch permissions become necessary when you want the database itself to
+      block a misbehaving client from writing to the wrong branch. That matters
+      in multi-tenant SaaS or untrusted environments. In a controlled research
+      setup or a coding assistant, convention works because you control the code
+      paths.
+    </p>
+
+    <p>
+      The deeper principle: <strong>the unit of attribution should match the unit
+      of isolation</strong>. If two actors share a branch under the same user,
+      you lose both isolation and attribution. The commit log shows "postgres
+      wrote X" but not which actor caused it. The clean model:
+    </p>
+
+    <ul>
+      <li><strong>RL</strong>: one branch per rollout or per worker. The branch
+        name is the attribution. Single user is fine because you only care about
+        what changed, not who (there's only one agent).</li>
+      <li><strong>Multi-agent</strong>: one branch per agent, separate users.
+        You get isolation from branches and attribution from the user in
+        <code>dolt_log</code>. If agents need to collaborate, use a
+        scenario branch that forks into worker branches, then merge back.</li>
+      <li><strong>Human + agent</strong>: two users on separate branches.
+        The human works on main, the agent works on a dev branch. Merging is
+        the review step. Attribution in the log tells you which changes came
+        from the agent vs the human.</li>
+    </ul>
+
+    <p>
+      If you truly need multiple actors on one branch, treat Doltgres as only the
+      state store and put attribution in your own application layer: every write
+      records <code>actor_id</code>, <code>run_id</code>, <code>step_id</code>
+      in an audit table. Dolt history tells you what changed, your audit layer
+      tells you who caused it.
+    </p>
+
+    <h3 id="s-learnings-f"><span class="num">II.f</span>dolt CLI vs doltgres</h3>
+
+    <p>
+      They are separate binaries from separate repos:
+    </p>
+
+    <ul>
+      <li><strong>doltgres</strong> (<code>dolthub/doltgresql</code>) — server
+        only, Postgres wire protocol, no CLI subcommands. Version control is
+        done in SQL: <code>SELECT dolt_branch()</code>,
+        <code>SELECT dolt_commit()</code>, etc.</li>
+      <li><strong>dolt</strong> (<code>dolthub/dolt</code>) — full CLI + server,
+        MySQL wire protocol. Has <code>dolt sql</code>,
+        <code>dolt branch</code>, <code>dolt commit</code>, etc.</li>
+    </ul>
+
+    <p>
+      Do not try to use the <code>dolt</code> CLI against doltgres data. They
+      share the same engine underneath, but when we pointed
+      <code>dolt sql</code> at a doltgres data directory it gave
+      <code>table has unknown fields</code> — the on-disk representations are
+      not interchangeable. The supported interface for doltgres is the Postgres
+      wire protocol only.
+    </p>
+
+    <blockquote>
+      If you want Postgres clients, use doltgres and do version control in SQL.
+      If you want the Git-like CLI, use dolt instead.
     </blockquote>
 
     <div class="colophon">
