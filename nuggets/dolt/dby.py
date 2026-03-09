@@ -23,7 +23,7 @@ def print_table(cursor):
         print(" | ".join(str(val).ljust(widths[i]) for i, val in enumerate(row)))
 
 def kill_existing():
-    subprocess.run(["pkill", "-f", "doltgres"], stderr=subprocess.DEVNULL)
+    subprocess.run(["pkill", "-x", "doltgres"], stderr=subprocess.DEVNULL)
     time.sleep(1)
 
 def main():
