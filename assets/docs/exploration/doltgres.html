@@ -460,19 +460,66 @@ INSERT  →  tx commits  →  data changes ✓  →  dolt history: commit</code>
     <h3 id="s-learnings-c"><span class="num">II.c</span>Branch permissions</h3>
 
     <p>
-      Doltgres currently supports only a single user and password, specified in the
-      config. No multi-user access management yet. The config references a
-      <code>branch_control_file</code> which hints that branch-level permissions
-      are coming (or partially there), but for now everyone connects as the same
-      user with full access.
+      Two system tables control branch permissions:
+      <code>dolt_branch_control</code> (who can write to which branches) and
+      <code>dolt_branch_namespace_control</code> (who can create which branch
+      names). Three permission levels: <strong>admin</strong> (full control),
+      <strong>write</strong> (can write to the branch), and <strong>read</strong>
+      (everyone has this by default, can't be revoked). Pattern matching uses
+      LIKE-style wildcards (<code>%</code> = any, <code>_</code> = one char).
     </p>
 
     <p>
-      Ideally for agents you would want separate users per role: an admin with full
-      access, an agent user that can only write to its own branch, a read-only user
-      for dashboards. That is not possible yet. For local exploration the single
-      user is fine, but it is worth tracking as Doltgres matures.
+      The catch: these tables match on <code>user</code> and <code>host</code>,
+      but Doltgres currently only supports a single user (<code>postgres</code>).
+      So you can't actually differentiate between an agent and an admin - they
+      both connect as <code>postgres</code> and get the same permissions. Branch
+      safety is convention (the agent code only writes to its branch), not
+      database-enforced.
     </p>
+
+    <p>
+      Attempting <code>CREATE USER</code> via psycopg crashed the privilege system
+      with <code>role "public" does not exist</code> - the Postgres wire protocol
+      expects a <code>public</code> role that Dolt's MySQL-based privilege engine
+      doesn't create. The corrupted <code>privileges.db</code> file persists and
+      breaks all subsequent connections until manually deleted.
+    </p>
+
+    <h4>TODO: multi-user via Dolt CLI</h4>
+    <p>
+      Dolt (MySQL side) has full multi-user support. The idea: use the
+      <code>dolt</code> CLI to create users and privileges in MySQL syntax that
+      Dolt actually understands, then start Doltgres and see if it reads those
+      privilege files and enforces them over the Postgres wire protocol.
+    </p>
+    <ol>
+      <li>Install <code>dolt</code> CLI</li>
+      <li>Use <code>dolt sql</code> to create users:
+        <code>CREATE USER 'agent1'@'%' IDENTIFIED BY 'agent1pass'</code></li>
+      <li>Grant branch-specific permissions:
+        <code>INSERT INTO dolt_branch_control VALUES ('getting_started', 'agent1-%', 'agent1', '%', 'write')</code></li>
+      <li>Start <code>doltgres</code> and test if <code>agent1</code> can connect
+        via psycopg and is restricted to its branch</li>
+    </ol>
+    <p>
+      The privilege data lives in <code>privileges.db</code> - same file
+      regardless of whether you go through Dolt or Doltgres. If Dolt creates the
+      users properly, Doltgres might just pick them up.
+    </p>
+
+    <blockquote>
+      Since the agent connects as postgres same as you, the branch control table
+      can't tell you apart. If you restrict a branch, it's restricted for everyone
+      including you. What you can do is enforce it in application code: the agent's
+      Python script only ever calls dolt_checkout('agent-branch') and writes there.
+      It's convention, not database-level enforcement. True branch restriction
+      (agent can only write to agent-*, you can write to main) requires different
+      usernames, which Doltgres doesn't fully support yet. So for now: branching
+      gives you isolation and auditability, not access control. The agent works on
+      its branch, you can diff and review before merging. If the agent writes to
+      main by accident, that's a code bug, not something the database prevents.
+    </blockquote>
 
     <div class="colophon">
       <p>DOLTGRES</p>
