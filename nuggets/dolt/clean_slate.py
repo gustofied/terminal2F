@@ -1,7 +1,6 @@
 import setup_doltgres
 import subprocess
 import time
-import shutil
 import psycopg
 
 
@@ -29,24 +28,47 @@ def fresh_conn(dbname="getting_started"):
     return conn
 
 
+def user_exists(name, pw):
+    try:
+        c = psycopg.connect(f"host=127.0.0.1 user={name} password={pw} dbname=getting_started")
+        c.close()
+        return True
+    except Exception:
+        return False
+
+
+def create_user(name, pw):
+    conn = fresh_conn()
+    conn.execute(f"CREATE USER {name} WITH PASSWORD '{pw}'")
+    conn.close()
+    conn = fresh_conn()
+    conn.execute(f"GRANT ALL ON DATABASE getting_started TO {name}")
+    conn.close()
+    conn = fresh_conn()
+    conn.execute(f"GRANT ALL ON SCHEMA public TO {name}")
+    conn.close()
+    conn = fresh_conn()
+    conn.execute(f"GRANT ALL ON ALL TABLES IN SCHEMA public TO {name}")
+    conn.close()
+
+
 def main():
     setup_doltgres.install()
 
-    # kill any running doltgres and wipe data for a true clean slate
     subprocess.run(["pkill", "-x", "doltgres"], stderr=subprocess.DEVNULL)
     time.sleep(1)
-    for d in ["data", ".doltcfg"]:
-        shutil.rmtree(d, ignore_errors=True)
-
     proc = subprocess.Popen(["doltgres"])
     time.sleep(2)
 
-    # create database
-    conn = fresh_conn("postgres")
-    conn.execute("CREATE DATABASE IF NOT EXISTS getting_started")
-    conn.close()
+    # database
+    try:
+        fresh_conn()
+    except Exception:
+        conn = fresh_conn("postgres")
+        conn.execute("CREATE DATABASE IF NOT EXISTS getting_started")
+        conn.close()
 
-    # create table
+    # table
     conn = fresh_conn()
     conn.execute("""CREATE TABLE IF NOT EXISTS persons (
         PersonID int PRIMARY KEY,
@@ -54,71 +76,48 @@ def main():
         FirstName varchar(255),
         Address varchar(255),
         City varchar(255))""")
-    conn.execute("SELECT dolt_commit('-Am', 'create persons table')")
+    try:
+        conn.execute("SELECT dolt_commit('-Am', 'create persons table')")
+    except psycopg.errors.InternalError_:
+        pass
     conn.close()
 
-    # create agent1
-    conn = fresh_conn()
-    conn.execute("CREATE USER agent1 WITH PASSWORD 'agent1pass'")
-    conn.close()
-    conn = fresh_conn()
-    conn.execute("GRANT ALL ON DATABASE getting_started TO agent1")
-    conn.close()
-    conn = fresh_conn()
-    conn.execute("GRANT ALL ON SCHEMA public TO agent1")
-    conn.close()
-    conn = fresh_conn()
-    conn.execute("GRANT ALL ON ALL TABLES IN SCHEMA public TO agent1")
-    conn.close()
+    # users
+    if not user_exists("agent1", "agent1pass"):
+        create_user("agent1", "agent1pass")
+        print("  created agent1")
 
-    # create agent2
-    conn = fresh_conn()
-    conn.execute("CREATE USER agent2 WITH PASSWORD 'agent2pass'")
-    conn.close()
-    conn = fresh_conn()
-    conn.execute("GRANT ALL ON DATABASE getting_started TO agent2")
-    conn.close()
-    conn = fresh_conn()
-    conn.execute("GRANT ALL ON SCHEMA public TO agent2")
-    conn.close()
-    conn = fresh_conn()
-    conn.execute("GRANT ALL ON ALL TABLES IN SCHEMA public TO agent2")
-    conn.close()
+    if not user_exists("agent2", "agent2pass"):
+        create_user("agent2", "agent2pass")
+        print("  created agent2")
 
-    # verify: list users and log
-    conn = fresh_conn()
-    print("\n=== verify users ===")
-    for name, pw in [("agent1", "agent1pass"), ("agent2", "agent2pass")]:
-        try:
-            c = psycopg.connect(f"host=127.0.0.1 user={name} password={pw} dbname=getting_started")
-            c.autocommit = True
-            c.execute("SELECT 1")
-            print(f"  {name}: login OK")
-            c.close()
-        except Exception as e:
-            print(f"  {name}: {e}")
-
-    # agent1 inserts a row and commits
+    # agent1 writes
     print("\n=== agent1 writes ===")
     a1 = psycopg.connect("host=127.0.0.1 user=agent1 password=agent1pass dbname=getting_started")
     a1.autocommit = True
-    a1.execute("INSERT INTO persons VALUES (1, 'Smith', 'Alice', '123 Main St', 'Oslo')")
-    a1.execute("SELECT dolt_commit('-Am', 'agent1: add Alice Smith')")
-    print("  agent1 committed")
+    a1.execute("INSERT INTO persons VALUES (1, 'Smith', 'Alice', '123 Main St', 'Oslo') ON CONFLICT DO NOTHING")
+    try:
+        a1.execute("SELECT dolt_commit('-Am', 'agent1: add Alice Smith')")
+    except psycopg.errors.InternalError_:
+        pass
+    print("  done")
     a1.close()
 
-    # agent2 inserts a row and commits
+    # agent2 writes
     print("\n=== agent2 writes ===")
     a2 = psycopg.connect("host=127.0.0.1 user=agent2 password=agent2pass dbname=getting_started")
     a2.autocommit = True
-    a2.execute("INSERT INTO persons VALUES (2, 'Jones', 'Bob', '456 Oak Ave', 'Bergen')")
-    a2.execute("SELECT dolt_commit('-Am', 'agent2: add Bob Jones')")
-    print("  agent2 committed")
+    a2.execute("INSERT INTO persons VALUES (2, 'Jones', 'Bob', '456 Oak Ave', 'Bergen') ON CONFLICT DO NOTHING")
+    try:
+        a2.execute("SELECT dolt_commit('-Am', 'agent2: add Bob Jones')")
+    except psycopg.errors.InternalError_:
+        pass
+    print("  done")
     a2.close()
 
-    # see who did what
-    print("\n=== persons ===")
+    # attribution
     conn = fresh_conn()
+    print("\n=== persons ===")
     print_table(conn.execute("SELECT * FROM persons"))
 
     print("\n=== dolt_log (attribution) ===")
