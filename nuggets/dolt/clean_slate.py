@@ -40,29 +40,11 @@ def main():
     conn = psycopg.connect("host=127.0.0.1 user=postgres password=password dbname=getting_started")
     conn.autocommit = True
 
-    conn.execute("""CREATE TABLE IF NOT EXISTS employees (
-        id int8, last_name text, first_name text, primary key(id))""")
-    conn.execute("INSERT INTO employees VALUES (5, 'Hany', 'John') ON CONFLICT DO NOTHING")
-
-
-
     print("\n=== dolt_branches ===")
-    try:
-        print_table(conn.execute("SELECT * FROM dolt_branches"))
-    except Exception as e:
-        print(f"error: {e}")
+    print_table(conn.execute("SELECT * FROM dolt_branches"))
 
     print("\n=== dolt_branch_control ===")
-    try:
-        print_table(conn.execute("SELECT * FROM dolt_branch_control"))
-    except Exception as e:
-        print(f"error: {e}")
-
-    print("\n=== dolt_branch_namespace_control ===")
-    try:
-        print_table(conn.execute("SELECT * FROM dolt_branch_namespace_control"))
-    except Exception as e:
-        print(f"error: {e}")
+    print_table(conn.execute("SELECT * FROM dolt_branch_control"))
 
     print("\n=== dolt_log ===")
     print_table(conn.execute("SELECT * FROM dolt_log"))
