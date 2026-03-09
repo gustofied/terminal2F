@@ -4,7 +4,6 @@ behavior:
   read_only: false
   dolt_transaction_commit: false
 
-
 listener:
   host: localhost
   port: 5432

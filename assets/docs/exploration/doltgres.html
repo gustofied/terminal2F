@@ -457,49 +457,60 @@ INSERT  →  tx commits  →  data changes ✓  →  dolt history: commit</code>
     </p>
 
     <p>
-      Best of both worlds: leave it <code>false</code> in the server config, then
-      <code>SET dolt_transaction_commit = 1</code> only on agent connections.
-      Your admin queries stay clean, agent writes are fully tracked.
+      Note: both the global config and per-session
+      <code>SET dolt_transaction_commit = 1</code> attribute commits to
+      <code>Dolt System Account</code>, not the connected user. If you need
+      attribution (who did what), use explicit
+      <code>dolt_commit('-Am', 'message')</code> instead — that preserves
+      the connected user's identity in the log.
     </p>
 
     <h3 id="s-learnings-c"><span class="num">II.c</span>Multi-user</h3>
 
     <p>
-      Multi-user works, but with workarounds. Postgres-style
-      <code>CREATE USER ... WITH PASSWORD</code> corrupts
-      <code>privileges.db</code>. The fix: create users MySQL-style (no
-      <code>WITH PASSWORD</code>), set the password separately with
-      <code>ALTER USER</code>, and <strong>reconnect between every privilege
-      operation</strong> — the psycopg session gets corrupted after each
-      privilege change.
+      Multi-user works with standard Postgres statements. The config.yaml
+      <code>user</code> block defines the initial server admin account —
+      that's separate from Postgres roles you create after connecting.
+      Once connected as admin, plain <code>CREATE USER</code> and
+      <code>GRANT</code> work in a single connection:
     </p>
 
-    <p>The full recipe via psycopg:</p>
-
     <div class="code-block"><span class="code-lang">python</span>
-<pre><code><span style="color:#93a1a1"># each step needs its own connection (reconnect between every step)</span>
-
-<span style="color:#93a1a1"># 1. create user (MySQL-style, NO "WITH PASSWORD")</span>
-conn.execute('CREATE USER "agent1@localhost"')
-
-<span style="color:#93a1a1"># 2. set password separately (ALTER USER is safe)</span>
-conn.execute('ALTER USER "agent1@localhost" WITH PASSWORD \'agent1pass\'')
-
-<span style="color:#93a1a1"># 3. grant database access</span>
-conn.execute('GRANT ALL ON DATABASE getting_started TO "agent1@localhost"')
-
-<span style="color:#93a1a1"># 4. grant schema access (needed to create tables)</span>
-conn.execute('GRANT ALL ON SCHEMA public TO "agent1@localhost"')
-
-<span style="color:#93a1a1"># 5. grant table access (needed for existing tables)</span>
-conn.execute('GRANT ALL ON ALL TABLES IN SCHEMA public TO "agent1@localhost"')</code></pre></div>
+<pre><code>conn = psycopg.connect("host=127.0.0.1 user=postgres password=password dbname=getting_started")
+conn.autocommit = True
+conn.execute("CREATE USER agent1 WITH PASSWORD 'agent1pass'")
+conn.execute("GRANT ALL ON DATABASE getting_started TO agent1")
+conn.execute("GRANT ALL ON SCHEMA public TO agent1")
+conn.execute("GRANT ALL ON ALL TABLES IN SCHEMA public TO agent1")
+conn.close()</code></pre></div>
 
     <p>
-      Why separate users matter: <strong>attribution</strong>. Each user's writes
-      show up in <code>dolt_log</code> under their name. If both agents use
-      <code>postgres</code>, every commit says "postgres" and you can't tell who
-      did what. With separate users, agent1's commits show
-      <code>agent1@localhost</code> and you get git-blame for your database.
+      Users persist across server restarts in <code>privileges.db</code>.
+      No need to recreate them each time — check if the user can login
+      before creating.
+    </p>
+
+    <p>
+      Why separate users matter: <strong>attribution</strong>. When a user
+      calls <code>dolt_commit()</code>, their name appears in
+      <code>dolt_log</code>. Two agents sharing the <code>postgres</code>
+      account means every commit says "postgres" and you lose track of who
+      did what. With separate users you get git-blame for your database:
+    </p>
+
+    <div class="code-block"><span class="code-lang">text</span>
+<pre><code>commit_hash | committer | message
+------------+-----------+------------------------
+vs871...    | agent2    | agent2: add Bob Jones
+okvul...    | agent1    | agent1: add Alice Smith
+3pj0u...   | postgres  | create persons table</code></pre></div>
+
+    <p>
+      One caveat: attribution only works with explicit
+      <code>dolt_commit()</code>. The auto-commit path
+      (<code>dolt_transaction_commit</code>) attributes all commits to
+      <code>Dolt System Account</code> regardless of which user made the
+      change. For attribution, use manual commits.
     </p>
 
     <p>
@@ -556,56 +567,49 @@ SELECT dolt_merge('dev1');</code></pre></div>
       merge because merging isn't in its toolkit.
     </p>
 
-    <h3 id="s-learnings-e"><span class="num">II.e</span>Branch permissions (broken)</h3>
+    <h3 id="s-learnings-e"><span class="num">II.e</span>Branch permissions</h3>
 
     <p>
-      Two system tables are supposed to control branch permissions:
+      Dolt has a branch permissions system via two system tables:
       <code>dolt_branch_control</code> (who can write to which branches) and
       <code>dolt_branch_namespace_control</code> (who can create which branch
-      names). Three permission levels: <strong>admin</strong>,
-      <strong>write</strong>, and <strong>read</strong> (everyone has read by
-      default). Pattern matching uses LIKE-style wildcards.
+      names). The idea is straightforward — restrict agent1 to dev1:
+    </p>
+
+    <div class="code-block"><span class="code-lang">sql</span>
+<pre><code>INSERT INTO dolt_branch_control VALUES ('%', 'dev1', 'agent1', '%', 'write');</code></pre></div>
+
+    <p>
+      We could not get this to work through the Postgres wire protocol
+      (doltgres 0.55.5). The system table columns are defined as MySQL types
+      (<code>VARCHAR(16383) COLLATE utf8mb4_0900_ai_ci</code>) internally, and
+      doltgres's query analyzer rejects any INSERT into columns that aren't
+      Postgres-native types. The docs show branch permissions working, but the
+      examples use port 3306 (MySQL protocol) and <code>--user=root</code>,
+      which suggests they haven't been fully ported to the Postgres path yet.
+      DoltHub confirmed the feature should work — it's a bug, not a missing
+      feature. We filed an issue and they're working on a fix. Same error
+      affects both <code>dolt_branch_control</code> and
+      <code>dolt_branch_namespace_control</code>.
     </p>
 
     <p>
-      In practice, we could not modify <code>dolt_branch_control</code>
-      through the Postgres wire protocol. Simple INSERTs failed with a
-      MySQL-to-Postgres type translation error on the system table's internal
-      varchar columns. Parameterized INSERTs crashed the server. And DELETEs
-      were blocked because the <code>postgres</code> user lacks the required
-      SUPER privilege — in our setup, the auto-created
-      <code>root@localhost</code> superuser was not usable through the Postgres
-      client path we were testing.
+      In practice, you don't need branch permissions for most setups. If I'm
+      editing on main and an agent is working alongside me, I give it a
+      separate branch and a separate user. The agent connects directly to its
+      branch via the connection string. When its work looks good, I merge it
+      in. With a different user, <code>dolt_log</code> shows who committed
+      what regardless.
     </p>
 
     <p>
-      The docs show branch permissions working, but the examples use port 3306
-      (MySQL) and <code>--user=root</code> (a dolt server flag). These appear
-      to be inherited from the dolt docs and not fully ported to doltgres yet.
-      Doltgres describes itself as beta software, so this may improve.
-    </p>
-
-    <blockquote>
-      Use Doltgres for branching, not for branch permissions yet. Route each
-      agent to its assigned branch in the connection string, and treat
-      authorization as an application-level concern.
-    </blockquote>
-
-    <p>
-      But do we even need branch permissions? The orchestrator assigns each
-      agent its branch, and the agent connects directly to it. The database
-      gives you write isolation through branches. Your code gives you
-      authorization through routing. For both RL (where the harness controls
-      everything) and for a product app (where an agent works alongside you),
-      this is enough.
-    </p>
-
-    <p>
-      Branch permissions become necessary when you want the database itself to
-      block a misbehaving client from writing to the wrong branch. That matters
-      in multi-tenant SaaS or untrusted environments. In a controlled research
-      setup or a coding assistant, convention works because you control the code
-      paths.
+      Where branch permissions would matter: multiple agents looking at the
+      same database where one should only read (an evaluator agent checking
+      state) while another writes. Without branch permissions, the read-only
+      agent could still write if it wanted to. You can work around this by
+      giving the evaluator a branched copy to read from, or by using Postgres
+      <code>GRANT</code>/<code>REVOKE</code> to restrict table-level
+      writes — but database-level branch enforcement would be cleaner.
     </p>
 
     <p>

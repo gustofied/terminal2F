@@ -2,7 +2,7 @@ import setup_doltgres
 import subprocess
 import time
 import psycopg
-
+# rm -rf data .doltcfg && uv run clean_slate.py
 
 def print_table(cursor):
     rows = cursor.fetchall()
@@ -40,14 +40,8 @@ def user_exists(name, pw):
 def create_user(name, pw):
     conn = fresh_conn()
     conn.execute(f"CREATE USER {name} WITH PASSWORD '{pw}'")
-    conn.close()
-    conn = fresh_conn()
     conn.execute(f"GRANT ALL ON DATABASE getting_started TO {name}")
-    conn.close()
-    conn = fresh_conn()
     conn.execute(f"GRANT ALL ON SCHEMA public TO {name}")
-    conn.close()
-    conn = fresh_conn()
     conn.execute(f"GRANT ALL ON ALL TABLES IN SCHEMA public TO {name}")
     conn.close()
 
@@ -91,39 +85,83 @@ def main():
         create_user("agent2", "agent2pass")
         print("  created agent2")
 
-    # agent1 writes
-    print("\n=== agent1 writes ===")
-    a1 = psycopg.connect("host=127.0.0.1 user=agent1 password=agent1pass dbname=getting_started")
+    # branches
+    conn = fresh_conn()
+    try:
+        conn.execute("SELECT dolt_branch('dev1', 'main')")
+    except Exception:
+        pass
+    try:
+        conn.execute("SELECT dolt_branch('dev2', 'main')")
+    except Exception:
+        pass
+    conn.close()
+
+    # agent1 writes on dev1
+    print("\n=== agent1 on dev1 ===")
+    a1 = psycopg.connect("host=127.0.0.1 user=agent1 password=agent1pass dbname=getting_started/dev1")
     a1.autocommit = True
     a1.execute("INSERT INTO persons VALUES (1, 'Smith', 'Alice', '123 Main St', 'Oslo') ON CONFLICT DO NOTHING")
     try:
         a1.execute("SELECT dolt_commit('-Am', 'agent1: add Alice Smith')")
     except psycopg.errors.InternalError_:
         pass
-    print("  done")
+    print("  persons on dev1:")
+    print_table(a1.execute("SELECT * FROM persons"))
     a1.close()
 
-    # agent2 writes
-    print("\n=== agent2 writes ===")
-    a2 = psycopg.connect("host=127.0.0.1 user=agent2 password=agent2pass dbname=getting_started")
+    # agent2 writes on dev2
+    print("\n=== agent2 on dev2 ===")
+    a2 = psycopg.connect("host=127.0.0.1 user=agent2 password=agent2pass dbname=getting_started/dev2")
     a2.autocommit = True
     a2.execute("INSERT INTO persons VALUES (2, 'Jones', 'Bob', '456 Oak Ave', 'Bergen') ON CONFLICT DO NOTHING")
     try:
         a2.execute("SELECT dolt_commit('-Am', 'agent2: add Bob Jones')")
     except psycopg.errors.InternalError_:
         pass
-    print("  done")
+    print("  persons on dev2:")
+    print_table(a2.execute("SELECT * FROM persons"))
     a2.close()
 
-    # attribution
+    # main should be clean
+    print("\n=== main (should have no agent data) ===")
     conn = fresh_conn()
-    print("\n=== persons ===")
+    print("  persons on main:")
     print_table(conn.execute("SELECT * FROM persons"))
 
-    print("\n=== dolt_log (attribution) ===")
-    print_table(conn.execute("SELECT commit_hash, committer, message FROM dolt_log"))
+    # all branches
+    print("\n=== branches ===")
+    print_table(conn.execute("SELECT name, hash FROM dolt_branches"))
 
+    # attribution across branches
+    print("\n=== dolt_log on main ===")
+    print_table(conn.execute("SELECT commit_hash, committer, message FROM dolt_log"))
     conn.close()
+
+    # check dev1 log
+    print("\n=== dolt_log on dev1 ===")
+    c1 = psycopg.connect("host=127.0.0.1 user=agent1 password=agent1pass dbname=getting_started/dev1")
+    c1.autocommit = True
+    print_table(c1.execute("SELECT commit_hash, committer, message FROM dolt_log"))
+    c1.close()
+
+    # check dev2 log
+    print("\n=== dolt_log on dev2 ===")
+    c2 = psycopg.connect("host=127.0.0.1 user=agent2 password=agent2pass dbname=getting_started/dev2")
+    c2.autocommit = True
+    print_table(c2.execute("SELECT commit_hash, committer, message FROM dolt_log"))
+    c2.close()
+
+    # test dolt_branch_namespace_control INSERT
+    print("\n=== dolt_branch_namespace_control ===")
+    conn = fresh_conn()
+    try:
+        conn.execute("INSERT INTO dolt_branch_namespace_control VALUES ('%', 'dev%', 'agent1', '%')")
+        print("  OK")
+    except Exception as e:
+        print(f"  {e}")
+    conn.close()
+
     proc.terminate()
 
 
