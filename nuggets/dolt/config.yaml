@@ -17,3 +17,8 @@ cfg_dir: .doltcfg
 privilege_file: .doltcfg/privileges.db
 auth_file: .doltcfg/auth.db
 branch_control_file: .doltcfg/branch_control.db
+
+metrics:
+  labels: {}
+  host: localhost
+  port: 11228

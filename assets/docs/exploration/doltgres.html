@@ -295,6 +295,8 @@
       <a href="#s-learnings-d"><span class="toc-num">II.d</span>Branches</a>
       <a href="#s-learnings-e"><span class="toc-num">II.e</span>Branch permissions</a>
       <a href="#s-learnings-f"><span class="toc-num">II.f</span>dolt vs doltgres</a>
+      <a href="#s-learnings-g"><span class="toc-num">II.g</span>Backups</a>
+      <a href="#s-learnings-h"><span class="toc-num">II.h</span>Garbage collection</a>
     </div>
 
     <h3 id="s-why"><span class="num">I</span>Why it matters for agents</h3>
@@ -567,6 +569,192 @@ SELECT dolt_merge('dev1');</code></pre></div>
       merge because merging isn't in its toolkit.
     </p>
 
+    <p>
+      Merge works cleanly. When main has no divergent changes, it's a
+      fast-forward — main's pointer moves to the branch's latest commit, and
+      the agent's attribution is preserved in the log. After merging dev1,
+      main's <code>dolt_log</code> shows <code>agent1</code> as the
+      committer for the rows that came from dev1.
+    </p>
+
+    <h4>Reset from seed</h4>
+
+    <p>
+      For RL or repeated agent runs, you need to reset a branch to a known
+      state. The simplest way: delete the branch and recreate it from the
+      seed:
+    </p>
+
+    <p>
+      There are two kinds of reset depending on what you want:
+    </p>
+
+    <div class="code-block"><span class="code-lang">python</span>
+<pre><code><span style="color:#93a1a1"># reset to current promoted state (main after merges)</span>
+conn.execute("SELECT dolt_branch('-D', 'dev1')")
+conn.execute("SELECT dolt_branch('dev1', 'main')")
+
+<span style="color:#93a1a1"># reset to original seed (fixed commit hash)</span>
+conn.execute("SELECT dolt_branch('-D', 'dev1')")
+conn.execute("SELECT dolt_branch('dev1', 's39nf5nm...')")</code></pre></div>
+
+    <p>
+      The difference matters. Recreating from <code>main</code> gives you
+      whatever main looks like now — if you've merged agent work into it,
+      the new branch starts from the promoted world. Recreating from a
+      saved commit hash gives you the original seed state every time,
+      regardless of what happened to main since.
+    </p>
+
+    <p>
+      For RL, you want the seed hash. Save it once after setting up the
+      initial world (<code>SELECT commit_hash FROM dolt_log LIMIT 1</code>),
+      then fork from that for every rollout. The agent gets a clean copy
+      of the starting state, does its run, and you either merge the result
+      or discard the branch. No containers, no snapshots — just a logical
+      fork inside the same process.
+    </p>
+
+    <h4>Concurrency</h4>
+
+    <p>
+      Multiple agents can work in parallel on separate branches without
+      issues. Initial test: 4 workers on 4 branches, each inserting 10
+      rows and committing — done in ~0.13s.
+    </p>
+
+    <p>
+      Scaled test: <strong>40 concurrent rollouts</strong> structured as
+      10 examples &times; 4 rollouts each. Each example has its own seed
+      state (a unique starting row), and the 4 rollouts fork from that
+      shared seed. Each rollout gets its own Postgres user and branch.
+      40 workers ran in parallel, each inserting 10 rows and committing.
+      All 40 finished in <strong>~1.4s</strong> with full verification:
+    </p>
+
+    <ul>
+      <li>Each branch has exactly 11 rows (1 seed + 10 writes)</li>
+      <li>All 4 rollouts per example inherited the same seed row</li>
+      <li>No data leaked between examples</li>
+      <li>Each commit attributed to its own user (<code>agent_e3_r2</code> etc.)</li>
+      <li>Main stayed untouched</li>
+    </ul>
+
+    <div class="code-block"><span class="code-lang">text</span>
+<pre><code>example0 seed → e0_r0, e0_r1, e0_r2, e0_r3
+example1 seed → e1_r0, e1_r1, e1_r2, e1_r3
+...
+example9 seed → e9_r0, e9_r1, e9_r2, e9_r3
+
+40 users, 40 branches, 400 inserts, 40 commits → 1.4s</code></pre></div>
+
+    <h4>Benchmarking</h4>
+
+    <p>
+      The script times the parallel section with <code>time.time()</code>
+      around the thread pool. To quantify doltgres overhead more precisely,
+      measure each phase separately:
+    </p>
+
+    <div class="code-block"><span class="code-lang">python</span>
+<pre><code>t_setup = time.time()
+# create users + branches
+t_setup = time.time() - t_setup
+
+t_work = time.time()
+# run all workers in parallel
+t_work = time.time() - t_work
+
+t_verify = time.time()
+# read back and check
+t_verify = time.time() - t_verify
+
+print(f"setup: {t_setup:.2f}s  work: {t_work:.2f}s  verify: {t_verify:.2f}s")</code></pre></div>
+
+    <p>
+      Useful things to vary when benchmarking: number of concurrent
+      workers, rows per worker, number of commits per worker (one big
+      commit vs. many small ones), and table complexity (more columns,
+      indexes). This lets you find where doltgres's overhead shows up
+      relative to vanilla Postgres — the branch/commit machinery is the
+      interesting cost, not the raw insert speed.
+    </p>
+
+    <p>
+      The validated lifecycle:
+    </p>
+
+    <div class="code-block"><span class="code-lang">text</span>
+<pre><code>seed commit → fork N branches → parallel agent work → commit
+  → inspect → merge or discard → reset from seed</code></pre></div>
+
+    <h4>What this proves (and what it doesn't)</h4>
+
+    <p>
+      The 40-rollout test proves <strong>parallel isolated-world
+      concurrency</strong>: many agents working on separate branches from
+      shared seeds, with no data leaks and correct attribution. This is
+      exactly the RL-style case — many independent rollouts from the same
+      starting state.
+    </p>
+
+    <p>
+      What it does <em>not</em> test: multiple writers on the same branch,
+      merge storms back into one branch, or conflict-heavy workloads. For
+      the RL thesis those matter less — the isolated-world case is the one
+      that counts.
+    </p>
+
+    <p>
+      The next question is not "does the model work?" but "does it hold
+      up over time?" — specifically, what happens when you create and
+      destroy thousands of branches across many steps. The right experiment
+      for that is a <strong>multi-step epoch loop</strong>:
+    </p>
+
+    <ul>
+      <li>10 seeds, 4 rollouts each</li>
+      <li>Repeat for N steps (100, 1000, ...)</li>
+      <li>Each step: create 40 branches, run 40 workers, delete branches</li>
+      <li>Track elapsed time per step — does branch churn degrade?</li>
+      <li>This gets closer to the real "200k branches over time" question</li>
+    </ul>
+
+    <h4>Orchestrator pattern</h4>
+
+    <p>
+      The natural shape for an agent environment manager: a single
+      orchestrator (connected as <code>postgres</code>) that owns the
+      lifecycle. It saves the seed hash, creates branches, hands each agent
+      a connection string to its branch, waits for results, then decides
+      to merge or discard. The agents never touch main, never create
+      branches, never merge — they just connect, write, commit.
+    </p>
+
+    <div class="code-block"><span class="code-lang">text</span>
+<pre><code>Orchestrator (postgres)
+  ├── save seed hash
+  ├── create branch "run-42-agent1" from seed
+  ├── create branch "run-42-agent2" from seed
+  ├── hand off connection strings to agents
+  ├── wait for agents to finish
+  ├── inspect: dolt_diff, dolt_log per branch
+  ├── merge good results into main (or a results branch)
+  └── delete agent branches (or keep for replay)
+
+Agent (agent1, agent2)
+  ├── connect to assigned branch
+  ├── read state, do work, write results
+  ├── dolt_commit with meaningful message
+  └── disconnect</code></pre></div>
+
+    <p>
+      This separates concerns cleanly. The orchestrator controls the
+      experiment. The agents are stateless workers that see a database and
+      write to it. Attribution comes from the user, isolation comes from
+      the branch, and the orchestrator decides what gets promoted.
+    </p>
+
     <h3 id="s-learnings-e"><span class="num">II.e</span>Branch permissions</h3>
 
     <p>
@@ -670,6 +858,69 @@ SELECT dolt_merge('dev1');</code></pre></div>
       If you want Postgres clients, use doltgres and do version control in SQL.
       If you want the Git-like CLI, use dolt instead.
     </blockquote>
+
+    <h3 id="s-learnings-g"><span class="num">II.g</span>Backups</h3>
+
+    <p>
+      Branches are not backups. They are pointers inside the same local
+      storage — if the disk dies, everything dies: main, branches, all of
+      it. A backup means copying data somewhere else.
+    </p>
+
+    <p>
+      Doltgres supports three approaches:
+    </p>
+
+    <ul>
+      <li><strong>Block device snapshots</strong> (e.g. AWS EBS) — safest,
+        works while the server is running. Recommended for production.</li>
+      <li><strong>Push to remote</strong> (<code>dolt_push</code> to S3,
+        DoltHub, GCS, or a file path) — only backs up committed data on
+        the pushed branch, not the working set.</li>
+      <li><strong>File copy</strong> — only safe if the server is fully
+        stopped. Risk of inconsistent state otherwise.</li>
+    </ul>
+
+    <p>
+      For RL workloads this is mostly not relevant. Rollout branches are
+      ephemeral — they live and die within a training run. What you might
+      want to archive afterward are seeds and promoted results, and those
+      can be pushed to a remote or exported to a separate results database.
+      The thousands of throwaway rollout branches don't need backing up.
+    </p>
+
+    <h3 id="s-learnings-h"><span class="num">II.h</span>Garbage collection</h3>
+
+    <p>
+      Doltgres stores data in a prolly tree of chunks on disk. When you
+      write rows without committing, or delete a branch that had unique
+      data, the old chunks stay on disk but nothing references them.
+      That is garbage — wasted disk space, not data corruption.
+    </p>
+
+    <p>
+      Example: insert Alice, then update to Bob, then commit. The commit
+      points to the Bob chunks. The Alice chunks are orphaned on disk.
+      Same thing when you delete a rollout branch — its unique chunks
+      become unreferenced.
+    </p>
+
+    <p>
+      Committed data is always safe. <code>dolt_gc()</code> only removes
+      unreferenced chunks — anything pointed to by a commit stays.
+    </p>
+
+    <div class="code-block"><span class="code-lang">sql</span>
+<pre><code>SELECT dolt_gc();</code></pre></div>
+
+    <p>
+      For RL workloads, garbage accumulates from two places: intermediate
+      writes before each <code>dolt_commit()</code>, and deleted rollout
+      branches after each batch. Over thousands of epochs this can bloat
+      the disk. Run GC periodically — after each learning example (one
+      row of seeds with its rollouts), or every N epochs, depending on
+      how long GC takes relative to the actual work.
+    </p>
 
     <div class="colophon">
       <p>DOLTGRES</p>

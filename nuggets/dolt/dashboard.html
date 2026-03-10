@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>doltgres metrics</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: monospace; background: #111; color: #ccc; padding: 24px; }
+  h1 { font-size: 14px; color: #666; margin-bottom: 16px; }
+  .status { font-size: 12px; color: #444; margin-bottom: 20px; }
+  .status.live { color: #4a4; }
+  .status.dead { color: #a44; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; margin-bottom: 24px; }
+  .card { background: #1a1a1a; border: 1px solid #222; padding: 16px; border-radius: 4px; }
+  .card .label { font-size: 11px; color: #666; margin-bottom: 4px; }
+  .card .value { font-size: 28px; color: #eee; }
+  .card .unit { font-size: 12px; color: #555; }
+  .history { margin-top: 24px; }
+  .history h2 { font-size: 12px; color: #666; margin-bottom: 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th { text-align: left; color: #555; padding: 4px 8px; border-bottom: 1px solid #222; }
+  td { padding: 4px 8px; border-bottom: 1px solid #1a1a1a; }
+  .bar { display: inline-block; height: 10px; background: #4a4; border-radius: 2px; min-width: 2px; }
+</style>
+</head>
+<body>
+
+<h1>doltgres metrics</h1>
+<div class="status" id="status">connecting...</div>
+
+<div class="grid" id="cards"></div>
+
+<div class="history">
+  <h2>history (last 60 samples)</h2>
+  <table>
+    <thead><tr><th>time</th><th>conn</th><th>queries</th><th>mem MB</th><th>gc pauses</th><th>mem</th></tr></thead>
+    <tbody id="history"></tbody>
+  </table>
+</div>
+
+<script>
+const METRICS_URL = '/metrics';
+const INTERVAL = 10000;
+const MAX_HISTORY = 60;
+
+const history = [];
+let maxMem = 1;
+
+const watched = {
+  'dss_concurrent_connections': { label: 'connections', unit: '' },
+  'dss_concurrent_queries': { label: 'concurrent queries', unit: '' },
+  'go_memstats_alloc_bytes': { label: 'memory allocated', unit: 'MB', transform: v => (v / 1024 / 1024).toFixed(1) },
+  'go_memstats_sys_bytes': { label: 'memory from OS', unit: 'MB', transform: v => (v / 1024 / 1024).toFixed(1) },
+  'go_goroutines': { label: 'goroutines', unit: '' },
+  'go_gc_duration_seconds_count': { label: 'GC cycles', unit: '' },
+};
+
+function parseMetrics(text) {
+  const result = {};
+  for (const line of text.split('\n')) {
+    if (line.startsWith('#') || !line.trim()) continue;
+    const match = line.match(/^([a-z_]+?)(?:\{[^}]*\})?\s+([\d.e+-]+)/);
+    if (match && match[1] in watched) {
+      result[match[1]] = parseFloat(match[2]);
+    }
+  }
+  return result;
+}
+
+function renderCards(data) {
+  const el = document.getElementById('cards');
+  el.innerHTML = '';
+  for (const [key, cfg] of Object.entries(watched)) {
+    const raw = data[key];
+    if (raw === undefined) continue;
+    const val = cfg.transform ? cfg.transform(raw) : raw;
+    el.innerHTML += `<div class="card"><div class="label">${cfg.label}</div><div class="value">${val} <span class="unit">${cfg.unit}</span></div></div>`;
+  }
+}
+
+function renderHistory() {
+  const el = document.getElementById('history');
+  let html = '';
+  for (let i = history.length - 1; i >= 0; i--) {
+    const h = history[i];
+    const mem = h.mem || 0;
+    const pct = Math.max(2, (mem / maxMem) * 120);
+    html += `<tr>
+      <td>${h.time}</td>
+      <td>${h.conn ?? '-'}</td>
+      <td>${h.queries ?? '-'}</td>
+      <td>${h.mem ? h.mem.toFixed(1) : '-'}</td>
+      <td>${h.gc ?? '-'}</td>
+      <td><span class="bar" style="width:${pct}px"></span></td>
+    </tr>`;
+  }
+  el.innerHTML = html;
+}
+
+async function poll() {
+  try {
+    const res = await fetch(METRICS_URL);
+    const text = await res.text();
+    const data = parseMetrics(text);
+
+    document.getElementById('status').className = 'status live';
+    document.getElementById('status').textContent = 'live — polling every 10s';
+
+    renderCards(data);
+
+    const mem = data['go_memstats_alloc_bytes'] ? data['go_memstats_alloc_bytes'] / 1024 / 1024 : 0;
+    if (mem > maxMem) maxMem = mem;
+
+    history.push({
+      time: new Date().toLocaleTimeString(),
+      conn: data['dss_concurrent_connections'],
+      queries: data['dss_concurrent_queries'],
+      mem: mem,
+      gc: data['go_gc_duration_seconds_count'],
+    });
+    if (history.length > MAX_HISTORY) history.shift();
+
+    renderHistory();
+  } catch (e) {
+    document.getElementById('status').className = 'status dead';
+    document.getElementById('status').textContent = 'cannot reach ' + METRICS_URL;
+  }
+}
+
+poll();
+setInterval(poll, INTERVAL);
+</script>
+</body>
+</html>
