@@ -284,18 +284,19 @@
       branch, diff, merge, and commit database changes, with row-level history
       underneath. Every transaction can be turned into a versioned commit. An
       agent needs a safe copy of the world it is about to change, maybe not a
-      sandbox, &nbsp;perhaps not a container, but maybe a branch should work.</p>
+      sandbox, &nbsp;perhaps not a container, but maybe a branch should work. Doltgres is currently in pre-alpha, heard they talked about proper release late 2026, nice! It has the same storage engine as Dolt</p>
 
     <div class="toc">
       <a href="#s-why"><span class="toc-num">I</span>Why it matters</a>
-      <a href="#s-learnings-a"><span class="toc-num">II.a</span>Server</a>
-      <a href="#s-learnings-b"><span class="toc-num">II.b</span>Commits</a>
-      <a href="#s-learnings-c"><span class="toc-num">II.c</span>Multi-user</a>
-      <a href="#s-learnings-d"><span class="toc-num">II.d</span>Branches</a>
-      <a href="#s-learnings-e"><span class="toc-num">II.e</span>Branch permissions</a>
-      <a href="#s-learnings-f"><span class="toc-num">II.f</span>dolt vs doltgres</a>
-      <a href="#s-learnings-g"><span class="toc-num">II.g</span>Backups</a>
-      <a href="#s-learnings-h"><span class="toc-num">II.h</span>Garbage collection</a>
+      <a href="#s-learnings-a"><span class="toc-num">II.a</span>Installation</a>
+      <a href="#s-learnings-a2"><span class="toc-num">II.b</span>Server configuration</a>
+      <a href="#s-learnings-b"><span class="toc-num">II.c</span>Commits</a>
+      <a href="#s-learnings-c"><span class="toc-num">II.d</span>Multi-user</a>
+      <a href="#s-learnings-d"><span class="toc-num">II.e</span>Branches</a>
+      <a href="#s-learnings-e"><span class="toc-num">II.f</span>Branch permissions</a>
+      <a href="#s-learnings-f"><span class="toc-num">II.g</span>dolt vs doltgres</a>
+      <a href="#s-learnings-g"><span class="toc-num">II.h</span>Backups</a>
+      <a href="#s-learnings-h"><span class="toc-num">II.i</span>Garbage collection</a>
     </div>
 
     <h3 id="s-why"><span class="num">I</span>Why it matters for agents</h3>
@@ -315,7 +316,92 @@
       a safe copy of the world before you change it.
     </p>
 
-    <h3 id="s-learnings-a"><span class="num">II.a</span>Learnings: server</h3>
+    <h3 id="s-learnings-a"><span class="num">II.a</span>Installation</h3>
+
+    <p>
+      Download doltgres from the
+      <a href="https://github.com/dolthub/doltgresql/releases">releases page</a>,
+      unpack it, and put the <code>doltgres</code> binary on your PATH. Or use
+      the install script:
+    </p>
+
+    <div class="code-block"><span class="code-lang">bash</span>
+<pre><code>curl -L https://github.com/dolthub/doltgresql/releases/latest/download/install.sh | sudo bash</code></pre></div>
+
+    <p>
+      We wrap this in a Python helper (<code>setup_doltgres.py</code>) that
+      skips if already installed:
+    </p>
+
+    <div class="code-block"><span class="code-lang">python</span>
+<pre><code><span style="color:#859900">import</span> <span style="color:#268bd2">shutil</span>, <span style="color:#268bd2">subprocess</span>, <span style="color:#268bd2">requests</span>
+
+<span style="color:#859900">def</span> <span style="color:#268bd2">is_installed</span>():
+    <span style="color:#859900">return</span> shutil.which(<span style="color:#2aa198">"doltgres"</span>) <span style="color:#859900">is not</span> <span style="color:#cb4b16">None</span>
+
+<span style="color:#859900">def</span> <span style="color:#268bd2">install</span>():
+    <span style="color:#859900">if</span> is_installed():
+        <span style="color:#268bd2">print</span>(<span style="color:#2aa198">"doltgres already installed"</span>)
+    <span style="color:#859900">else</span>:
+        r = requests.get(
+            <span style="color:#2aa198">"https://github.com/dolthub/doltgresql/releases/latest/download/install.sh"</span>
+        )
+        r.raise_for_status()
+        subprocess.run([<span style="color:#2aa198">"sudo"</span>, <span style="color:#2aa198">"bash"</span>, <span style="color:#2aa198">"-c"</span>, r.text], check=<span style="color:#cb4b16">True</span>)</code></pre></div>
+
+    <p>
+      After installing, start the server by typing <code>doltgres</code>.
+      It listens on port 5432 by default. standard Postgres port. I have this setup because I'm going to, we are going to use, or I am using it when you think about environments and sandboxing, not sandboxing. Then you need to be able to download binaries on nodes or remotes. Maybe even in a container, if you're going to also have a calling agent in the future, or MCP fast MCP. That's right.</p>
+
+    <p>
+      Alternatively, if you don't have sudo or want the binary in your
+      project directory, you can download and unpack it yourself:
+    </p>
+
+    <div class="code-block"><span class="code-lang">python</span>
+<pre><code><span style="color:#859900">import</span> <span style="color:#268bd2">platform</span>, <span style="color:#268bd2">subprocess</span>, <span style="color:#268bd2">os</span>
+
+<span style="color:#859900">def</span> <span style="color:#268bd2">install_local</span>(dest=<span style="color:#2aa198">"."</span>):
+    <span style="color:#859900">if</span> os.path.exists(<span style="color:#2aa198">f"</span>{dest}<span style="color:#2aa198">/doltgres"</span>):
+        <span style="color:#859900">return</span>
+    system = <span style="color:#2aa198">"darwin"</span> <span style="color:#859900">if</span> platform.system() == <span style="color:#2aa198">"Darwin"</span> <span style="color:#859900">else</span> <span style="color:#2aa198">"linux"</span>
+    arch = <span style="color:#2aa198">"arm64"</span> <span style="color:#859900">if</span> platform.machine() == <span style="color:#2aa198">"arm64"</span> <span style="color:#859900">else</span> <span style="color:#2aa198">"amd64"</span>
+    tarball = <span style="color:#2aa198">f"doltgresql-</span>{system}<span style="color:#2aa198">-</span>{arch}<span style="color:#2aa198">.tar.gz"</span>
+    url = <span style="color:#2aa198">f"https://github.com/dolthub/doltgresql/releases/latest/download/</span>{tarball}<span style="color:#2aa198">"</span>
+    subprocess.run([<span style="color:#2aa198">"curl"</span>, <span style="color:#2aa198">"-fsSL"</span>, <span style="color:#2aa198">"-o"</span>, tarball, url], check=<span style="color:#cb4b16">True</span>)
+    subprocess.run([<span style="color:#2aa198">"tar"</span>, <span style="color:#2aa198">"-xzf"</span>, tarball], check=<span style="color:#cb4b16">True</span>)
+    os.rename(<span style="color:#2aa198">f"doltgresql-</span>{system}<span style="color:#2aa198">-</span>{arch}<span style="color:#2aa198">/bin/doltgres"</span>, <span style="color:#2aa198">f"</span>{dest}<span style="color:#2aa198">/doltgres"</span>)
+    os.remove(tarball)
+    subprocess.run([<span style="color:#2aa198">"rm"</span>, <span style="color:#2aa198">"-rf"</span>, <span style="color:#2aa198">f"doltgresql-</span>{system}<span style="color:#2aa198">-</span>{arch}<span style="color:#2aa198">"</span>])</code></pre></div>
+
+    <p>
+      No sudo, no PATH. The binary lands in your project folder.
+      Run with <code>./doltgres</code>.
+    </p>
+
+    <p>
+      Doltgres looks for <code>config.yaml</code> in the current working directory.
+      If you run scripts from a different folder, it won't find it. Use <code>--config</code>
+      with <code>Path(__file__).parent</code> so the script always resolves the config
+      relative to itself. But that only solves finding the config file. The paths
+      inside the config (<code>data_dir</code>, <code>cfg_dir</code>) also resolve
+      relative to cwd, not relative to the config file. So you also need to
+      <code>os.chdir</code> into the script's directory before starting the server,
+      otherwise data and .doltcfg end up wherever you happened to run from:
+    </p>
+
+    <div class="code-block"><span class="code-lang">python</span>
+<pre><code><span style="color:#859900">import</span> <span style="color:#268bd2">os</span>
+<span style="color:#859900">from</span> <span style="color:#268bd2">pathlib</span> <span style="color:#859900">import</span> <span style="color:#268bd2">Path</span>
+
+DIR = Path(__file__).parent
+
+<span style="color:#93a1a1"># config.yaml paths (data_dir, cfg_dir) resolve relative to cwd,</span>
+<span style="color:#93a1a1"># so we chdir to the script's folder before starting the server.</span>
+os.chdir(DIR)
+subprocess.Popen([<span style="color:#2aa198">"doltgres"</span>, <span style="color:#2aa198">"--config"</span>, <span style="color:#859900">str</span>(DIR / <span style="color:#2aa198">"config.yaml"</span>)])</code></pre></div>
+
+    <h3 id="s-learnings-a2"><span class="num">II.b</span>Server configuration</h3>
 
     <p>
       The engine underneath is Dolt, which thinks in MySQL. Doltgres translates
