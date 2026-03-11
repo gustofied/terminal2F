@@ -1,31 +1,36 @@
-"""Tiny dev server that serves HTML and saves edits via POST."""
-import http.server
+"""Dev server for docs with inline editing support.
+Handles GET (serve files) and POST (save edits).
+
+Usage: python3 serve.py
+"""
+
 import os
-
-PORT = 8080
-ROOT = os.path.dirname(os.path.abspath(__file__))
+from http.server import HTTPServer, SimpleHTTPRequestHandler
 
 
-class Handler(http.server.SimpleHTTPRequestHandler):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, directory=ROOT, **kwargs)
-
+class EditHandler(SimpleHTTPRequestHandler):
     def do_POST(self):
-        path = os.path.join(ROOT, self.path.lstrip("/"))
-        if not path.endswith(".html") or not os.path.isfile(path):
-            self.send_error(400, "Bad path")
+        path = self.translate_path(self.path)
+        if not path.endswith(".html"):
+            self.send_error(403, "only .html files can be saved")
             return
         length = int(self.headers.get("Content-Length", 0))
-        body = self.rfile.read(length).decode("utf-8")
-        with open(path, "w") as f:
+        body = self.rfile.read(length)
+        with open(path, "wb") as f:
             f.write(body)
         self.send_response(200)
-        self.send_header("Content-Type", "text/plain")
-        self.send_header("Access-Control-Allow-Origin", "*")
         self.end_headers()
-        self.wfile.write(b"saved")
-        print(f"  saved {self.path} ({len(body)} chars)")
+        self.wfile.write(b"ok")
+
+    def log_message(self, fmt, *args):
+        pass
 
 
-print(f"serving {ROOT} on http://localhost:{PORT}")
-http.server.HTTPServer(("", PORT), Handler).serve_forever()
+if __name__ == "__main__":
+    os.chdir(os.path.dirname(os.path.abspath(__file__)))
+    server = HTTPServer(("127.0.0.1", 8080), EditHandler)
+    print("docs server on http://localhost:8080 (edit + save enabled)")
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print("\nstopped")

@@ -283,9 +283,8 @@
       model through SQL. The core idea is Git for database state: you can
       branch, diff, merge, and commit database changes, with row-level history
       underneath. Every transaction can be turned into a versioned commit. An
-      agent needs a safe copy of the world it is about to change — not a
-      sandbox, not a container, but a branch.
-    </p>
+      agent needs a safe copy of the world it is about to change, maybe not a
+      sandbox, &nbsp;perhaps not a container, but maybe a branch should work.</p>
 
     <div class="toc">
       <a href="#s-why"><span class="toc-num">I</span>Why it matters</a>
@@ -301,14 +300,12 @@
 
     <h3 id="s-why"><span class="num">I</span>Why it matters for agents</h3>
 
-    <p>
-      Two layers of need emerge when agents interact with databases:
-    </p>
+    <p>There are two things, or more, but two interesting applications of Doltgres I see that is very interesting that include.&nbsp;<br></p>
     <ul>
-      <li><strong>RL layer</strong> — forkable state, fast reset, isolated concurrent
+      <li><strong>RL:&nbsp;</strong>forkable state, fast reset, isolated concurrent
         worlds, diffable outcomes, replayability. The database as a training
         environment.</li>
-      <li><strong>Product layer</strong> — human-readable versioned history,
+      <li><strong>Product layer:&nbsp;</strong>human-readable versioned history,
         debugging, benchmarking, artifacts. The database as an auditable record.</li>
     </ul>
     <p>
@@ -380,12 +377,12 @@
       ACID.
     </p>
 
-    <p><div><div>In normal databases, "commit" only means finalizing a transaction. There's no standalone concept of committing outside of that.</div></div><div><br></div>
+    <p></p><div><div>In normal databases, "commit" only means finalizing a transaction. There's no standalone concept of committing outside of that.</div></div><div><br></div>
       Inside a transaction, each <code>INSERT</code>, <code>SELECT</code>,
       <code>UPDATE</code>, <code>DELETE</code> is a <strong>statement</strong>.
       Statements are the verbs. Tables are the nouns. Schemas define the shape of
       the nouns. The hierarchy:
-    <div><br></div><div><br></div></p>
+    <div><br></div><div><br></div><p></p>
 
     <div class="code-block"><span class="code-lang">text</span>
 <pre><code>Transaction
@@ -625,7 +622,7 @@ conn.execute("SELECT dolt_branch('dev1', 's39nf5nm...')")</code></pre></div>
 
     <p>
       Scaled test: <strong>40 concurrent rollouts</strong> structured as
-      10 examples &times; 4 rollouts each. Each example has its own seed
+      10 examples × 4 rollouts each. Each example has its own seed
       state (a unique starting row), and the 4 rollouts fork from that
       shared seed. Each rollout gets its own Postgres user and branch.
       40 workers ran in parallel, each inserting 10 rows and committing.
