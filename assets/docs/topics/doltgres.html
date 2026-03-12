@@ -288,15 +288,8 @@
 
     <div class="toc">
       <a href="#s-why"><span class="toc-num">I</span>Why it matters</a>
-      <a href="#s-learnings-a"><span class="toc-num">II.a</span>Installation</a>
-      <a href="#s-learnings-a2"><span class="toc-num">II.b</span>Server configuration</a>
-      <a href="#s-learnings-b"><span class="toc-num">II.c</span>Commits</a>
-      <a href="#s-learnings-c"><span class="toc-num">II.d</span>Multi-user</a>
-      <a href="#s-learnings-d"><span class="toc-num">II.e</span>Branches</a>
-      <a href="#s-learnings-e"><span class="toc-num">II.f</span>Branch permissions</a>
-      <a href="#s-learnings-f"><span class="toc-num">II.g</span>dolt vs doltgres</a>
-      <a href="#s-learnings-g"><span class="toc-num">II.h</span>Backups</a>
-      <a href="#s-learnings-h"><span class="toc-num">II.i</span>Garbage collection</a>
+      <a href="#s-learnings"><span class="toc-num">II</span>Learnings</a>
+      <a href="#s-testing"><span class="toc-num">III</span>Dashboard, testing, and stress testing</a>
     </div>
 
     <h3 id="s-why"><span class="num">I</span>Why it matters for agents</h3>
@@ -316,7 +309,9 @@
       a safe copy of the world before you change it.
     </p>
 
-    <h3 id="s-learnings-a"><span class="num">II.a</span>Installation</h3>
+    <h3 id="s-learnings"><span class="num">II</span>Learnings</h3>
+
+    <h3 id="s-learnings-a"><span class="num">a</span>Installation</h3>
 
     <p>
       Download doltgres from the
@@ -401,13 +396,12 @@ DIR = Path(__file__).parent
 os.chdir(DIR)
 subprocess.Popen([<span style="color:#2aa198">"doltgres"</span>, <span style="color:#2aa198">"--config"</span>, <span style="color:#859900">str</span>(DIR / <span style="color:#2aa198">"config.yaml"</span>)])</code></pre></div>
 
-    <h3 id="s-learnings-a2"><span class="num">II.b</span>Server configuration</h3>
+    <h3 id="s-learnings-b"><span class="num">b</span>Server configuration</h3>
 
     <p>
       The engine underneath is Dolt, which thinks in MySQL. Doltgres translates
       the Postgres wire protocol into that engine. Dolt docs and examples are
-      MySQL-flavored, but the same concepts apply — you just adjust the syntax.
-    </p>
+      MySQL-flavored, but the same concepts apply, you can just adjust the syntax. Also doltgres has docs supplied here, some things might be lacking but we are as we know in beta.</p>
 
     <p>
       To see what configuration is available, run <code>doltgres -config-help</code>.
@@ -444,17 +438,17 @@ subprocess.Popen([<span style="color:#2aa198">"doltgres"</span>, <span style="co
     <p>The interesting ones for agents:</p>
     <ul>
       <li><code>dolt_transaction_commit</code> - when true, every SQL transaction
-        automatically becomes a Dolt commit. Agents don't need to call
+        automatically becomes a Dolt commit. There is no need to call
         <code>dolt_commit()</code> explicitly. Can also be set per-session via
         <code>SET dolt_transaction_commit = 1;</code> so only that connection
-        auto-versions, not every admin query.</li>
+        auto-versions, not every admin query per example.</li>
       <li><code>branch_control_file</code> - branch-level permissions. Restrict
-        which agents can write to which branches.</li>
-      <li><code>read_only</code> - give agents read-only access to main while they
+        who can write to which branches.</li>
+      <li><code>read_only</code> - give read-only access to main while they
         write to their own branch on a separate connection.</li>
     </ul>
 
-    <h3 id="s-learnings-b"><span class="num">II.b</span>Learnings: commits</h3>
+    <h3 id="s-learnings-c"><span class="num">c</span>Commits</h3>
 
     <p>
       A transaction is a group of operations that either all succeed or all fail -
@@ -499,10 +493,8 @@ subprocess.Popen([<span style="color:#2aa198">"doltgres"</span>, <span style="co
     <p>
       The bridge between the two: <code>dolt_transaction_commit = 1</code>. When
       set, every database transaction COMMIT also creates a Dolt commit. Without
-      it, you can commit hundreds of database transactions and Dolt sees nothing -
-      the data changes, but there is no versioned history. You would have to
-      manually call <code>dolt_commit()</code> to snapshot.
-    </p>
+      it, you can commit hundreds of database transactions and Dolt sees nothing, the data changes, but there is no versioned history. You would have to
+      manually call <code>dolt_commit()</code> to snapshot. Doe it has to be said, that using dolt_transaction_commit = 1 will not attribute it to the user/role who did it.</p>
 
     <p>
       When you call <code>conn.execute("INSERT ...")</code> in psycopg, you are
@@ -546,52 +538,57 @@ INSERT  →  tx commits  →  data changes ✓  →  dolt history: commit</code>
       <code>SET dolt_transaction_commit = 1</code> attribute commits to
       <code>Dolt System Account</code>, not the connected user. If you need
       attribution (who did what), use explicit
-      <code>dolt_commit('-Am', 'message')</code> instead — that preserves
+      <code>dolt_commit('-Am', 'message')</code> instead, that preserves
       the connected user's identity in the log.
     </p>
 
-    <h3 id="s-learnings-c"><span class="num">II.c</span>Multi-user</h3>
-
     <p>
-      Multi-user works with standard Postgres statements. The config.yaml
-      <code>user</code> block defines the initial server admin account —
-      that's separate from Postgres roles you create after connecting.
-      Once connected as admin, plain <code>CREATE USER</code> and
-      <code>GRANT</code> work in a single connection:
-    </p>
+      One thing to understand: <code>dolt_commit</code> does not commit a specific
+      transaction. It snapshots the current state of the working set, like
+      <code>git commit</code>. If five INSERTs happened across five transactions
+      and nobody called <code>dolt_commit</code> in between, one
+      <code>dolt_commit</code> captures all five. SQL transactions and Dolt commits
+      are independent layers. You decide when to snapshot. That's it for commit so far.</p>
+
+    <h3 id="s-learnings-d"><span class="num">d</span>Access management</h3>
+
+    <p></p><div>Access management in Doltgres is handled similarly to how it is handled in Postgres. Create users, roles, and grants with standard SQL statements. Access is determined by the privileges that a user has.<br></div>
+      The default admin account (<code>postgres/password</code>) is created on first run.
+      You can change it via the config.yaml <code>user</code> block, or with environment
+      variables: <code>DOLTGRES_USER</code> and <code>DOLTGRES_PASSWORD</code>. I'm unsure if the things written before here works, uncertain. This is kinda the main entry access point and different from "users". you could say. Then, once connected as admin, plain <code>CREATE USER</code> and
+      <code>GRANT</code> work.<p></p>
 
     <div class="code-block"><span class="code-lang">python</span>
 <pre><code>conn = psycopg.connect("host=127.0.0.1 user=postgres password=password dbname=getting_started")
 conn.autocommit = True
-conn.execute("CREATE USER agent1 WITH PASSWORD 'agent1pass'")
-conn.execute("GRANT ALL ON DATABASE getting_started TO agent1")
-conn.execute("GRANT ALL ON SCHEMA public TO agent1")
-conn.execute("GRANT ALL ON ALL TABLES IN SCHEMA public TO agent1")
+conn.execute("CREATE ROLE alice WITH LOGIN PASSWORD 'alice123'")
+conn.execute("GRANT ALL ON DATABASE getting_started TO alice")
+conn.execute("GRANT ALL ON SCHEMA public TO alice")
+conn.execute("GRANT ALL ON ALL TABLES IN SCHEMA public TO alice")
 conn.close()</code></pre></div>
 
     <p>
       Users persist across server restarts in <code>privileges.db</code>.
-      No need to recreate them each time — check if the user can login
+      No need to recreate them each time, check if the user can login
       before creating.
     </p>
 
     <p>
       Why separate users matter: <strong>attribution</strong>. When a user
       calls <code>dolt_commit()</code>, their name appears in
-      <code>dolt_log</code>. Two agents sharing the <code>postgres</code>
+      <code>dolt_log</code>. Two users sharing the <code>postgres</code>
       account means every commit says "postgres" and you lose track of who
       did what. With separate users you get git-blame for your database:
     </p>
 
     <div class="code-block"><span class="code-lang">text</span>
-<pre><code>commit_hash | committer | message
-------------+-----------+------------------------
-vs871...    | agent2    | agent2: add Bob Jones
-okvul...    | agent1    | agent1: add Alice Smith
-3pj0u...   | postgres  | create persons table</code></pre></div>
+<pre><code>commit_hash  | committer | message
+-------------+-----------+------------------------
+vs871...     | bob       | bob: add Bob Jones
+okvul...     | alice     | alice: add Alice Smith
+3pj0u...     | postgres  | create persons table</code></pre></div>
 
-    <p>
-      One caveat: attribution only works with explicit
+    <p>Again one caveat: attribution only works with explicit
       <code>dolt_commit()</code>. The auto-commit path
       (<code>dolt_transaction_commit</code>) attributes all commits to
       <code>Dolt System Account</code> regardless of which user made the
@@ -599,71 +596,235 @@ okvul...    | agent1    | agent1: add Alice Smith
     </p>
 
     <p>
-      When you need it: multi-agent setups, or human + agent workflows where you
-      want to distinguish who made which changes. Single-agent RL with reset
-      loops: one user is fine.
-    </p>
+      When you need it: multi-user setups, or human + user workflows where you
+      want to distinguish who made which changes. Single user with reset
+      loops: one user is fine, but for example you could have a reader user, that could be an LLM-as-a-judge type of thing setup, important!</p>
 
-    <h3 id="s-learnings-d"><span class="num">II.d</span>Branches and isolation</h3>
+    <h3 id="s-learnings-e"><span class="num">e</span>Branches and isolation</h3>
 
     <p>
-      Branches give each agent its own isolated copy of the database. Creating
-      branches is a SQL operation:
+      A branch is a copy of the database state. You can create as many as you
+      want, and anyone can connect to any branch. Creating branches is a SQL operation:
     </p>
 
     <div class="code-block"><span class="code-lang">sql</span>
 <pre><code>SELECT dolt_branch('dev1', 'main');
 SELECT dolt_branch('dev2', 'main');</code></pre></div>
 
-    <p>
-      The cleanest way to connect an agent to its branch: put the branch name
+    <p>A clean way to connect a user to its branch: put the branch name
       directly in the connection string. No <code>dolt_checkout()</code> needed.
     </p>
 
     <div class="code-block"><span class="code-lang">python</span>
-<pre><code><span style="color:#93a1a1"># agent1 connects directly to dev1 branch</span>
+<pre><code><span style="color:#93a1a1"># alice connects directly to dev1 branch</span>
 a1 = psycopg.connect(
-    "host=127.0.0.1 user=agent1@localhost password=agent1pass "
+    "host=127.0.0.1 user=alice password=alice123 "
     "dbname=getting_started/dev1"
 )
 a1.autocommit = True
 
-<span style="color:#93a1a1"># agent2 connects directly to dev2 branch</span>
+<span style="color:#93a1a1"># bob connects directly to dev2 branch</span>
 a2 = psycopg.connect(
-    "host=127.0.0.1 user=agent2@localhost password=agent2pass "
+    "host=127.0.0.1 user=bob password=bob123 "
     "dbname=getting_started/dev2"
 )
 a2.autocommit = True</code></pre></div>
 
+    <h4>Branch permissions</h4>
+
     <p>
-      Each branch behaves like its own writable database. Agent1 creates tables
-      and inserts data on dev1, agent2 does the same on dev2, and main stays
+      Dolt has a branch permissions system via two system tables:
+      <code>dolt_branch_control</code> (who can write to which branches) and
+      <code>dolt_branch_namespace_control</code> (who can create which branch
+      names). The idea is straightforward, restrict alice to dev1:
+    </p>
+
+    <div class="code-block"><span class="code-lang">sql</span>
+<pre><code>INSERT INTO dolt_branch_control VALUES ('%', 'dev1', 'alice', '%', 'write');</code></pre></div>
+
+    <p>
+      We could not get this to work through the Postgres wire protocol
+      (doltgres 0.55.5). The system table columns are defined as MySQL types
+      (<code>VARCHAR(16383) COLLATE utf8mb4_0900_ai_ci</code>) internally, and
+      doltgres's query analyzer rejects any INSERT into columns that aren't
+      Postgres-native types. The docs show branch permissions working, but the
+      examples use port 3306 (MySQL protocol) and <code>--user=root</code>,
+      which suggests they haven't been fully ported to the Postgres path yet.
+      DoltHub confirmed the feature should work, it's a bug, not a missing
+      feature. We filed an issue and they're working on a fix. Same error
+      affects both <code>dolt_branch_control</code> and
+      <code>dolt_branch_namespace_control</code>.
+    </p>
+
+    <p>
+      In practice, you don't need branch permissions for most setups. If I'm
+      editing on main and a user is working alongside me, I give it a
+      separate branch and a separate user. The user connects directly to its
+      branch via the connection string. When its work looks good, I merge it
+      in. With a different user, <code>dolt_log</code> shows who committed
+      what regardless.
+    </p>
+
+    <p>
+      Where branch permissions would matter: multiple users looking at the
+      same database where one should only read (an evaluator checking
+      state) while another writes. Without branch permissions, the read-only
+      user could still write if it wanted to. You can work around this by
+      giving the evaluator a branched copy to read from, or by using Postgres
+      <code>GRANT</code>/<code>REVOKE</code> to restrict table-level
+      writes, but database-level branch enforcement would be cleaner.
+    </p><div><br></div><div>Well they seems, to have fixed it with doltgres 0.55.6, so let's try it again once more.
+      It works. <code>dolt_branch_control</code> has five columns:
+      <code>database</code>, <code>branch</code>, <code>user</code>,
+      <code>host</code>, and <code>permissions</code>. On a fresh database
+      it comes pre-populated with a wildcard row <code>(%, %, %, %, 2)</code>
+      that grants everyone write access to all branches, plus auto-generated
+      rows for any connection that touched a branch. To enforce permissions,
+      clear the table first, then insert only the rules you want:
+    </div>
+
+    <div class="code-block"><span class="code-lang">sql</span>
+<pre><code><span style="color:#93a1a1">-- clear defaults</span>
+DELETE FROM dolt_branch_control;
+
+<span style="color:#93a1a1">-- alice can only write to dev1, bob can only write to dev2</span>
+INSERT INTO dolt_branch_control VALUES ('%', 'dev1', 'alice', '%', 'write');
+INSERT INTO dolt_branch_control VALUES ('%', 'dev2', 'bob', '%', 'write');</code></pre></div>
+
+    <p>
+      After this, alice writing to dev2 gets:
+      <code>`alice`@`127.0.0.1` does not have the correct permissions on branch `dev2`</code>.
+      Only the superuser can modify <code>dolt_branch_control</code>, regular roles cannot change their own permissions.
+      The permissions column takes three values:
+    </p>
+
+    <ul>
+      <li><strong>admin</strong>: grants all permissions, plus write access to the system tables for matching database + branch entries.</li>
+      <li><strong>write</strong>: grants ability to write on the branch and modify it (rename, delete, etc.).</li>
+      <li><strong>read</strong>: does not grant anything extra, reading a branch is an irrevocable right for all users. This exists for visual convenience versus an empty field.</li>
+    </ul>
+
+    <p>
+      By default the wildcard row grants everyone write access to all branches, as we saw.
+      All users, even those without an entry at all, still have read access to all branches.
+      Permissions only affect modifying branches and writing to the system tables.
+      The two system tables work in opposite ways:
+      <code>dolt_branch_control</code> starts with a wildcard row allowing
+      everything, you remove it and add specific rules to lock down.
+      <code>dolt_branch_namespace_control</code> starts empty, which means
+      anyone can create any branch name. Adding rules there restricts who
+      can create which branch names.
+    </p>
+
+    <p>
+      The branch column supports <code>%</code> wildcards, so you can grant
+      access to multiple branches at once. For example, if the orchestrator
+      creates rollout branches like <code>run-42-alice</code>,
+      <code>run-43-alice</code>, <code>run-44-alice</code>, you don't need
+      a row per branch. One rule covers all of them:
+    </p>
+
+    <div class="code-block"><span class="code-lang">sql</span>
+<pre><code>INSERT INTO dolt_branch_control VALUES ('%', 'run-%-alice', 'alice', '%', 'write');</code></pre></div>
+
+    <p>
+      Alice can now write to any branch matching <code>run-%-alice</code>
+      but not to <code>run-%-bob</code> or <code>main</code>. This scales
+      nicely for the RL case where you spin up hundreds of rollout branches
+      per user, you set one permission rule per user and the orchestrator
+      creates branches freely within that pattern. &nbsp;Need to thinker on that.</p><div><br></div><div><div>superuser controls the table, and the permissions are real enforcement.</div></div><p></p>
+
+    <p>
+      The second table, <code>dolt_branch_namespace_control</code>, controls
+      who can <em>create</em> branches with which names. It has four columns:
+      <code>database</code>, <code>branch</code>, <code>user</code>,
+      <code>host</code> (no permissions column). When the table is empty,
+      anyone can create any branch. Adding a row like
+      <code>('%', 'run-%-alice', 'alice', '%')</code> means only alice can
+      create branches matching that pattern. When someone creates a branch,
+      doltgres auto-adds a row in <code>dolt_branch_control</code> giving
+      the creator admin permission on that branch. That's where the
+      auto-generated rows we saw earlier came from. For the orchestrator
+      pattern this is less relevant since the orchestrator (postgres) creates
+      all branches and workers just connect to the ones they're given.
+    </p>
+
+    <div class="code-block"><span class="code-lang">sql</span>
+<pre><code><span style="color:#93a1a1">-- only alice can create branches starting with "alice-"</span>
+INSERT INTO dolt_branch_namespace_control VALUES ('%', 'alice-%', 'alice', '%');
+
+<span style="color:#93a1a1">-- alice can do this</span>
+SELECT dolt_branch('alice-experiment');  <span style="color:#93a1a1">-- works</span>
+
+<span style="color:#93a1a1">-- bob cannot</span>
+SELECT dolt_branch('alice-experiment');  <span style="color:#93a1a1">-- error: cannot create branch named `alice-experiment`</span></code></pre></div>
+
+    <h4>Cursor/PR model</h4>
+
+    <p>
+      Each branch behaves like its own writable database. Alice creates tables
+      and inserts data on dev1, bob does the same on dev2, and main stays
       clean. Merging is a separate privileged operation your orchestrator does
       when the work looks good:
     </p>
 
     <div class="code-block"><span class="code-lang">sql</span>
-<pre><code><span style="color:#93a1a1">-- from main, merge agent1's work</span>
+<pre><code><span style="color:#93a1a1">-- from main, merge alice's work</span>
 SELECT dolt_merge('dev1');</code></pre></div>
 
     <p>
-      This is the Cursor/PR model for databases: agents work on their branch,
-      merging to main is a review step. The agent doesn't need permission to
-      merge because merging isn't in its toolkit.
+      This is the Cursor/PR model for databases: users work on their branch,
+      merging to main is a review step. With <code>dolt_branch_control</code>
+      you can enforce this, give the user write access only to its branch,
+      and only the orchestrator (postgres) can merge into main.
     </p>
 
     <p>
-      Merge works cleanly. When main has no divergent changes, it's a
-      fast-forward — main's pointer moves to the branch's latest commit, and
-      the agent's attribution is preserved in the log. After merging dev1,
-      main's <code>dolt_log</code> shows <code>agent1</code> as the
+      Merge works cleanly. When main has no divergent changes, it is a
+      fast-forward, main's pointer moves to the branch's latest commit, and
+      the user's attribution is preserved in the log. After merging dev1,
+      main's <code>dolt_log</code> shows <code>alice</code> as the
       committer for the rows that came from dev1.
+    </p>
+
+    <p>
+      The deeper principle: <strong>the unit of attribution should match the unit
+      of isolation</strong>. If two actors share a branch under the same user,
+      you lose both isolation and attribution. The commit log shows "postgres
+      wrote X" but not which actor caused it. The clean model:
+    </p>
+
+    <ul>
+      <li><strong>RL</strong>: one branch per rollout or per worker. The branch
+        name is the attribution. Single user is fine because you only care about
+        what changed, not who (there's only one worker). Use
+        <code>dolt_branch_control</code> to lock workers to their branches.</li>
+      <li><strong>Multi-user</strong>: one branch per user, separate roles.
+        You get isolation from branches and attribution from the user in
+        <code>dolt_log</code>. Branch permissions enforce who writes where.
+        If users need to collaborate, use a scenario branch that forks into
+        worker branches, then merge back.</li>
+      <li><strong>Human + user</strong>: two users on separate branches.
+        The human works on main, the other user works on a dev branch. Branch
+        permissions restrict the user to its branch. Merging is
+        the review step. Attribution in the log tells you which changes came
+        from which user.</li>
+    </ul>
+
+    <p>
+      If you truly need multiple actors on one branch, use
+      <code>dolt_branch_control</code> to grant each actor write access to
+      that branch. Each actor gets its own role, so
+      <code>dolt_log</code> still shows who committed what. The branch is
+      shared but attribution is preserved through separate users. And
+      when merged, <code>dolt_log</code> on main still shows who committed
+      each change.
     </p>
 
     <h4>Reset from seed</h4>
 
     <p>
-      For RL or repeated agent runs, you need to reset a branch to a known
+      For RL or repeated runs, you need to reset a branch to a known
       state. The simplest way: delete the branch and recreate it from the
       seed:
     </p>
@@ -683,7 +844,7 @@ conn.execute("SELECT dolt_branch('dev1', 's39nf5nm...')")</code></pre></div>
 
     <p>
       The difference matters. Recreating from <code>main</code> gives you
-      whatever main looks like now — if you've merged agent work into it,
+      whatever main looks like now, if you've merged work into it,
       the new branch starts from the promoted world. Recreating from a
       saved commit hash gives you the original seed state every time,
       regardless of what happened to main since.
@@ -692,18 +853,184 @@ conn.execute("SELECT dolt_branch('dev1', 's39nf5nm...')")</code></pre></div>
     <p>
       For RL, you want the seed hash. Save it once after setting up the
       initial world (<code>SELECT commit_hash FROM dolt_log LIMIT 1</code>),
-      then fork from that for every rollout. The agent gets a clean copy
+      then fork from that for every rollout. The user gets a clean copy
       of the starting state, does its run, and you either merge the result
-      or discard the branch. No containers, no snapshots — just a logical
+      or discard the branch. No containers, no snapshots, just a logical
       fork inside the same process.
     </p>
 
-    <h4>Concurrency</h4>
+    <h3 id="s-learnings-f"><span class="num">f</span>Backups</h3>
 
     <p>
-      Multiple agents can work in parallel on separate branches without
+      Branches are not backups. They are pointers inside the same local
+      storage, if the disk dies, everything dies: main, branches, all of
+      it. A backup means copying data somewhere else.
+    </p>
+
+    <p>
+      Doltgres supports three approaches:
+    </p>
+
+    <ul>
+      <li><strong>Block device snapshots</strong> (e.g. AWS EBS), safest,
+        works while the server is running. Recommended for production.</li>
+      <li><strong>Push to remote</strong> (<code>dolt_push</code> to S3,
+        DoltHub, GCS, or a file path), only backs up committed data on
+        the pushed branch, not the working set.</li>
+      <li><strong>File copy</strong>, only safe if the server is fully
+        stopped. Risk of inconsistent state otherwise.</li>
+    </ul>
+
+    <p>
+      For RL workloads this is mostly not relevant. Rollout branches are
+      ephemeral, they live and die within a training run. What you might
+      want to archive afterward are seeds and promoted results, and those
+      can be pushed to a remote or exported to a separate results database.
+      The thousands of throwaway rollout branches don't need backing up.
+    </p>
+
+    <h3 id="s-learnings-g"><span class="num">g</span>Garbage collection</h3>
+
+    <p>
+      Doltgres stores data in a prolly tree of chunks on disk. When you
+      write rows without committing, or delete a branch that had unique
+      data, the old chunks stay on disk but nothing references them.
+      That is garbage, wasted disk space, not data corruption.
+    </p>
+
+    <p>
+      Example: insert Alice, then update to Bob, then commit. The commit
+      points to the Bob chunks. The Alice chunks are orphaned on disk.
+      Same thing when you delete a rollout branch, its unique chunks
+      become unreferenced.
+    </p>
+
+    <p>
+      Committed data is always safe. <code>dolt_gc()</code> only removes
+      unreferenced chunks, anything pointed to by a commit stays.
+    </p>
+
+    <div class="code-block"><span class="code-lang">sql</span>
+<pre><code>SELECT dolt_gc();</code></pre></div>
+
+    <p>
+      For RL workloads, garbage accumulates from two places: intermediate
+      writes before each <code>dolt_commit()</code>, and deleted rollout
+      branches after each batch. Over thousands of epochs this can bloat
+      the disk. Run GC periodically, after each learning example (one
+      row of seeds with its rollouts), or every N epochs, depending on
+      how long GC takes relative to the actual work.
+    </p>
+
+    <p>
+      One thing to watch: avoid random primary keys (UUIDs, random ints).
+      Doltgres stores data in a prolly tree, and random keys scatter
+      inserts across the entire tree instead of clustering them. This
+      causes more chunks to be rewritten on every insert, which means
+      more garbage and more disk usage. Sequential IDs are better for
+      doltgres's structural sharing.
+    </p>
+
+    <h3 id="s-learnings-h"><span class="num">h</span>Replication</h3>
+
+    <p>
+      Doltgres supports two replication modes: remote-based (push/pull
+      through a shared remote like S3 or DoltHub) and direct-to-standby
+      (primary pushes all writes to standby servers for high availability).
+      Both replicate between doltgres instances.
+    </p>
+
+    <p>
+      The more interesting case: doltgres can be a read-replica of a
+      regular Postgres server. As it consumes changes from the primary,
+      it creates dolt commits, giving you versioned history on top of
+      production data. This opens up a workflow where you replicate a
+      real Postgres database into doltgres, then branch from that
+      realistic state for rollouts. Each rollout forks from real-world
+      data instead of mock seeds, without ever touching production.
+    </p>
+
+    <p>
+      Replicas can also offload the main server. If hundreds of rollout
+      workers are all reading seed state from one doltgres instance,
+      that's a bottleneck. Spread the read load across replicas and let
+      the primary handle commits and merges.
+    </p>
+
+    <h3 id="s-learnings-i"><span class="num">i</span>Metrics</h3>
+
+    <p>
+      Doltgres can optionally expose metrics through a Prometheus HTTP
+      endpoint. Enable it by defining a <code>metrics</code> section in
+      your YAML configuration. In our config it runs on
+      <code>localhost:11228</code>. This gives you query latency,
+      connection counts, and other server stats out of the box. Doltgres consumes CPU, memory, and disk. Consuming more
+      of any of these resources than the host has available can lead to
+      degraded performance. Use your system's built-in resource monitoring
+      to inspect doltgres's usage of these resources.
+      For query-level debugging, set <code>log_level: debug</code> or
+      <code>trace</code> in config.yaml. This logs every query, its
+      result, and latency to the terminal where doltgres is running.
+    </p>
+
+    <p>
+      Memory-wise, doltgres needs at minimum 2GB RAM, 4GB for larger
+      workloads, 8GB for production. Usage grows with database size,
+      concurrent connections, and query complexity. Important when
+      picking nodes GPU instances, make sure the machine
+      has enough headroom for both doltgres and whatever else is running.
+      Another thing: under too much concurrent load, doltgres can consume
+      all CPU on a host. Doltgres is CPU-bound so it
+      competes with other CPU work, &nbsp;if reads
+      saturate the CPU, spin up read-replicas on cheap CPU-only nodes
+      and load balance across them. Writes are a different story:
+      doltgres serializes all writes, so it caps around ~300 writes/second.
+      More writers means more latency piling up. For RL rollouts this
+      is fine since each worker does a few inserts and one commit, but
+      worth knowing if you scale up.
+    </p>
+
+    <p>
+      A config enabling metrics on port 11228:
+    </p>
+
+    <div class="code-block"><span class="code-lang">yaml</span>
+<pre><code>metrics:
+  labels: {}
+  host: localhost
+  port: 11228</code></pre></div>
+
+    <p>
+      The endpoint at <code>/metrics</code> exposes doltgres-specific
+      metrics (prefixed <code>dss_</code>) and Go runtime metrics (prefixed
+      <code>go_</code>). The useful ones:
+    </p>
+
+    <ul>
+      <li><code>dss_concurrent_connections</code>: clients currently connected</li>
+      <li><code>dss_concurrent_queries</code>: queries currently running</li>
+      <li><code>dss_query_duration_bucket</code>: histogram of query latencies</li>
+      <li><code>dss_is_replica</code>: whether this server is a replica (only with replication enabled)</li>
+      <li><code>dss_replication_lag</code>: replication lag in ms (only with replication enabled)</li>
+      <li><code>go_memstats_alloc_bytes</code>: memory currently allocated</li>
+      <li><code>go_gc_duration_seconds</code>: histogram of GC pause durations</li>
+      <li><code>go_gc_duration_seconds_count</code>: total seconds spent on garbage collection</li>
+    </ul>
+
+    <p>
+      Scrape with Prometheus, Datadog, or any compatible tool by pointing
+      it at <code>localhost:11228/metrics</code>. We will use this endpoint
+      to build our dashboard and tooling.
+    </p>
+
+    <h3 id="s-testing"><span class="num">III</span>Dashboard, testing, and stress testing</h3>
+
+    <h3 id="s-testing-a"><span class="num">a</span>Concurrency</h3>
+
+    <p>
+      Multiple users can work in parallel on separate branches without
       issues. Initial test: 4 workers on 4 branches, each inserting 10
-      rows and committing — done in ~0.13s.
+      rows and committing, done in ~0.13s.
     </p>
 
     <p>
@@ -719,7 +1046,7 @@ conn.execute("SELECT dolt_branch('dev1', 's39nf5nm...')")</code></pre></div>
       <li>Each branch has exactly 11 rows (1 seed + 10 writes)</li>
       <li>All 4 rollouts per example inherited the same seed row</li>
       <li>No data leaked between examples</li>
-      <li>Each commit attributed to its own user (<code>agent_e3_r2</code> etc.)</li>
+      <li>Each commit attributed to its own user (<code>user_e3_r2</code> etc.)</li>
       <li>Main stayed untouched</li>
     </ul>
 
@@ -731,7 +1058,7 @@ example9 seed → e9_r0, e9_r1, e9_r2, e9_r3
 
 40 users, 40 branches, 400 inserts, 40 commits → 1.4s</code></pre></div>
 
-    <h4>Benchmarking</h4>
+    <h3 id="s-testing-b"><span class="num">b</span>Benchmarking</h3>
 
     <p>
       The script times the parallel section with <code>time.time()</code>
@@ -759,7 +1086,7 @@ print(f"setup: {t_setup:.2f}s  work: {t_work:.2f}s  verify: {t_verify:.2f}s")</c
       workers, rows per worker, number of commits per worker (one big
       commit vs. many small ones), and table complexity (more columns,
       indexes). This lets you find where doltgres's overhead shows up
-      relative to vanilla Postgres — the branch/commit machinery is the
+      relative to vanilla Postgres, the branch/commit machinery is the
       interesting cost, not the raw insert speed.
     </p>
 
@@ -768,29 +1095,29 @@ print(f"setup: {t_setup:.2f}s  work: {t_work:.2f}s  verify: {t_verify:.2f}s")</c
     </p>
 
     <div class="code-block"><span class="code-lang">text</span>
-<pre><code>seed commit → fork N branches → parallel agent work → commit
+<pre><code>seed commit → fork N branches → parallel user work → commit
   → inspect → merge or discard → reset from seed</code></pre></div>
 
-    <h4>What this proves (and what it doesn't)</h4>
+    <h3 id="s-testing-c"><span class="num">c</span>What this proves (and what it doesn't)</h3>
 
     <p>
       The 40-rollout test proves <strong>parallel isolated-world
-      concurrency</strong>: many agents working on separate branches from
+      concurrency</strong>: many users working on separate branches from
       shared seeds, with no data leaks and correct attribution. This is
-      exactly the RL-style case — many independent rollouts from the same
+      exactly the RL-style case, many independent rollouts from the same
       starting state.
     </p>
 
     <p>
       What it does <em>not</em> test: multiple writers on the same branch,
       merge storms back into one branch, or conflict-heavy workloads. For
-      the RL thesis those matter less — the isolated-world case is the one
+      the RL thesis those matter less, the isolated-world case is the one
       that counts.
     </p>
 
     <p>
       The next question is not "does the model work?" but "does it hold
-      up over time?" — specifically, what happens when you create and
+      up over time?", specifically, what happens when you create and
       destroy thousands of branches across many steps. The right experiment
       for that is a <strong>multi-step epoch loop</strong>:
     </p>
@@ -799,33 +1126,33 @@ print(f"setup: {t_setup:.2f}s  work: {t_work:.2f}s  verify: {t_verify:.2f}s")</c
       <li>10 seeds, 4 rollouts each</li>
       <li>Repeat for N steps (100, 1000, ...)</li>
       <li>Each step: create 40 branches, run 40 workers, delete branches</li>
-      <li>Track elapsed time per step — does branch churn degrade?</li>
+      <li>Track elapsed time per step, does branch churn degrade?</li>
       <li>This gets closer to the real "200k branches over time" question</li>
     </ul>
 
-    <h4>Orchestrator pattern</h4>
+    <h3 id="s-testing-d"><span class="num">d</span>Orchestrator pattern</h3>
 
     <p>
-      The natural shape for an agent environment manager: a single
+      The natural shape for an environment manager: a single
       orchestrator (connected as <code>postgres</code>) that owns the
-      lifecycle. It saves the seed hash, creates branches, hands each agent
+      lifecycle. It saves the seed hash, creates branches, hands each user
       a connection string to its branch, waits for results, then decides
-      to merge or discard. The agents never touch main, never create
-      branches, never merge — they just connect, write, commit.
+      to merge or discard. The users never touch main, never create
+      branches, never merge, they just connect, write, commit.
     </p>
 
     <div class="code-block"><span class="code-lang">text</span>
 <pre><code>Orchestrator (postgres)
   ├── save seed hash
-  ├── create branch "run-42-agent1" from seed
-  ├── create branch "run-42-agent2" from seed
-  ├── hand off connection strings to agents
-  ├── wait for agents to finish
+  ├── create branch "run-42-alice" from seed
+  ├── create branch "run-42-bob" from seed
+  ├── hand off connection strings to users
+  ├── wait for users to finish
   ├── inspect: dolt_diff, dolt_log per branch
   ├── merge good results into main (or a results branch)
-  └── delete agent branches (or keep for replay)
+  └── delete user branches (or keep for replay)
 
-Agent (agent1, agent2)
+User (alice, bob)
   ├── connect to assigned branch
   ├── read state, do work, write results
   ├── dolt_commit with meaningful message
@@ -833,176 +1160,9 @@ Agent (agent1, agent2)
 
     <p>
       This separates concerns cleanly. The orchestrator controls the
-      experiment. The agents are stateless workers that see a database and
+      experiment. The users are stateless workers that see a database and
       write to it. Attribution comes from the user, isolation comes from
       the branch, and the orchestrator decides what gets promoted.
-    </p>
-
-    <h3 id="s-learnings-e"><span class="num">II.e</span>Branch permissions</h3>
-
-    <p>
-      Dolt has a branch permissions system via two system tables:
-      <code>dolt_branch_control</code> (who can write to which branches) and
-      <code>dolt_branch_namespace_control</code> (who can create which branch
-      names). The idea is straightforward — restrict agent1 to dev1:
-    </p>
-
-    <div class="code-block"><span class="code-lang">sql</span>
-<pre><code>INSERT INTO dolt_branch_control VALUES ('%', 'dev1', 'agent1', '%', 'write');</code></pre></div>
-
-    <p>
-      We could not get this to work through the Postgres wire protocol
-      (doltgres 0.55.5). The system table columns are defined as MySQL types
-      (<code>VARCHAR(16383) COLLATE utf8mb4_0900_ai_ci</code>) internally, and
-      doltgres's query analyzer rejects any INSERT into columns that aren't
-      Postgres-native types. The docs show branch permissions working, but the
-      examples use port 3306 (MySQL protocol) and <code>--user=root</code>,
-      which suggests they haven't been fully ported to the Postgres path yet.
-      DoltHub confirmed the feature should work — it's a bug, not a missing
-      feature. We filed an issue and they're working on a fix. Same error
-      affects both <code>dolt_branch_control</code> and
-      <code>dolt_branch_namespace_control</code>.
-    </p>
-
-    <p>
-      In practice, you don't need branch permissions for most setups. If I'm
-      editing on main and an agent is working alongside me, I give it a
-      separate branch and a separate user. The agent connects directly to its
-      branch via the connection string. When its work looks good, I merge it
-      in. With a different user, <code>dolt_log</code> shows who committed
-      what regardless.
-    </p>
-
-    <p>
-      Where branch permissions would matter: multiple agents looking at the
-      same database where one should only read (an evaluator agent checking
-      state) while another writes. Without branch permissions, the read-only
-      agent could still write if it wanted to. You can work around this by
-      giving the evaluator a branched copy to read from, or by using Postgres
-      <code>GRANT</code>/<code>REVOKE</code> to restrict table-level
-      writes — but database-level branch enforcement would be cleaner.
-    </p>
-
-    <p>
-      The deeper principle: <strong>the unit of attribution should match the unit
-      of isolation</strong>. If two actors share a branch under the same user,
-      you lose both isolation and attribution. The commit log shows "postgres
-      wrote X" but not which actor caused it. The clean model:
-    </p>
-
-    <ul>
-      <li><strong>RL</strong>: one branch per rollout or per worker. The branch
-        name is the attribution. Single user is fine because you only care about
-        what changed, not who (there's only one agent).</li>
-      <li><strong>Multi-agent</strong>: one branch per agent, separate users.
-        You get isolation from branches and attribution from the user in
-        <code>dolt_log</code>. If agents need to collaborate, use a
-        scenario branch that forks into worker branches, then merge back.</li>
-      <li><strong>Human + agent</strong>: two users on separate branches.
-        The human works on main, the agent works on a dev branch. Merging is
-        the review step. Attribution in the log tells you which changes came
-        from the agent vs the human.</li>
-    </ul>
-
-    <p>
-      If you truly need multiple actors on one branch, treat Doltgres as only the
-      state store and put attribution in your own application layer: every write
-      records <code>actor_id</code>, <code>run_id</code>, <code>step_id</code>
-      in an audit table. Dolt history tells you what changed, your audit layer
-      tells you who caused it.
-    </p>
-
-    <h3 id="s-learnings-f"><span class="num">II.f</span>dolt CLI vs doltgres</h3>
-
-    <p>
-      They are separate binaries from separate repos:
-    </p>
-
-    <ul>
-      <li><strong>doltgres</strong> (<code>dolthub/doltgresql</code>) — server
-        only, Postgres wire protocol, no CLI subcommands. Version control is
-        done in SQL: <code>SELECT dolt_branch()</code>,
-        <code>SELECT dolt_commit()</code>, etc.</li>
-      <li><strong>dolt</strong> (<code>dolthub/dolt</code>) — full CLI + server,
-        MySQL wire protocol. Has <code>dolt sql</code>,
-        <code>dolt branch</code>, <code>dolt commit</code>, etc.</li>
-    </ul>
-
-    <p>
-      Do not try to use the <code>dolt</code> CLI against doltgres data. They
-      share the same engine underneath, but when we pointed
-      <code>dolt sql</code> at a doltgres data directory it gave
-      <code>table has unknown fields</code> — the on-disk representations are
-      not interchangeable. The supported interface for doltgres is the Postgres
-      wire protocol only.
-    </p>
-
-    <blockquote>
-      If you want Postgres clients, use doltgres and do version control in SQL.
-      If you want the Git-like CLI, use dolt instead.
-    </blockquote>
-
-    <h3 id="s-learnings-g"><span class="num">II.g</span>Backups</h3>
-
-    <p>
-      Branches are not backups. They are pointers inside the same local
-      storage — if the disk dies, everything dies: main, branches, all of
-      it. A backup means copying data somewhere else.
-    </p>
-
-    <p>
-      Doltgres supports three approaches:
-    </p>
-
-    <ul>
-      <li><strong>Block device snapshots</strong> (e.g. AWS EBS) — safest,
-        works while the server is running. Recommended for production.</li>
-      <li><strong>Push to remote</strong> (<code>dolt_push</code> to S3,
-        DoltHub, GCS, or a file path) — only backs up committed data on
-        the pushed branch, not the working set.</li>
-      <li><strong>File copy</strong> — only safe if the server is fully
-        stopped. Risk of inconsistent state otherwise.</li>
-    </ul>
-
-    <p>
-      For RL workloads this is mostly not relevant. Rollout branches are
-      ephemeral — they live and die within a training run. What you might
-      want to archive afterward are seeds and promoted results, and those
-      can be pushed to a remote or exported to a separate results database.
-      The thousands of throwaway rollout branches don't need backing up.
-    </p>
-
-    <h3 id="s-learnings-h"><span class="num">II.h</span>Garbage collection</h3>
-
-    <p>
-      Doltgres stores data in a prolly tree of chunks on disk. When you
-      write rows without committing, or delete a branch that had unique
-      data, the old chunks stay on disk but nothing references them.
-      That is garbage — wasted disk space, not data corruption.
-    </p>
-
-    <p>
-      Example: insert Alice, then update to Bob, then commit. The commit
-      points to the Bob chunks. The Alice chunks are orphaned on disk.
-      Same thing when you delete a rollout branch — its unique chunks
-      become unreferenced.
-    </p>
-
-    <p>
-      Committed data is always safe. <code>dolt_gc()</code> only removes
-      unreferenced chunks — anything pointed to by a commit stays.
-    </p>
-
-    <div class="code-block"><span class="code-lang">sql</span>
-<pre><code>SELECT dolt_gc();</code></pre></div>
-
-    <p>
-      For RL workloads, garbage accumulates from two places: intermediate
-      writes before each <code>dolt_commit()</code>, and deleted rollout
-      branches after each batch. Over thousands of epochs this can bloat
-      the disk. Run GC periodically — after each learning example (one
-      row of seeds with its rollouts), or every N epochs, depending on
-      how long GC takes relative to the actual work.
     </p>
 
     <div class="colophon">
