@@ -1032,7 +1032,41 @@ conn.execute("SELECT dolt_branch('dev1', 's39nf5nm...')")</code></pre></div>
       and more.
     </p>
 
-    <h3 id="s-testing-a"><span class="num">a</span>Concurrency</h3>
+    <h3 id="s-testing-a"><span class="num">a</span>Lab setup</h3>
+
+    <p>
+      The tooling lives in <code>dolt/tooling/</code> with a clean separation:
+      <code>server.py</code> handles doltgres lifecycle (install, start, fresh
+      start, terminate), <code>utils.py</code> has formatting and metrics
+      helpers, and <code>lab.py</code> is the workspace for experimenting.
+    </p>
+
+    <p>
+      The lab starts a fresh doltgres instance, creates a database and a table,
+      sets up users with permissions, and commits the base schema. From that
+      base commit it creates N "world" snapshots, each a slightly different
+      starting state committed and saved as a hash. The key insight: a commit
+      hash in dolt is a full database snapshot. You can branch from any hash
+      later without copying data, the branch just points at that snapshot.
+    </p>
+
+    <div class="code-block"><span class="code-lang">python</span>
+<pre><code># create world snapshots from the base schema
+for w in range(num_worlds):
+    dolt_reset('--hard', base_hash)   # rewind to empty table
+    INSERT INTO world VALUES (...)    # insert world-specific seed data
+    dolt_commit('-Am', 'world N')     # commit the snapshot
+    save hash                         # this hash = this world's state
+
+# reset main back to clean base
+dolt_reset('--hard', base_hash)</code></pre></div>
+
+    <p>
+      Later, branching from a world hash gives you that world's state as
+      your starting point. No data duplication, just a pointer.
+    </p>
+
+    <h3 id="s-testing-b"><span class="num">b</span>Concurrency</h3>
 
     <p>
       Multiple users can work in parallel on separate branches without
@@ -1065,7 +1099,7 @@ example9 seed → e9_r0, e9_r1, e9_r2, e9_r3
 
 40 users, 40 branches, 400 inserts, 40 commits → 1.4s</code></pre></div>
 
-    <h3 id="s-testing-b"><span class="num">b</span>Benchmarking</h3>
+    <h3 id="s-testing-c"><span class="num">c</span>Benchmarking</h3>
 
     <p>
       The script times the parallel section with <code>time.time()</code>
@@ -1105,7 +1139,7 @@ print(f"setup: {t_setup:.2f}s  work: {t_work:.2f}s  verify: {t_verify:.2f}s")</c
 <pre><code>seed commit → fork N branches → parallel user work → commit
   → inspect → merge or discard → reset from seed</code></pre></div>
 
-    <h3 id="s-testing-c"><span class="num">c</span>What this proves (and what it doesn't)</h3>
+    <h3 id="s-testing-d"><span class="num">d</span>What this proves (and what it doesn't)</h3>
 
     <p>
       The 40-rollout test proves <strong>parallel isolated-world
@@ -1137,7 +1171,7 @@ print(f"setup: {t_setup:.2f}s  work: {t_work:.2f}s  verify: {t_verify:.2f}s")</c
       <li>This gets closer to the real "200k branches over time" question</li>
     </ul>
 
-    <h3 id="s-testing-d"><span class="num">d</span>Orchestrator pattern</h3>
+    <h3 id="s-testing-e"><span class="num">e</span>Orchestrator pattern</h3>
 
     <p>
       The natural shape for an environment manager: a single
