@@ -1066,6 +1066,21 @@ dolt_reset('--hard', base_hash)</code></pre></div>
       your starting point. No data duplication, just a pointer.
     </p>
 
+    <p>
+      The thinking behind snapshotting worlds as commit hashes rather than
+      just branching from a "worlds" branch directly: a branch is a
+      workspace, it is where you do your work on a snapshot. A commit hash
+      is immutable. No matter what happens to branches, deletions, resets,
+      drift, the hash always points to the exact same state. If I create
+      1000 rollout branches from the same hash they all start identical,
+      guaranteed. Having saved snapshot hashes from the beginning means I
+      can reuse them across epochs. Run the full dataset for epoch 1,
+      delete all branches, start epoch 2 from the same hashes. No need to
+      look at branches at all, just the hashes. You could also branch out
+      and then branch from there again if needed. This might be wrong, and
+      I could adjust later, but that is the reasoning for now.
+    </p>
+
     <h3 id="s-testing-b"><span class="num">b</span>Concurrency</h3>
 
     <p>
