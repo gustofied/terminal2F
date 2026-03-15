@@ -1408,6 +1408,277 @@ CC/BCC overlap:           0</code></pre>
       sequencing. The prompt stays minimal.
     </p>
 
+    <h4><span class="sub">h</span>Continuing</h4>
+
+    <p><em>14 March 2026.</em></p>
+
+    <p>Ran a set of targeted evaluations to answer two questions: does single-turn help, and how severe is the format collapse on the 0.6B model? All runs use n=50, r=3.</p>
+
+    <p><b>1 turn vs 3 turns across models.</b></p>
+
+    <table class="ch-table">
+      <tr>
+        <th>Model</th><th>Turns</th><th>Reward</th><th>To</th><th>CC</th><th>BCC</th>
+      </tr>
+      <tr>
+        <td>GPT-4.1-mini</td><td class="mono">3</td><td class="mono">0.488</td><td class="mono">0.683</td><td class="mono">0.373</td><td class="mono">0.127</td>
+      </tr>
+      <tr>
+        <td>GPT-4.1-mini</td><td class="mono">1</td><td class="mono">0.470</td><td class="mono">0.593</td><td class="mono">0.425</td><td class="mono">0.118</td>
+      </tr>
+      <tr>
+        <td>Qwen3-8B</td><td class="mono">3</td><td class="mono">0.482</td><td class="mono">0.632</td><td class="mono">0.409</td><td class="mono">0.138</td>
+      </tr>
+      <tr>
+        <td>Qwen3-8B</td><td class="mono">1</td><td class="mono">0.429</td><td class="mono">0.539</td><td class="mono">0.384</td><td class="mono">0.138</td>
+      </tr>
+      <tr style="border-top:1.5px solid #1a1a1a">
+        <td>Qwen3-0.6B</td><td class="mono">3</td><td class="mono">0.115</td><td class="mono">0.050</td><td class="mono">0.194</td><td class="mono">0.053</td>
+      </tr>
+      <tr>
+        <td>Qwen3-0.6B</td><td class="mono">1</td><td class="mono"><b>0.191</b></td><td class="mono"><b>0.124</b></td><td class="mono"><b>0.282</b></td><td class="mono"><b>0.081</b></td>
+      </tr>
+    </table>
+
+    <p>
+      For GPT-4.1-mini and Qwen3-8B, three turns actually scores higher than single-turn. Later emails often make the action owner more explicit, so To improves with additional context, even if CC gets slightly worse. The 0.6B model shows the opposite pattern: single-turn nearly doubles reward, from 0.115 to 0.191. The reason is not that the underlying task becomes easier in some deep sense, but that the small model cannot reliably survive the multi-turn format burden.
+    </p>
+
+    <p><b>Format analysis on Qwen3-0.6B.</b></p>
+
+    <p>3-turn run (d0a57633):</p>
+    <table class="ch-table">
+      <tr>
+        <th>Turn</th><th>Valid emails</th><th>Names not emails</th><th>Mixed</th><th>No JSON</th>
+      </tr>
+      <tr>
+        <td class="mono">1</td><td class="mono">138 (92%)</td><td class="mono">9 (6%)</td><td class="mono">3 (2%)</td><td class="mono">0 (0%)</td>
+      </tr>
+      <tr>
+        <td class="mono">2</td><td class="mono">109 (73%)</td><td class="mono">6 (4%)</td><td class="mono">3 (2%)</td><td class="mono">32 (21%)</td>
+      </tr>
+      <tr>
+        <td class="mono">3</td><td class="mono">81 (54%)</td><td class="mono">6 (4%)</td><td class="mono">3 (2%)</td><td class="mono">60 (40%)</td>
+      </tr>
+    </table>
+
+    <p>1-turn run (bb8335ef):</p>
+    <table class="ch-table">
+      <tr>
+        <th>Turn</th><th>Valid emails</th><th>Names not emails</th><th>Mixed</th><th>No JSON</th>
+      </tr>
+      <tr>
+        <td class="mono">1</td><td class="mono">138 (92%)</td><td class="mono">6 (4%)</td><td class="mono">6 (4%)</td><td class="mono">0 (0%)</td>
+      </tr>
+    </table>
+
+    <p>
+      Turn 1 produces valid JSON structure every time, but only 92% of responses use email addresses as instructed. Around 6–8% use names instead of emails ("Brian Lyons" instead of "brian.lyons@acme.com"), and another 2–4% mix the two formats in the same response. Those outputs score zero under Jaccard even when the underlying recipient choice may be correct. By turn 3, the problem is much worse: 40% of responses contain no JSON at all, because the model gets stuck in its <code>&lt;think&gt;</code> block and never emits a final answer.
+    </p>
+
+    <p>
+      So there are really two separate failure modes here. The first is late-turn format collapse: 21% no-JSON at turn 2, rising to 40% at turn 3. The second is names-versus-emails confusion, which already appears on turn 1 and remains even when JSON is valid. Both are learnable, but single-turn evaluation removes the first problem entirely and isolates the second as a clean training signal.
+    </p>
+
+    <p>
+      This supports the Phase A plan: start with GRPO warmup on <code>max_turns=1</code>. The 0.6B model still has substantial headroom relative to GPT-4.1-mini in the single-turn setting (0.191 vs 0.470), the multi-turn format collapse is removed, and the remaining errors — names versus emails, plus To/CC confusion — are systematic enough to be trainable. Single-turn training does not solve the underlying ambiguity of the environment, but it removes the multi-turn format burden and exposes a cleaner learning signal for the 0.6B model.
+    </p>
+
+    <p>
+      <b>Formatting as a gating condition.</b> One implication of the 0.6B evals is that formatting is not just presentation; it is a gating condition for the rest of the reward. When the model fails to emit valid JSON, or uses names instead of email addresses, the rollout receives little or no useful recipient-placement signal even if the underlying reasoning is partly correct. That suggests adding a small auxiliary formatting reward — not as the main objective, but as a way to keep the model in the part of the output space where To/CC/BCC learning becomes possible.
+    </p>
+
+    <p>
+      There are two separable format signals here. The first is schema survival: is there valid JSON with the right keys and list values? The second is address format compliance: are the entries actual email addresses rather than names? Both are clean, binary, and much less ambiguous than To versus CC. That is exactly why they are attractive as auxiliary rewards.
+    </p>
+
+    <p>
+      The weight should stay modest: strong enough to reduce format collapse, but weak enough that recipient placement remains the dominant source of reward. The formatting reward exists to stop RL from wasting signal on avoidable parse failures, not to become the main objective. If overweighted, the model could learn the easy part — valid JSON, correct keys, email-looking strings — without improving the actual routing logic. So the reasoning is curriculum, not reward hacking: first stabilize the output contract, then optimize the harder routing behavior.
+    </p>
+
+    <p><b>Rubric update.</b> Added two format reward functions to the environment:</p>
+
+    <table class="ch-table">
+      <tr>
+        <th>Function</th><th>What</th><th>Weight</th>
+      </tr>
+      <tr>
+        <td>to_correct</td><td>Jaccard on To field</td><td class="mono">0.40</td>
+      </tr>
+      <tr>
+        <td>cc_correct</td><td>Jaccard on CC field</td><td class="mono">0.40</td>
+      </tr>
+      <tr>
+        <td>bcc_correct</td><td>Jaccard on BCC field</td><td class="mono">0.10</td>
+      </tr>
+      <tr>
+        <td>format_correct</td><td>Binary: valid JSON with exactly <code>{to, cc, bcc}</code> keys and list values</td><td class="mono">0.05</td>
+      </tr>
+      <tr>
+        <td>email_format</td><td>Fractional: proportion of emitted recipients that are email addresses (contain <code>@</code>)</td><td class="mono">0.05</td>
+      </tr>
+    </table>
+
+    <p>
+      Recipient placement still dominates at 90% of total weight. <code>format_correct</code> is binary (schema survival is all-or-nothing), while <code>email_format</code> is fractional to give denser signal — if 5 of 6 recipients are emails and one is a name, the model gets 0.833 credit instead of zero. The schema check is strict: extra keys beyond <code>to</code>, <code>cc</code>, <code>bcc</code> are rejected, and non-string values in the lists score zero. Recipient scoring in <code>score_turn</code> was also tightened to only accept strings (<code>isinstance(x, str)</code>), no more silent coercion of dicts or integers.
+    </p>
+
+
+    <p><b>v0.1.10 baselines (max_turns=1).</b> Re-ran both models with the new rubric to establish baselines before training.</p>
+
+    <table class="ch-table">
+      <tr>
+        <th>Metric</th><th>Qwen3-0.6B</th><th>GPT-4.1-mini</th>
+      </tr>
+      <tr>
+        <td>reward</td><td class="mono">0.253</td><td class="mono">0.514</td>
+      </tr>
+      <tr>
+        <td>to_correct</td><td class="mono">0.149</td><td class="mono">0.579</td>
+      </tr>
+      <tr>
+        <td>cc_correct</td><td class="mono">0.220</td><td class="mono">0.423</td>
+      </tr>
+      <tr>
+        <td>bcc_correct</td><td class="mono">0.090</td><td class="mono">0.132</td>
+      </tr>
+      <tr>
+        <td>format_correct</td><td class="mono">1.000</td><td class="mono">1.000</td>
+      </tr>
+      <tr>
+        <td>email_format</td><td class="mono">0.932</td><td class="mono">1.000</td>
+      </tr>
+    </table>
+
+    <p>
+      On single-turn, both models now produce valid JSON on every rollout (format_correct = 1.0). That means the format-gating problem has been removed from Phase A. The format scaffold is already effectively free reward for GPT-4.1-mini, and nearly free for the 0.6B model: email_format = 0.932, with the remaining gap coming from the names-versus-emails issue, now exposed as a smooth fractional signal rather than a binary cliff.
+    </p>
+
+    <p>
+      The real separation is in recipient placement. GPT-4.1-mini reaches to_correct = 0.579 and cc_correct = 0.423, while the 0.6B model is at 0.149 and 0.220. That is roughly a 4x gap on To and a 2x gap on CC. BCC remains low for both (0.090 vs 0.132), which is expected: at this stage BCC still carries very little learnable signal. The overall reward gap, 0.253 versus 0.514, is substantial but not hopeless. The 0.6B model is not random. It produces structured output reliably and gets partial credit on most rollouts; it is simply placing people in the wrong fields.
+    </p>
+
+    <p>
+      What matters for training is that the 0.6B model's errors are systematic rather than random. The main failures are still To/CC confusion and names instead of emails. At the same time, every example produces reward variation across its three rollouts, so GRPO always has within-example signal to rank. With single-turn, the model now reaches the recipient-placement part of the task on every rollout. Those are good conditions for Phase A.
+    </p>
+
+    <p>
+      The original plan called for a reasoning-vs-non-reasoning comparison before training. On single-turn that comparison is less urgent: the <code>&lt;think&gt;</code> block collapse only appeared on turns 2 and 3, and we have removed those from Phase A. Turn 1 format is clean with thinking enabled (format_correct = 1.0), so there is no gating failure to debug. If thinking tokens slow down rollouts during training, we can revisit then.
+    </p>
+
+    <h4><span class="sub">i</span>Training</h4>
+
+    <p><em>15 March 2026.</em></p>
+
+    <p>Phase A: GRPO on Qwen3-0.6B, <code>max_turns=1</code>, LoRA, 100 steps, 512 rollouts per step (16 per example), <code>lr=1e-5</code>, <code>micro_batch_size=4</code>. Two A6000 48GB GPUs (one inference, one trainer). Ran for 1h52m.</p>
+
+    <p><b>Results.</b></p>
+
+    <table class="ch-table">
+      <tr>
+        <th></th><th>Reward</th><th>To</th><th>CC</th><th>BCC</th><th>Format</th><th>Email</th>
+      </tr>
+      <tr>
+        <td>Qwen3-0.6B (pre-train)</td>
+        <td class="mono">0.253</td><td class="mono">0.149</td><td class="mono">0.220</td><td class="mono">0.090</td><td class="mono">1.000</td><td class="mono">0.932</td>
+      </tr>
+      <tr>
+        <td>Qwen3-0.6B (step 100)</td>
+        <td class="mono"><b>0.674</b></td><td class="mono"><b>0.800</b></td><td class="mono"><b>0.629</b></td><td class="mono">0.027</td><td class="mono">1.000</td><td class="mono">0.999</td>
+      </tr>
+      <tr style="border-top:1.5px solid #1a1a1a">
+        <td>GPT-4.1-mini</td>
+        <td class="mono">0.514</td><td class="mono">0.579</td><td class="mono">0.423</td><td class="mono">0.132</td><td class="mono">1.000</td><td class="mono">1.000</td>
+      </tr>
+    </table>
+
+    <p>
+      The 0.6B model went from 0.253 to 0.674 reward in 100 steps, surpassing GPT-4.1-mini (0.514) by a wide margin. To jumped from 0.149 to 0.800 (5.4x), CC from 0.220 to 0.629 (2.9x). Both now exceed GPT-4.1-mini's scores. Format is completely solved: format_correct reached 1.0 by step 26 and email_format is at 0.999. BCC dropped from 0.090 to 0.027, which is expected — the model learned to leave BCC empty rather than guess, since BCC is weighted at only 0.10 and ground truth BCC is empty on ~60% of turns.
+    </p>
+
+    <p><b>Training curves.</b></p>
+
+    <!-- reward + to + cc chart -->
+    <figure style="margin:20px 0; border:1px solid #1a1a1a; padding:16px; background:#fff;">
+      <div style="font-family:'JetBrains Mono',monospace; font-size:7px; color:#aaa; letter-spacing:1px; text-transform:uppercase; margin-bottom:8px;">Reward, To, CC over 100 steps</div>
+      <svg viewBox="0 0 700 220" style="width:100%;height:auto;display:block;font-family:'JetBrains Mono',monospace;">
+        <!-- axes -->
+        <line x1="40" y1="10" x2="40" y2="200" stroke="#1a1a1a" stroke-width="0.5"/>
+        <line x1="40" y1="200" x2="690" y2="200" stroke="#1a1a1a" stroke-width="0.5"/>
+        <!-- y-axis labels -->
+        <text x="36" y="203" font-size="7" fill="#999" text-anchor="end">0</text>
+        <text x="36" y="108" font-size="7" fill="#999" text-anchor="end">0.5</text>
+        <text x="36" y="13" font-size="7" fill="#999" text-anchor="end">1.0</text>
+        <line x1="40" y1="105" x2="690" y2="105" stroke="#f0efeb" stroke-width="0.5" stroke-dasharray="2,2"/>
+        <!-- x-axis labels -->
+        <text x="40" y="215" font-size="7" fill="#999" text-anchor="middle">0</text>
+        <text x="203" y="215" font-size="7" fill="#999" text-anchor="middle">25</text>
+        <text x="365" y="215" font-size="7" fill="#999" text-anchor="middle">50</text>
+        <text x="528" y="215" font-size="7" fill="#999" text-anchor="middle">75</text>
+        <text x="690" y="215" font-size="7" fill="#999" text-anchor="middle">100</text>
+        <!-- GPT-4.1-mini baseline -->
+        <line x1="40" y1="102.4" x2="690" y2="102.4" stroke="#ddd" stroke-width="1" stroke-dasharray="4,3"/>
+        <text x="693" y="99" font-size="6" fill="#bbb">GPT-4.1-mini reward</text>
+        <!-- reward curve (black) -->
+        <polyline fill="none" stroke="#1a1a1a" stroke-width="1.5" points="46.5,192.4 53,189.6 59.5,191.4 66,189.2 72.5,188.4 79,186 85.5,181.6 92,179.6 98.5,176.2 105,169.6 111.5,166.8 118,163 124.5,164.6 131,156.6 137.5,155 144,153.6 150.5,153.6 157,152.6 163.5,155.2 170,153.5 176.5,151 183,150.6 189.5,152.8 196,151.2 202.5,152.5 209,152.2 215.5,152.5 222,149.8 228.5,151.2 235,153.2 241.5,150.8 248,153 254.5,150.6 261,150.2 267.5,146.6 274,151.8 280.5,153.2 287,150.5 293.5,146.4 300,148.2 306.5,148.6 313,154.2 319.5,143.4 326,145.6 332.5,147.6 339,144.2 345.5,143.8 352,142.4 358.5,140.6 365,145.6 371.5,151.2 378,143.4 384.5,144.2 391,142 397.5,140.4 404,135.8 410.5,134.6 417,142 423.5,137.2 430,139.6 437,135.2 443.5,140.6 450,138.4 456.5,137 463,134.8 469.5,142.8 476,136.6 482.5,136 489,134.6 495.5,135 502,135 508.5,134 515,132.8 521.5,130 528,131.2 534.5,143.6 541,141 547.5,144.2 554,140.4 560.5,131.4 567,130.4 573.5,128.8 580,138.8 586.5,138.4 593,130 599.5,137.6 606,133.4 612.5,134 619,137.2 625.5,130.4 632,137 638.5,133.6 645,130.8 651.5,132.4 658,133 664.5,135 671,130.4"/>
+        <!-- to curve (blue) -->
+        <polyline fill="none" stroke="#4a7c8a" stroke-width="1.2" points="46.5,194.6 53,194.8 59.5,196.2 66,192.6 72.5,196.2 79,193.6 85.5,189.2 92,190.8 98.5,190.4 105,182 111.5,187.6 118,179.6 124.5,185.2 131,176.8 137.5,175.4 144,177.8 150.5,174.8 157,173.2 163.5,181.4 170,174.8 176.5,167.8 183,168.8 189.5,173 196,168.8 202.5,170 209,166.2 215.5,168.6 222,155 228.5,165 235,173.2 241.5,163.6 248,175.8 254.5,157.8 261,158.4 267.5,136.4 274,144.6 280.5,145.8 287,138.6 293.5,130 300,135 306.5,134 313,145.4 319.5,115.8 326,120 332.5,126.8 339,116.6 345.5,111.8 352,101.2 358.5,91.6 365,121.8 371.5,98 378,113 384.5,97.2 391,92.8 397.5,80.4 404,78.4 410.5,89.2 417,71.8 423.5,60.6 430,76.8 437,73 443.5,62.6 450,68 456.5,65.4 463,60.6 469.5,78.2 476,66 482.5,64.6 489,62.4 495.5,56.2 502,57.8 508.5,58.2 515,54.6 521.5,47.6 528,58.6 534.5,77.6 541,63.4 547.5,76.2 554,56.2 560.5,48.6 567,40.2 573.5,32.2 580,56 586.5,55.8 593,28.2 599.5,53.4 606,41.4 612.5,48 619,61.8 625.5,39.4 632,59.6 638.5,44.6 645,34.6 651.5,27.4 658,42 664.5,40 671,40"/>
+        <!-- cc curve (orange) -->
+        <polyline fill="none" stroke="#c4713b" stroke-width="1.2" points="46.5,194.6 53,190 59.5,192.4 66,192.6 72.5,188.2 79,187.8 85.5,183.2 92,181.4 98.5,177.2 105,171.4 111.5,163.6 118,165.4 124.5,165.8 131,159.8 137.5,158.2 144,149.8 150.5,153.8 157,143.4 163.5,150.6 170,152 176.5,138 183,134.6 189.5,148 196,139.4 202.5,144.2 209,146.4 215.5,147.2 222,141 228.5,142 235,137.2 241.5,139 248,136.2 254.5,141.4 261,142.6 267.5,128.6 274,123 280.5,131 287,139 293.5,133 300,122.4 306.5,121.2 313,127.4 319.5,121.2 326,122.6 332.5,125.6 339,116 345.5,120.8 352,127 358.5,112.8 365,122.6 371.5,125.8 378,117.6 384.5,126.6 391,120 397.5,113.6 404,89.6 410.5,100 417,110 423.5,103 430,99 437,93.4 443.5,107.8 450,106 456.5,104.6 463,96.4 469.5,102 476,93 482.5,94 489,90 495.5,87.4 502,84 508.5,94 515,87.4 521.5,79.6 528,82 534.5,102 541,93 547.5,97.8 554,96.6 560.5,82.8 567,75.4 573.5,78.4 580,90.2 586.5,91.8 593,76 599.5,88.4 606,75.4 612.5,72 619,82.6 625.5,64 632,78.8 638.5,81.4 645,74.2 651.5,72.8 658,73.6 664.5,74 671,74.2"/>
+        <!-- legend -->
+        <line x1="50" y1="12" x2="70" y2="12" stroke="#1a1a1a" stroke-width="1.5"/>
+        <text x="74" y="15" font-size="7" fill="#1a1a1a">reward</text>
+        <line x1="120" y1="12" x2="140" y2="12" stroke="#4a7c8a" stroke-width="1.2"/>
+        <text x="144" y="15" font-size="7" fill="#4a7c8a">to_correct</text>
+        <line x1="210" y1="12" x2="230" y2="12" stroke="#c4713b" stroke-width="1.2"/>
+        <text x="234" y="15" font-size="7" fill="#c4713b">cc_correct</text>
+      </svg>
+    </figure>
+
+    <!-- format chart -->
+    <figure style="margin:20px 0; border:1px solid #1a1a1a; padding:16px; background:#fff;">
+      <div style="font-family:'JetBrains Mono',monospace; font-size:7px; color:#aaa; letter-spacing:1px; text-transform:uppercase; margin-bottom:8px;">Format compliance over 100 steps</div>
+      <svg viewBox="0 0 700 140" style="width:100%;height:auto;display:block;font-family:'JetBrains Mono',monospace;">
+        <!-- axes -->
+        <line x1="40" y1="10" x2="40" y2="120" stroke="#1a1a1a" stroke-width="0.5"/>
+        <line x1="40" y1="120" x2="690" y2="120" stroke="#1a1a1a" stroke-width="0.5"/>
+        <text x="36" y="123" font-size="7" fill="#999" text-anchor="end">0</text>
+        <text x="36" y="13" font-size="7" fill="#999" text-anchor="end">1.0</text>
+        <line x1="40" y1="65" x2="690" y2="65" stroke="#f0efeb" stroke-width="0.5" stroke-dasharray="2,2"/>
+        <text x="36" y="68" font-size="7" fill="#999" text-anchor="end">0.5</text>
+        <!-- format_correct: starts ~0.18, reaches 1.0 by step ~26 -->
+        <polyline fill="none" stroke="#1a1a1a" stroke-width="1.5" points="46.5,100.4 53,99.3 59.5,98.5 66,93.4 72.5,92.7 79,84.8 85.5,76.8 92,71.7 98.5,62.8 105,55.5 111.5,48 118,42.2 124.5,37.7 131,26 137.5,23.4 144,20.8 150.5,18.9 157,16 163.5,13.4 170,12.3 176.5,11.1 183,10.7 189.5,10.9 196,10.9 202.5,10.9 209,10 215.5,11.3 222,10.2 228.5,11.8 235,10.4 241.5,10 248,10.4 254.5,10.2 261,10 267.5,10.2 274,10 280.5,10 287,10.2 293.5,10 300,10 306.5,10 313,10.4 319.5,10.4 326,10 332.5,10 339,10.2 345.5,10 352,10 358.5,10.2 365,10 371.5,10 378,10 384.5,10.2 391,10 397.5,10 404,10 410.5,10 417,10.2 423.5,10 430,10.2 437,10 443.5,10.4 450,10 456.5,10 463,10 469.5,10 476,10 482.5,10 489,10.2 495.5,10 502,10 508.5,10.2 515,10 521.5,10 528,10 534.5,10 541,10 547.5,10 554,10 560.5,10 567,10 573.5,10 580,10 586.5,10 593,10 599.5,10 606,10.2 612.5,10 619,10 625.5,10.2 632,10 638.5,10 645,10 651.5,10 658,10 664.5,10 671,10"/>
+        <!-- email_format -->
+        <polyline fill="none" stroke="#888" stroke-width="1.2" stroke-dasharray="3,2" points="46.5,101.5 53,100.3 59.5,100.4 66,96.6 72.5,94.2 79,86.9 85.5,79.5 92,74.6 98.5,64.8 105,57.5 111.5,51.4 118,43.8 124.5,40.8 131,29.4 137.5,27.9 144,22.6 150.5,20 157,18.5 163.5,14.4 170,15.2 176.5,13.7 183,12 189.5,15 196,12.8 202.5,13.5 209,12 215.5,12.4 222,12 228.5,12.9 235,11.8 241.5,11 248,11.4 254.5,11 261,10.9 267.5,12.2 274,11.3 280.5,11 287,11.3 293.5,12 300,11.3 306.5,12 313,11.3 319.5,10.4 326,10.9 332.5,11 339,11.3 345.5,10.4 352,10.2 358.5,10.7 365,10.8 371.5,10.4 378,10.4 384.5,10.8 391,11 397.5,10.4 404,10.5 410.5,10.4 417,10.5 423.5,10.5 430,10.4 437,10.5 443.5,10.4 450,10.4 456.5,10.4 463,10.4 469.5,10.5 476,10.5 482.5,10.4 489,10.2 495.5,10.4 502,10.4 508.5,10.4 515,10.2 521.5,10 528,10.4 534.5,10 541,10.4 547.5,10.2 554,10.4 560.5,10.2 567,10 573.5,10 580,10.2 586.5,10 593,10 599.5,10.4 606,10 612.5,10.2 619,10 625.5,10.4 632,10 638.5,10.4 645,10 651.5,10 658,10 664.5,10.4 671,10"/>
+        <!-- legend -->
+        <line x1="50" y1="12" x2="70" y2="12" stroke="#1a1a1a" stroke-width="1.5"/>
+        <text x="74" y="15" font-size="7" fill="#1a1a1a">format_correct</text>
+        <line x1="170" y1="12" x2="190" y2="12" stroke="#888" stroke-width="1.2" stroke-dasharray="3,2"/>
+        <text x="194" y="15" font-size="7" fill="#888">email_format</text>
+      </svg>
+    </figure>
+
+    <p>
+      <b>What happened.</b> The training had three distinct phases. In the first ~20 steps, the model learned formatting: valid JSON with email addresses instead of names. format_correct went from 0.18 to 1.0 and email_format from 0.17 to 0.98. During this phase, recipient placement barely moved. In steps 20–50, with formatting solved, the reward signal could focus on To/CC placement. To climbed from 0.15 to 0.50, CC from 0.25 to 0.40. In steps 50–100, both metrics continued climbing: To reached 0.80 and CC reached 0.63.
+    </p>
+
+    <p>
+      The format scaffold worked as designed. It occupied the first 20 steps of training, then became invisible (both at 1.0) and let the real task take over. Without it, those first 20 steps would have been wasted on rollouts where format failures masked recipient-placement signal.
+    </p>
+
+    <p>
+      Completions also got shorter: from ~500 tokens to ~230 tokens by step 100. The model learned to produce less thinking and more direct JSON output. This made generation faster too — wall clock per batch dropped from 55s to 22s.
+    </p>
+
+    <p>
+      BCC went from 0.09 to 0.03. The model learned to leave BCC empty, which is correct on ~60% of turns and avoids the hallucination penalty. This is a rational policy given the reward weights (BCC at 0.10) — the model maximizes reward by not guessing.
+    </p>
+
+    <p>
+      <b>The headline:</b> a 0.6B model trained with GRPO for 100 steps (1h52m on two A6000s) surpassed GPT-4.1-mini on recipient placement. To: 0.800 vs 0.579. CC: 0.629 vs 0.423. Overall reward: 0.674 vs 0.514. This is on training data, not held-out eval, so the numbers need to be validated on unseen examples. But the trajectory is clear: the model learned the task.
+    </p>
+
+
     <h3 id="s-learnings"><span class="num">VI</span>Learnings</h3>
 
     <p>

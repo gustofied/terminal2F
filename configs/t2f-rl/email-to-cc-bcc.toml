@@ -1,0 +1,33 @@
+model = "willcb/Qwen3-0.6B"
+
+[env]
+id = "email-to-cc-bcc"
+
+[env.args]
+max_turns = 1
+
+[inference]
+gpus = 1
+
+[inference.args]
+enforce_eager = true
+
+[trainer]
+gpus = 1
+
+[trainer.args]
+vllm_server_host = "127.0.0.1"
+run_name = "qwen3-0.6b-phase-a-single-turn"
+micro_batch_size = 4
+rollouts_per_example = 16
+batch_size = 512
+max_steps = 100
+max_tokens = 512
+max_seq_len = 1024
+learning_rate = 1e-5
+use_lora = true
+save_strategy = "steps"
+save_steps = 25
+save_only_model = true
+push_to_hub = true
+hub_model_id = "gustofied/Qwen3-0.6B-to-cc-bcc"

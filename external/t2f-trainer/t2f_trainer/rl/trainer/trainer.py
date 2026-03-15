@@ -26,6 +26,7 @@ from t2f_trainer.rl.trainer.config import RLConfig
 from t2f_trainer.rl.trainer.orchestrator import Orchestrator
 from t2f_trainer.rl.trainer.utils import (
     entropy_from_logits,
+    get_model_and_tokenizer,
     finalize_stat_tracker,
     init_stat_tracker,
     pad,
@@ -58,7 +59,7 @@ class RLTrainer(Trainer):
         # model + tokenizer
         if isinstance(model, str):
             model_name = model
-            model, processing_class = vf.get_model_and_tokenizer(
+            model, processing_class = get_model_and_tokenizer(
                 model, use_liger=args.use_liger
             )
         else:

@@ -624,15 +624,27 @@ source .venv/bin/activate</code></pre>
 
 <h4><span class="sub">e</span>Install t2f-trainer</h4>
 
-<p>Do NOT use <code>--no-deps</code>. This installs everything: vllm, flash-attn (compiles from source, ~15 min), deepspeed, liger-kernel, trl, accelerate, torch. Do NOT start vLLM during this step, flash-attn compilation eats RAM and the node can OOM.</p>
+<p>This installs everything: vllm, deepspeed, liger-kernel, trl, accelerate, torch, wandb. flash-attn is optional — it makes attention faster and more memory-efficient, but it is a CUDA C++ library that compiles from source against your exact torch + CUDA versions (~15 min). For small models with <code>enforce_eager = true</code>, you do not need it.</p>
+
+<p><b>Without flash-attn</b> (recommended for small models). Comment out <code>flash-attn</code> in t2f-trainer's <code>pyproject.toml</code> and use <code>enforce_eager = true</code> in the config. Install is fast — just wheels, no compilation.</p>
 
 <div class="code-block">
   <span class="code-lang">shell</span>
   <pre><code>cd /workspace/&lt;project&gt;
-<span style="color:#268bd2">uv pip install</span> ./t2f-trainer
+<span style="color:#268bd2">uv pip install</span> hatchling
+<span style="color:#268bd2">uv pip install</span> ./t2f-trainer --no-build-isolation</code></pre>
+</div>
 
-<span style="color:#586E75"># If flash-attn OOM's during compile:</span>
-MAX_JOBS=<span style="color:#6c71c4">4</span> <span style="color:#268bd2">uv pip install</span> ./t2f-trainer</code></pre>
+<p><b>With flash-attn</b> (for larger models or long sequences). flash-attn needs torch headers to compile its CUDA kernels. With uv's default build isolation, the build happens in a temporary environment that does not have torch, so it fails. Install torch first, then install t2f-trainer with <code>--no-build-isolation</code> so flash-attn can find it.</p>
+
+<div class="code-block">
+  <span class="code-lang">shell</span>
+  <pre><code>cd /workspace/&lt;project&gt;
+<span style="color:#268bd2">uv pip install</span> torch hatchling
+
+<span style="color:#586E75"># --no-build-isolation lets flash-attn see torch during compile</span>
+<span style="color:#586E75"># MAX_JOBS=4 prevents OOM on nodes with limited RAM</span>
+MAX_JOBS=<span style="color:#6c71c4">4</span> <span style="color:#268bd2">uv pip install</span> ./t2f-trainer --no-build-isolation</code></pre>
 </div>
 
 <h4><span class="sub">f</span>Install extras</h4>
@@ -740,7 +752,6 @@ CUDA_VISIBLE_DEVICES=<span style="color:#6c71c4">1</span> <span style="color:#26
 
 <h3 id="s-learnings"><span class="num">V</span>Learnings</h3>
 
-<p><b>Clicking links in Ghostty + tmux.</b> tmux intercepts the mouse, so Cmd+click does not work. Use Shift+Cmd+click to bypass tmux and let Ghostty handle the link.</p>
 
 <div class="colophon">
   <p>END-TO-END</p>

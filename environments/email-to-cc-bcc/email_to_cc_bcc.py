@@ -48,11 +48,33 @@ def score_turn(response: str, ground_truth: str, field: str) -> float:
     if not pred_obj or not all(k in pred_obj for k in ("to", "cc", "bcc")):
         return 0.0
     gt_obj = extract_json(ground_truth)
-    pred = {str(x) for x in pred_obj.get(field, []) if not isinstance(x, dict)}
-    expected = {str(x) for x in gt_obj.get(field, []) if not isinstance(x, dict)}
+    pred = {x for x in pred_obj.get(field, []) if isinstance(x, str)}
+    expected = {x for x in gt_obj.get(field, []) if isinstance(x, str)}
     if field == "bcc" and not expected:
         return 0.2 if not pred else 0.0
     return set_overlap(pred, expected)
+
+
+def score_format(response: str) -> tuple[bool, float]:
+    """Return (schema_ok, email_fraction).
+    schema_ok: valid JSON with exactly {to, cc, bcc} keys and list values.
+    email_fraction: fraction of emitted recipients that are strings containing @.
+    """
+    obj = extract_json(response)
+    if not isinstance(obj, dict) or set(obj.keys()) != {"to", "cc", "bcc"}:
+        return False, 0.0
+    all_vals = []
+    for key in ("to", "cc", "bcc"):
+        value = obj[key]
+        if not isinstance(value, list):
+            return True, 0.0
+        if not all(isinstance(x, str) for x in value):
+            return True, 0.0
+        all_vals.extend(value)
+    if not all_vals:
+        return True, 1.0
+    email_count = sum(1 for x in all_vals if "@" in x)
+    return True, email_count / len(all_vals)
 
 
 def score_field(completion: list[dict], state: dict, field: str) -> float:
@@ -112,9 +134,27 @@ Use email addresses, not names."""
     async def bcc_correct(completion, state, **kwargs):
         return score_field(completion, state, "bcc")
 
+    async def format_correct(completion, state, **kwargs):
+        """Average schema survival across turns: valid JSON with to/cc/bcc keys."""
+        responses = [m["content"] for m in completion if m["role"] == "assistant"]
+        n = len(state["info"]["ground_truths"])
+        if not n:
+            return 0.0
+        scored = min(len(responses), n)
+        return sum(1.0 if score_format(responses[i])[0] else 0.0 for i in range(scored)) / n
+
+    async def email_format(completion, state, **kwargs):
+        """Average email-address compliance across turns: fraction of recipients with @."""
+        responses = [m["content"] for m in completion if m["role"] == "assistant"]
+        n = len(state["info"]["ground_truths"])
+        if not n:
+            return 0.0
+        scored = min(len(responses), n)
+        return sum(score_format(responses[i])[1] for i in range(scored)) / n
+
     rubric = vf.Rubric(
-        funcs=[to_correct, cc_correct, bcc_correct],
-        weights=[0.45, 0.45, 0.10],
+        funcs=[to_correct, cc_correct, bcc_correct, format_correct, email_format],
+        weights=[0.40, 0.40, 0.10, 0.05, 0.05],
     )
 
     return EmailEnv(
