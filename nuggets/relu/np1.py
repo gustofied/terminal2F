@@ -83,3 +83,5 @@ vector_6 = np.arange(0, 10, 2)
 print(vector_6[vector_6 <= 2])
 
 # transpoisng, rows to columsn vise versa lol TO:DO
+
+# reshape(-1), flatten, ravel
