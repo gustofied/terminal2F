@@ -49,7 +49,7 @@ print(vector_5)
 
 # concatenate
 # always been an issue with understanding
-# then look at hstack, vstack
+# then look at hstack, vstack, stack, columnstack
 
 a = np.array([[1, 2, 3], [1, 2, 3]])
 b = np.array([[4, 5, 6], [4, 5, 6]])
@@ -85,3 +85,7 @@ print(vector_6[vector_6 <= 2])
 # transpoisng, rows to columsn vise versa lol TO:DO
 
 # reshape(-1), flatten, ravel
+
+# other stuf
+# roll
+# insert

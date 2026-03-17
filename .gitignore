@@ -71,6 +71,9 @@ outputs/
 rrd_out/
 
 
+# Datasets
+MNIST/
+
 # addy
 
 *.txt
