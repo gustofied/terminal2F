@@ -27,8 +27,6 @@ t2f chat --automaton fsm    # or pda, tm, lba
 # Start Rerun observability server (experiments + visualization)
 t2f serve
 
-# View eval results
-t2f eval view
 ```
 
 Requires `MISTRAL_API_KEY` in your `.env`. The `t2f` command is available after installing the package. Switch automaton during chat with `/automaton <name>`. Exit with `/q` or `quit`.
