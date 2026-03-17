@@ -11,10 +11,10 @@ import signal
 import subprocess
 import typer
 from terminal2f.agent import Agent
-from terminal2f.tools import t2f_tool, Delegate
+from terminal2f.tools import t2f_tool
 from terminal2f.memory import Memory
 from terminal2f.automata import FSM, LOOP, PDA, LBA, TM
-from terminal2f.systems import Session
+from terminal2f.systems import Clock
 from terminal2f.envs import QuestionEnv, QUESTIONS, rollout
 from terminal2f.datamodel import (
     RUNS_SCHEMA, EPISODES_SCHEMA,
@@ -137,11 +137,8 @@ def chat(automaton: str = "loop"):
     """Interactive chat with the agent. Automaton: loop, fsm, pda, lba, tm."""
     automaton_cls = AUTOMATA[automaton]
     agent = t2f_agent
-    memory = Memory()  # LOOP's memory (raw messages)
-    delegate_tool = Delegate(session=None)  # placeholder, wired below
-    all_tools = agent.tools + [delegate_tool]
-    session = Session(root_agent=agent, runner_cls=automaton_cls, tools=all_tools)
-    delegate_tool.session = session  # wire the circular ref
+    memory = Memory()
+    clock = Clock(root_agent=agent, runner_cls=automaton_cls, tools=agent.tools)
     while True:
         try:
             user_input = input("❯ ").strip()
@@ -153,7 +150,7 @@ def chat(automaton: str = "loop"):
                 name = user_input.split(maxsplit=1)[1]
                 if name in AUTOMATA:
                     automaton_cls = AUTOMATA[name]
-                    session.runner_cls = automaton_cls
+                    clock.runner_cls = automaton_cls
                     print(f"switched to {name}")
                 else:
                     print(f"unknown automaton: {name} (valid: {', '.join(AUTOMATA)})")
@@ -163,10 +160,10 @@ def chat(automaton: str = "loop"):
                 typer.secho(LOOP(agent, user_input, memory)(), fg=typer.colors.GREEN, bold=True)
 
             else:
-                session.spawn("root", user_input)
-                results = session.run()
+                clock.spawn("root", user_input)
+                results = clock.run()
                 print(results["root"])
-                session.agents.clear()  # clear for next turn, keep shared object_store
+                clock.agents.clear()  # clear for next turn, keep shared object_store
         except (KeyboardInterrupt, EOFError):
             break
 
