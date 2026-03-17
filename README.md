@@ -1,9 +1,9 @@
 <div align="center">
 <img src="assets/terminaldeuxbanny.png" alt="terminal2F Banner" width="600">
 <h1>terminal2F <i>(WIP)</i></h1>
-<b>A way to observe agents and agent systems</b>
+<b>A research platform for agents and agent systems</b>
 <br><br>
-<i>Monitor • Trace • Visualize LLM calls.</i>
+<i>Monitor • Evaluate • Train</i>
 
 </div>
 
@@ -43,6 +43,10 @@ Requires `MISTRAL_API_KEY` in your `.env`. The `t2f` command is available after 
 #### Systems
 
 A Clock is the execution environment for N agents on a shared clock. One root agent owns the clock, sub-agents are spawned into it. All agents in a clock share an object store (the shared artifact space) and tick on the same clock. The clock decides when agents run, what they can see, and when they're done. Inspired by [State Machines for Multi-Agent](https://eriksfunhouse.com/writings/state_machines_for_multi_agent_part_1/) and [P2Engine](https://github.com/gustofied/P2Engine).
+
+#### Agent
+
+The Agent is a single chat completion call. It holds config (model, temperature, system prompt, tools) and exposes one method: act. No memory, no loop, no state. That all lives in the automaton.
 
 #### Memory
 
