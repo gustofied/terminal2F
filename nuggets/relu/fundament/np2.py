@@ -1,3 +1,4 @@
+# broadcasting
 import numpy as np
 
 broadcasters_inn = np.zeros((5, 8, 10))

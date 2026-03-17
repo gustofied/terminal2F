@@ -55,12 +55,91 @@ a = np.array([[1, 2, 3], [1, 2, 3]])
 b = np.array([[4, 5, 6], [4, 5, 6]])
 ab = np.concatenate((a, b), axis=1) # to do se mer på det her
 print(ab)
-# reshape TO:DO
-# newaxis TO:DO
+
+
+# reshape 
+print("Reshape")
+np1 = np.arange(0, 11, 3)
+respahed = np1.reshape((2,2))
+print(np1)
+print(np1.shape)
+print(respahed)
+print(respahed.shape)
+
+print("reshape inferred")
+np1 = np.linspace(0, 10, 30)
+respahed = np1.reshape((2,-1))
+print(respahed)
+
+
+
+# newaxis
+
+print("newaxis")
+np2 = np.arange(0, 10, 2)
+print(np2)
+print(np2[:, np.newaxis])
+print(np2[np.newaxis, :])
+print(np2[None, np.newaxis])
+print(np2[np.newaxis, None])
+# print(np2[:, 1])
+
+print("along an axis")
+
+x = np.array([
+    [[1, 2, 3],
+    [50, 60, 70],
+    [0, 1, 0]], 
+     [[1, 2, 3],
+    [50, 60, 70],
+    [0, 1, 0]], 
+])
+print(x.shape)
+result = np.sum(x, axis=0)
+print(result)
+
+
 # expandimensions TO:DO
-# conditionals TO:DO
+
+print("conditionals")
+
+z = np.arange(0, 20, 2)
+mask = z < 10
+print(z[mask])
+
+
 # nonzero
-# np.reshape(-1)
+print("nonzero")
+np3 = np.array([0, 5, 3, 2, 10, 3, 213, 0, 456, 786, 342, 0])
+print(np3)
+
+print(np.nonzero(np3))
+
+# np.reshape(-1), flatten, ravel
+# the diff between them
+
+print("reshape, flatten, ravel")
+
+np4 = np.linspace(0, 100, 50).reshape(5, 2, -1)
+print(np4.shape)
+print(np4.reshape(-1)) # reshaped back
+print(np4.flatten()) # copy
+print(np4.ravel()) # view
+
+
+
+print("insert")
+
+np5 = np.array([1, 2, 3, 4, 5, 6])
+np.insert(np5, 3, 3)
+
+
+
+print("roll")
+
+np5 = np.array([1, 2, 3, 4, 5, 6])
+np.roll(np5, 2)
+print(np5)
 
 arr = np.arange(3)
 print(arr.shape)
@@ -77,15 +156,7 @@ print("- - - - -") # random
 rng = np.random.default_rng(seed=122)
 print(rng.integers(10,22))
 
-# masking TO:DO
 
 vector_6 = np.arange(0, 10, 2)
 print(vector_6[vector_6 <= 2])
 
-# transpoisng, rows to columsn vise versa lol TO:DO
-
-# reshape(-1), flatten, ravel
-
-# other stuf
-# roll
-# insert

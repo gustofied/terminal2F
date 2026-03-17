@@ -2,6 +2,7 @@ import numpy as np
 import torch
 import torchvision.transforms as transforms
 from torchvision import datasets
+import matplotlib as plt
 
 
 class ReLU:
@@ -11,7 +12,6 @@ class ReLU:
 
     def backward(self, grad):
         return np.where(self.old_x > 0, grad, 0)
-
 
 class Sigmoid:
     def forward(self, x):
