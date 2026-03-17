@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-
-# --- Interaction types ---
 # Typed entries for the interaction stack. Each has a to_message() that returns
 # the API dict (or None if not renderable). The stack is the single source of truth.
 
@@ -48,6 +46,7 @@ class AgentCall:
     def to_message(self) -> dict | None:
         return None  # control flow only
 
+# add it in the future
 @dataclass
 class AgentResult:
     """Sub-agent finished, result returned to parent."""
@@ -59,14 +58,7 @@ class AgentResult:
 
 @dataclass
 class Finished:
-    """Terminal marker — never popped, signals completion."""
+    """Terminal marker, never popped, signals completion."""
     result: str
     def to_message(self) -> dict | None:
         return None
-
-# move later
-def render_context(stack: list, *, k: int | None = None) -> list[dict]:
-    """Build API messages from the interaction stack.
-    k=N for bounded window (FSM), k=None for full history (PDA/LBA/TM)."""
-    entries = stack if k is None else stack[-k:]
-    return [msg for entry in entries if (msg := entry.to_message()) is not None]
