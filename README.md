@@ -15,6 +15,26 @@
 
 ---
 
+## How To Run
+
+```bash
+# Interactive chat (default loop runner)
+t2f chat
+
+# Chat with a specific automaton/runner
+t2f chat --automaton fsm    # or pda, tm, lba
+
+# Start Rerun observability server (experiments + visualization)
+t2f serve
+
+# View eval results
+t2f eval view
+```
+
+Requires `MISTRAL_API_KEY` in your `.env`. The `t2f` command is available after installing the package. Switch automaton during chat with `/automaton <name>`. Exit with `/q` or `quit`.
+
+---
+
 ## What is this
 
 Currently this is a terminal LLM agent runner built on Mistral’s chat API, with tool-calling, multiple “runner” strategies, and a Rerun-based observability/control tower for visualizing agent behavior + usage.
