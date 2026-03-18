@@ -1,3 +1,7 @@
+<p align="center">
+<a href="#how-to-run"><ins>How To Run</ins></a> · <a href="#what-is-this"><ins>What is this</ins></a> · <a href="#research-harness"><ins>Research Harness</ins></a> · <a href="#primitives"><ins>Primitives</ins></a>
+</p>
+
 <div align="center">
 <img src="assets/terminaldeuxbanny.png" alt="terminal2F Banner" width="600">
 <h1>terminal2F <i>(WIP)</i></h1>
@@ -12,8 +16,6 @@
 <p align="center">
 <img src="assets/demo_t2f.gif" alt="terminal2F Demo" width="800">
 </p>
-
-**[How To Run](#how-to-run)** · **[What is this](#what-is-this)** · **[Research Harness](#research-harness)** · **[Primitives](#primitives)**
 
 ---
 
