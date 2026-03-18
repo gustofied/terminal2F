@@ -27,5 +27,5 @@ class Agent:
             messages=[
                 {"role": "system", "content": self.system_message},
                 *messages,
-            ]  # type: ignore[arg-type]
+            ]  
         )

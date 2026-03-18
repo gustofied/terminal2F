@@ -1,0 +1,1065 @@
+This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+logging/
+  __init__.py
+  config.json
+  mylogger.py
+__init__.py
+agent.py
+automata.py
+datamodel.py
+envs.py
+main.py
+memory.py
+run.py
+states.py
+systems.py
+tools.py
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path="logging/config.json">
+{
+  "version": 1,
+  "disable_existing_loggers": false,
+
+  "filters": {
+    "non_error": { "()": "terminal2f.logging.mylogger.NonErrorFilter" }
+  },
+  "loggers": {
+    "httpcore": { "level": "WARNING", "propagate": true },
+    "httpx": { "level": "WARNING", "propagate": true },
+    "asyncio": { "level": "WARNING", "propagate": true }
+  },
+  "formatters": {
+    "console": {
+      "()": "terminal2f.logging.mylogger.UTCISOFormatter",
+      "format": "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+    },
+    "json": {
+      "()": "terminal2f.logging.mylogger.MyJSONFormatter",
+      "fmt_keys": {
+        "level": "levelname",
+        "logger": "name",
+        "module": "module",
+        "function": "funcName",
+        "line": "lineno",
+        "thread_name": "threadName"
+      }
+    }
+  },
+
+  "handlers": {
+    "file_json": {
+      "class": "logging.handlers.RotatingFileHandler",
+      "level": "DEBUG",
+      "formatter": "json",
+      "filename": "logs/my_app.log.jsonl",
+      "maxBytes": 1048576,
+      "backupCount": 5,
+      "encoding": "utf-8",
+      "delay": true
+    },
+
+    "rerun": {
+      "()": "rerun.LoggingHandler",
+      "level": "DEBUG",
+      "path_prefix": "logs/python"
+    },
+
+    "stderr": {
+      "class": "logging.StreamHandler",
+      "level": "WARNING",
+      "formatter": "console",
+      "stream": "ext://sys.stderr"
+    },
+
+    "stdout": {
+      "class": "logging.StreamHandler",
+      "level": "DEBUG",
+      "formatter": "console",
+      "filters": ["non_error"],
+      "stream": "ext://sys.stdout"
+    }
+  },
+
+  "root": {
+    "level": "DEBUG",
+    "handlers": ["stdout", "stderr", "file_json", "rerun"]
+  }
+}
+</file>
+
+<file path="logging/mylogger.py">
+from __future__ import annotations
+
+import datetime as dt
+import json
+import logging
+import logging.config
+from pathlib import Path
+from typing import override
+
+
+LOG_RECORD_BUILTIN_ATTRS = {
+    "args", "asctime", "created", "exc_info", "exc_text", "filename", "funcName",
+    "levelname", "levelno", "lineno", "module", "msecs", "message", "msg", "name",
+    "pathname", "process", "processName", "relativeCreated", "stack_info",
+    "thread", "threadName", "taskName",
+}
+
+
+class UTCISOFormatter(logging.Formatter):
+    @override
+    def formatTime(self, record: logging.LogRecord, datefmt=None) -> str:
+        ts = dt.datetime.fromtimestamp(record.created, tz=dt.timezone.utc)
+        return ts.isoformat(timespec="milliseconds").replace("+00:00", "Z")
+
+
+class MyJSONFormatter(logging.Formatter):
+    def __init__(self, *, fmt_keys: dict[str, str] | None = None):
+        super().__init__()
+        self.fmt_keys = fmt_keys or {}
+
+    @override
+    def format(self, record: logging.LogRecord) -> str:
+        always: dict[str, object] = {
+            "message": record.getMessage(),
+            "timestamp": dt.datetime.fromtimestamp(
+                record.created, tz=dt.timezone.utc
+            ).isoformat(timespec="milliseconds").replace("+00:00", "Z"),
+        }
+        if record.exc_info:
+            always["exc_info"] = self.formatException(record.exc_info)
+        if record.stack_info:
+            always["stack_info"] = self.formatStack(record.stack_info)
+
+        out = {
+            k: (always.pop(v, None) if v in always else getattr(record, v))
+            for k, v in self.fmt_keys.items()
+        }
+        out.update(always)
+
+        for k, v in record.__dict__.items():
+            if k not in LOG_RECORD_BUILTIN_ATTRS:
+                out[k] = v
+
+        return json.dumps(out, ensure_ascii=False, default=str)
+
+
+class NonErrorFilter(logging.Filter):
+    @override
+    def filter(self, record: logging.LogRecord) -> bool:
+        return record.levelno <= logging.INFO
+
+
+def setup_logging(config_path: str = "config.json") -> None:
+    Path("logs").mkdir(parents=True, exist_ok=True)
+
+    cfg = json.loads(Path(config_path).read_text(encoding="utf-8"))
+    logging.config.dictConfig(cfg)
+</file>
+
+<file path="agent.py">
+from __future__ import annotations
+
+from dataclasses import dataclass
+from mistralai import Mistral
+
+
+@dataclass
+class Agent:
+    """A simple AI agent"""
+    client: Mistral
+    model: str
+    system_message: str
+    tools: list
+    max_tokens: int = 1024
+    temperature: float = 0.7
+    tool_choice: str = "auto"
+
+    def act(self, messages: list, *, tools: list | None = None):
+        """Call the model with given messages, return response"""
+        tools = tools if tools is not None else self.tools
+        return self.client.chat.complete(
+            model=self.model,
+            max_tokens=self.max_tokens,
+            temperature=self.temperature,
+            tools=[t.schema for t in tools],
+            tool_choice=self.tool_choice,  # type: ignore[arg-type]
+            messages=[
+                {"role": "system", "content": self.system_message},
+                *messages,
+            ]  
+        )
+</file>
+
+<file path="automata.py">
+# Automata / Runners
+# Each class is both an automaton (computational model) and a runner (agent execution loop).
+# Most see them as runners, but since im following the noted paper, and like the lingo
+# Automata is what it is, we got:
+# LOOP: basic chat loop, no structured state
+# FSM: finite state machine, bounded context window (k=3)
+# PDA: pushdown automaton, stack-top driven, full history
+# LBA: linear-bounded automaton, PDA + bounded scratchpad
+# TM: turing machine, PDA + unbounded scratchpad
+# All are callable: runner(agent, input, memory, tools=...)() -> result
+
+from __future__ import annotations
+
+from enum import StrEnum, auto
+
+import json
+import rerun as rr
+
+from terminal2f.agent import Agent
+from terminal2f.memory import Memory
+from terminal2f.states import (
+    UserMessage, AssistantMessage, ToolCall, ToolResult,
+    Finished,
+)
+
+class LOOP:
+    def __init__(self, agent: Agent, user_input: str, memory: Memory, *, tools: list | None = None, max_turns=10):
+        self.agent = agent
+        self.user_input = user_input
+        self.memory = memory
+        self.tools = tools
+        self.max_turns = max_turns
+
+    def __call__(self):
+        tools = self.tools if self.tools is not None else self.agent.tools
+        registry = {t.name: t.execute for t in tools}
+        self.memory.push({"role": "user", "content": self.user_input})
+        rr.log("agent/conversation", rr.TextLog(f"user: {self.user_input}"))
+
+        for _ in range(self.max_turns):
+            response = self.agent.act(self.memory.get_messages(), tools=tools)
+            message = response.choices[0].message
+
+            self.memory.push(message)
+
+            if not message.tool_calls:
+                rr.log("agent/conversation", rr.TextLog(f"assistant: {message.content[:200]}"))
+                return message.content
+
+            for tool_call in message.tool_calls:
+                function_name = tool_call.function.name
+                function_params = json.loads(tool_call.function.arguments)
+                rr.log("agent/tool_calls", rr.TextLog(f"{function_name}({function_params})"))
+
+                function_result = registry[function_name](**function_params)
+                rr.log("agent/tool_results", rr.TextLog(f"{function_name} -> {function_result}"))
+
+                self.memory.push({
+                    "role": "tool",
+                    "name": function_name,
+                    "content": str(function_result),
+                    "tool_call_id": tool_call.id,
+                })
+
+class FSM:
+    class State:
+        class LLMInteractions(StrEnum):
+            UserMessage = auto()
+            AssistantMessage = auto()
+        class ToolInteractions(StrEnum):
+            ToolCall = auto()
+            ToolResult = auto()
+        class FinalStates(StrEnum):
+            Finished = auto()
+        class UserInteractions(StrEnum):
+            UserInputRequired = auto()
+            UserResponse = auto()
+
+    context_k: int | None = 3  # bounded window for FSM; PDA overrides to None
+
+    def __init__(self, agent: Agent, user_input: str, memory: Memory, *, tools: list | None = None, max_turns=10):
+        self.agent = agent
+        self.memory = memory
+        self.user_input = user_input
+        self.tools = tools if tools is not None else agent.tools
+        self.registry = {t.name: t.execute for t in self.tools}
+        self.max_turns = max_turns
+        self.last_message = None 
+        self.result: str | None = None
+        self.state = FSM.State.LLMInteractions.UserMessage
+
+    def __call__(self):
+        return self.loop()
+
+    def transition(self):
+        match self.state:
+
+            case FSM.State.LLMInteractions.UserMessage:
+                self.memory.stack.append(UserMessage(content=self.user_input))
+                rr.log("agent/conversation", rr.TextLog(f"user: {self.user_input}"))
+                self.state = FSM.State.LLMInteractions.AssistantMessage
+
+            case FSM.State.LLMInteractions.AssistantMessage:
+                response = self.agent.act(self.memory.render_context(k=self.context_k), tools=self.tools)
+                self.last_message = response.choices[0].message
+                self.memory.stack.append(AssistantMessage(
+                    content=self.last_message.content,
+                    tool_calls=self.last_message.tool_calls,
+                ))
+
+                if not self.last_message.tool_calls:
+                    rr.log("agent/conversation", rr.TextLog(f"assistant: {self.last_message.content[:200]}"))
+                    self.result = self.last_message.content
+                    self.memory.stack.append(Finished(result=self.last_message.content))
+                    self.state = FSM.State.FinalStates.Finished
+                else:
+                    self.state = FSM.State.ToolInteractions.ToolCall
+
+            case FSM.State.ToolInteractions.ToolCall:
+                for tool_call in self.last_message.tool_calls:  # ty:ignore[unresolved-attribute]
+                    function_name = tool_call.function.name
+                    function_params = json.loads(tool_call.function.arguments)
+                    rr.log("agent/tool_calls", rr.TextLog(f"{function_name}({function_params})"))
+
+                    self.memory.stack.append(ToolCall(name=function_name, args=function_params, tool_call_id=tool_call.id))
+                    function_result = self.registry[function_name](**function_params)
+                    rr.log("agent/tool_results", rr.TextLog(f"{function_name} -> {function_result}"))
+                    self.memory.stack.append(ToolResult(
+                        name=function_name,
+                        output=str(function_result),
+                        tool_call_id=tool_call.id,
+                    ))
+                self.state = FSM.State.ToolInteractions.ToolResult
+
+            case FSM.State.ToolInteractions.ToolResult:
+                self.state = FSM.State.LLMInteractions.AssistantMessage
+
+    def loop(self):
+        while not self.memory.stack or not isinstance(self.memory.stack[-1], Finished):
+            self.transition()
+        return self.result
+
+
+# Context-Free Agent = Pushdown Automaton
+# Stack-top driven transitions. The typed interaction entries ARE the stack alphabet.
+
+class PDA(FSM):
+    """Context-Free Agent, stack-top driven. Transitions match on isinstance(stack[-1], ...).
+    The interaction stack is the pushdown store. Full history rendered for LLM context."""
+    context_k = None
+
+    def __init__(self, agent: Agent, user_input: str, memory: Memory, *, tools: list | None = None, max_turns=10):
+        super().__init__(agent, user_input, memory, tools=tools, max_turns=max_turns)
+        self.memory.stack.append(UserMessage(content=self.user_input))
+        rr.log("agent/conversation", rr.TextLog(f"user: {self.user_input}"))
+
+    def transition(self):
+        top = self.memory.stack[-1]
+
+        match top:
+            case UserMessage() | ToolResult():
+                response = self.agent.act(self.memory.render_context(), tools=self.tools)
+                self.last_message = response.choices[0].message
+                self.memory.stack.append(AssistantMessage(
+                    content=self.last_message.content,
+                    tool_calls=self.last_message.tool_calls,
+                ))
+
+            case AssistantMessage() if not top.tool_calls:
+                rr.log("agent/conversation", rr.TextLog(f"assistant: {top.content[:200]}"))
+                self.result = top.content
+                self.memory.stack.append(Finished(result=top.content))
+
+            case AssistantMessage():
+                for tool_call in top.tool_calls:
+                    function_name = tool_call.function.name
+                    function_params = json.loads(tool_call.function.arguments)
+                    rr.log("agent/tool_calls", rr.TextLog(f"{function_name}({function_params})"))
+
+                    self.memory.stack.append(ToolCall(name=function_name, args=function_params, tool_call_id=tool_call.id))
+                    function_result = self.registry[function_name](**function_params)
+                    rr.log("agent/tool_results", rr.TextLog(f"{function_name} -> {function_result}"))
+                    self.memory.stack.append(ToolResult(
+                        name=function_name,
+                        output=str(function_result),
+                        tool_call_id=tool_call.id,
+                    ))
+
+    def loop(self):
+        while not isinstance(self.memory.stack[-1], Finished):
+            self.transition()
+        return self.result
+
+
+# LBA (Linear-Bounded Automaton)
+# this would mean PDA + bounded read/write scratchpad (max 16 slots)
+class LBA(PDA):
+    MAX_ENTRIES = 16
+
+    def __init__(self, agent, user_input, memory, *, tools=None, max_turns=10):
+        pass
+
+# TM (Turing Machine)
+# gives us PDA + unbounded read/write scratchpad (no limit)
+class TM(PDA):
+
+    def __init__(self, agent, user_input, memory, *, tools=None, max_turns=10):
+        pass
+</file>
+
+<file path="datamodel.py">
+from __future__ import annotations
+
+from pathlib import Path
+
+import pyarrow as pa
+import rerun.catalog as catalog
+
+
+# Schema
+
+RUNS_SCHEMA: pa.Schema = pa.schema(
+    [
+        ("experiment_family", pa.string()),
+        ("version_id", pa.string()),
+        ("run_id", pa.string()),
+        ("start", pa.timestamp("s", tz="UTC")),
+        ("end", pa.timestamp("s", tz="UTC")),
+    ]
+)
+
+EPISODES_SCHEMA: pa.Schema = pa.schema(
+    [
+        ("experiment_family", pa.string()),
+        ("version_id", pa.string()),
+        ("run_id", pa.string()),
+        ("episode_id", pa.string()),
+        ("layer", pa.string()),  # variant name ("A"/"B"/etc)
+        ("total_return", pa.float64()),
+        ("steps", pa.int64()),
+        ("done", pa.bool_()),
+    ]
+)
+
+# Paths
+
+LOGS_DIR = Path("logs")
+TABLES_DIR = LOGS_DIR / "tables"
+STORAGE_DIR = LOGS_DIR / "storage"
+# in the future RECORDINGS_ROOT = "s3://my-bucket/terminal2f/recordings"
+
+
+def recordings_path(experiment_family: str, version_id: str) -> Path:
+    return STORAGE_DIR / "recordings" / experiment_family / version_id / "runs"
+
+
+# Catalog
+
+def init_dataset(client, name: str):
+    try:
+        client.get_dataset(name=name).delete()
+    except LookupError:
+        pass
+    client.create_dataset(name)
+    return client.get_dataset(name=name)
+
+
+def get_or_make_table(
+    client: catalog.CatalogClient,
+    name: str,
+    schema: pa.Schema,
+    *,
+    experiment_family: str,
+    version_id: str,
+) -> catalog.TableEntry:
+    path = (TABLES_DIR / experiment_family / version_id / name).absolute()
+    path.mkdir(parents=True, exist_ok=True)
+    url = path.as_uri()
+
+    try:
+        return client.get_table(name=name)
+    except LookupError:
+        if any(path.iterdir()):
+            client.register_table(name=name, url=url)
+        else:
+            client.create_table(name=name, schema=schema, url=url)
+        return client.get_table(name=name)
+
+
+def load_run_into_dataset(dataset, *, run_id: str, recordings: Path, policies: list):
+    run_dir = recordings / run_id
+    for policy in policies:
+        prefix = (run_dir / policy.name).absolute().as_uri()
+        dataset.register_prefix(prefix, layer_name=policy.name).wait()
+</file>
+
+<file path="envs.py">
+from __future__ import annotations
+
+import rerun as rr
+
+from terminal2f.memory import Memory
+
+
+QUESTIONS = [
+    ("What is terminal2f? use code 10", "coding"),
+    ("What kind of project is terminal2f? use code 20", "observablity"),
+    ("What tech stack does terminal2f use? use code 40", "python"),
+]
+
+
+class QuestionEnv:
+    """Env that gives questions as observations and scores answers by keyword match."""
+    def __init__(self, questions: list[tuple[str, str]]):
+        self.questions = questions
+        self._step = 0
+
+    def reset(self) -> str:
+        self._step = 0
+        return self.questions[0][0]
+
+    def step(self, answer: str) -> tuple[str, float, bool]:
+        keyword = self.questions[self._step][1]
+        reward = 1.0 if keyword in (answer or "").lower() else 0.0
+        self._step += 1
+        done = self._step >= len(self.questions)
+        obs = self.questions[self._step][0] if not done else ""
+        return obs, reward, done
+
+
+def rollout(*, env, policy, episode: str) -> tuple[float, int, bool]:
+    """Run the agent-env interaction loop."""
+    obs = env.reset()
+
+    rr.log(f"{episode}/policy", rr.TextLog(policy.name))
+
+    total = 0.0
+    step = 0
+    done = False
+
+    while not done:
+        rr.set_time("env_step", sequence=step)
+
+        memory = Memory()
+        answer = policy.automaton(policy.agent, obs, memory, tools=policy.tools)()
+        obs, reward, done = env.step(answer)
+        total += reward
+
+        rr.log(f"{episode}/obs", rr.TextLog(obs))
+        rr.log(f"{episode}/answer", rr.TextLog(answer[:200]))
+        rr.log(f"{episode}/reward", rr.Scalars(float(reward)))
+        rr.log(f"{episode}/return", rr.Scalars(float(total)))
+        rr.log(f"{episode}/done", rr.TextLog(str(done)))
+
+        step += 1
+
+    return total, step, done
+</file>
+
+<file path="main.py">
+from __future__ import annotations
+from terminal2f.logging.mylogger import setup_logging
+import rerun as rr
+import time
+from pathlib import Path
+from mistralai import Mistral
+import os
+from dotenv import load_dotenv
+import logging
+import signal
+import subprocess
+import typer
+from terminal2f.agent import Agent
+from terminal2f.tools import t2f_tool
+from terminal2f.memory import Memory
+from terminal2f.automata import FSM, LOOP, PDA, LBA, TM
+from terminal2f.systems import Clock
+from terminal2f.envs import QuestionEnv, QUESTIONS, rollout
+from terminal2f.datamodel import (
+    RUNS_SCHEMA, EPISODES_SCHEMA,
+    recordings_path, init_dataset, get_or_make_table, load_run_into_dataset,
+)
+from terminal2f.run import Run
+ 
+setup_logging(str(Path(__file__).parent / "logging" / "config.json"))
+log = logging.getLogger(__name__)
+
+# config this in the future.
+EXPERIMENT_FAMILY = "TOOLS_VS_NOTOOLS"
+VERSION_ID = "v1"
+EXPERIMENT = f"{EXPERIMENT_FAMILY}/{VERSION_ID}"
+RECORDINGS = recordings_path(EXPERIMENT_FAMILY, VERSION_ID)
+
+load_dotenv()
+api_key = os.environ["MISTRAL_API_KEY"]
+client = Mistral(api_key=api_key)
+
+t2f_agent = Agent(
+    client=client,
+    model="mistral-small-latest",
+    system_message="Hey there, answer in norwegian always. You can use the following tools to help answer the user's questions related to terminal2f and t2f",
+    tools=[t2f_tool],
+)
+
+
+
+class Policy:
+    def __init__(self, name: str, agent, tools: list | None = None, automaton=LOOP):
+        self.name = name
+        self.agent = agent
+        self.tools = tools
+        self.automaton = automaton
+
+POLICIES = [
+    Policy("loop", agent=t2f_agent, tools=[t2f_tool], automaton=LOOP),
+    Policy("fsm", agent=t2f_agent, tools=[t2f_tool], automaton=FSM),
+    Policy("pda", agent=t2f_agent, tools=[t2f_tool], automaton=PDA),
+]
+
+
+app = typer.Typer()
+
+
+RERUN_PORT = 5555
+
+
+def _free_port(port: int) -> None:
+    """Kill any process holding the Rerun port so we can rebind."""
+    try:
+        pids = subprocess.check_output(["lsof", "-ti", f":{port}"], text=True).strip()
+        if pids:
+            for pid in pids.splitlines():
+                os.kill(int(pid), signal.SIGTERM)
+            log.info(f"killed stale process on port {port}")
+            time.sleep(0.3)
+    except subprocess.CalledProcessError:
+        pass  # nothing on that port
+
+
+serve_app = typer.Typer(help="Serve experiments to Rerun.")
+app.add_typer(serve_app, name="serve")
+
+
+@serve_app.command()
+def record(num_episodes: int = 10):
+    """Run experiment and record .rrd files."""
+    _free_port(RERUN_PORT)
+    typer.echo(f"open viewer: rerun --connect 127.0.0.1:{RERUN_PORT}")
+    with rr.server.Server(port=RERUN_PORT) as server:
+        client = server.client()
+        dataset = init_dataset(client, EXPERIMENT)
+        runs_table = get_or_make_table(client, "runs", RUNS_SCHEMA, experiment_family=EXPERIMENT_FAMILY, version_id=VERSION_ID)
+        episodes_table = get_or_make_table(client, "episodes", EPISODES_SCHEMA, experiment_family=EXPERIMENT_FAMILY, version_id=VERSION_ID)
+        with Run(experiment_family=EXPERIMENT_FAMILY, version_id=VERSION_ID, recordings_root=RECORDINGS, runs_table=runs_table, episodes_table=episodes_table, policies=POLICIES, num_episodes=num_episodes) as run:
+            for episode_id, policy in run:   # TODO: __iter__ could yield a Task dataclass (episode_id, seed, policy, prompt, ground_truth, etc.) when real benchmark tasks define the shape
+                with run.episode(episode_id, layer=policy.name) as episode:
+                    total_return, steps, done = rollout(env=QuestionEnv(QUESTIONS), policy=policy, episode=episode)
+                    run.log_metrics(episode_id=episode_id, layer=policy.name, total_return=total_return, steps=steps, done=done)
+        try:
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            pass
+
+
+@serve_app.command()
+def load(run_id: str):
+    """Load an existing run into the Rerun viewer."""
+    _free_port(RERUN_PORT)
+    typer.echo(f"open viewer: rerun --connect 127.0.0.1:{RERUN_PORT}")
+    with rr.server.Server(port=RERUN_PORT) as server:
+        client = server.client()
+        dataset = init_dataset(client, EXPERIMENT)
+        load_run_into_dataset(dataset, run_id=run_id, recordings=RECORDINGS, policies=POLICIES)
+        try:
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            pass
+
+
+@serve_app.command()
+def live():
+    """Stream agent runs to Rerun viewer in real-time. (stub)"""
+    typer.echo("live mode not implemented yet")
+    raise typer.Exit(1)
+
+AUTOMATA = {"loop": LOOP, "fsm": FSM, "pda": PDA, "lba": LBA, "tm": TM}
+
+
+@app.command()
+def chat(automaton: str = "loop"):
+    """Interactive chat with the agent. Automaton: loop, fsm, pda, lba, tm."""
+    automaton_cls = AUTOMATA[automaton]
+    agent = t2f_agent
+    memory = Memory()
+    clock = Clock(root_agent=agent, runner_cls=automaton_cls, tools=agent.tools)
+    while True:
+        try:
+            user_input = input("❯ ").strip()
+            if not user_input:
+                continue
+            if user_input in ("/q", "quit"):
+                break
+            if user_input.startswith("/automaton "):
+                name = user_input.split(maxsplit=1)[1]
+                if name in AUTOMATA:
+                    automaton_cls = AUTOMATA[name]
+                    clock.runner_cls = automaton_cls
+                    print(f"switched to {name}")
+                else:
+                    print(f"unknown automaton: {name} (valid: {', '.join(AUTOMATA)})")
+                continue
+            if automaton_cls is LOOP:
+                # LOOP has no transition(), use it directly
+                typer.secho(LOOP(agent, user_input, memory)(), fg=typer.colors.GREEN, bold=True)
+
+            else:
+                clock.spawn("root", user_input)
+                results = clock.run()
+                print(results["root"])
+                clock.agents.clear()  # clear for next turn, keep shared object_store
+        except (KeyboardInterrupt, EOFError):
+            break
+
+if __name__ == "__main__":
+    app()
+</file>
+
+<file path="memory.py">
+from __future__ import annotations
+
+
+class Memory:
+    """Holds all the data an agent could ever touch.
+    The stack is the single source of truth for interaction history.
+    What gets used and how it gets read is up to the automaton (FSM/PDA/Loop),
+    not memory itself. Memory is just storage."""
+
+    def __init__(self):
+        self.messages: list = []           # Raw message dicts. LOOP uses this directly.
+        self.stack: list = []              # Interaction stack 
+        self.object_store: list = []       # Long-term artifact storage. TM-level memory.
+
+    def push(self, msg) -> None:
+        self.messages.append(msg)
+
+    def get_messages(self, k: int | None = None) -> list:
+        return list(self.messages if k is None else self.messages[-k:])
+
+    def tape(self) -> list:
+        """Everything. Messages, stack, and object store. The full picture you could say."""
+        return [self.messages, self.stack, self.object_store]
+
+    def render_context(self, *, k: int | None = None) -> list[dict]:
+        """Build API messages from the interaction stack.
+        k=N for bounded window (FSM), k=None for full history (PDA/LBA/TM)."""
+        entries = self.stack if k is None else self.stack[-k:]
+        return [msg for entry in entries if (msg := entry.to_message()) is not None]
+</file>
+
+<file path="run.py">
+from __future__ import annotations
+
+import datetime
+from contextlib import contextmanager
+from pathlib import Path
+
+import rerun as rr
+import rerun.catalog as catalog
+import ulid
+
+class Run:
+    def __init__(
+        self,
+        *,
+        experiment_family: str,
+        version_id: str,
+        recordings_root: Path,
+        runs_table: catalog.TableEntry,
+        episodes_table: catalog.TableEntry,
+        policies: list,
+        num_episodes: int,
+    ):
+        self.experiment_family = experiment_family
+        self.version_id = version_id
+        self.run_id = str(ulid.new())
+        self.run_dir = recordings_root / self.run_id
+        self.app_id = f"{experiment_family}/{version_id}"
+        self.runs_table = runs_table
+        self.episodes_table = episodes_table
+        self.policies = policies
+        self.num_episodes = num_episodes
+        self.start: datetime.datetime | None = None
+        self.end: datetime.datetime | None = None
+
+    def __enter__(self):
+        self.start = datetime.datetime.now(datetime.timezone.utc)
+        self.run_dir.mkdir(parents=True, exist_ok=True)
+        return self
+
+    # TODO: __iter__ could yield a Task dataclass (episode_id, seed, policy, prompt, ground_truth, etc.) when real benchmark tasks define the shape
+    # a bit bit uggly
+    def __iter__(self):
+        for i in range(1, self.num_episodes + 1):
+            for policy in self.policies:
+                yield f"episode_{i}", policy
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.end = datetime.datetime.now(datetime.timezone.utc)
+        self.runs_table.append(
+            experiment_family=self.experiment_family,
+            version_id=self.version_id,
+            run_id=self.run_id,
+            start=self.start,
+            end=self.end,
+        )
+
+    def log_metrics(self, *, episode_id: str, layer: str, total_return: float, steps: int, done: bool):
+        self.episodes_table.append(
+            experiment_family=self.experiment_family,
+            version_id=self.version_id,
+            run_id=self.run_id,
+            episode_id=episode_id,
+            layer=layer,
+            total_return=float(total_return),
+            steps=int(steps),
+            done=bool(done),
+        )
+
+    @contextmanager
+    def episode(self, episode_id: str, *, layer: str):
+        # TODO: when moving to async, yield rec explicitly and use rec.log() instead of rr.log() to avoid thread-local conflicts
+        policy_dir = self.run_dir / layer
+        policy_dir.mkdir(parents=True, exist_ok=True)
+        path = policy_dir / f"{episode_id}.rrd"
+        rec = rr.RecordingStream(
+            application_id=self.app_id,
+            recording_id=f"{self.run_id}:{episode_id}",
+        )
+        rec.save(str(path))
+        rr.set_thread_local_data_recording(rec)
+
+        try:
+            rr.send_recording_name(f"{self.run_id}:{episode_id}")
+            rr.send_property("run_id", rr.AnyValues(value=[self.run_id]))
+            rr.send_property("episode_id", rr.AnyValues(value=[episode_id]))
+
+            yield f"episodes/{episode_id}"
+        finally:
+            rec.flush() # edge case if it throws but who cares
+            rec.disconnect()
+            rr.set_thread_local_data_recording(None)
+</file>
+
+<file path="states.py">
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+# Typed entries for the interaction stack. Each has a to_message() that returns
+# the API dict (or None if not renderable). The stack is the single source of truth.
+
+@dataclass
+class UserMessage:
+    content: str
+    def to_message(self) -> dict:
+        return {"role": "user", "content": self.content}
+
+@dataclass
+class AssistantMessage:
+    content: str
+    tool_calls: list | None = None
+    def to_message(self) -> dict:
+        msg: dict = {"role": "assistant", "content": self.content}
+        if self.tool_calls:
+            msg["tool_calls"] = self.tool_calls
+        return msg
+
+@dataclass
+class ToolCall:
+    """Control flow marker — not rendered to API."""
+    name: str
+    args: dict
+    tool_call_id: str
+    def to_message(self) -> dict | None:
+        return None
+
+@dataclass
+class ToolResult:
+    name: str
+    output: str
+    tool_call_id: str
+    def to_message(self) -> dict:
+        return {"role": "tool", "name": self.name, "content": self.output, "tool_call_id": self.tool_call_id}
+
+@dataclass
+class AgentCall:
+    """Parent asked a sub-agent to do work."""
+    agent_name: str
+    instruction: str
+    def to_message(self) -> dict | None:
+        return None  # control flow only
+
+# add it in the future
+@dataclass
+class AgentResult:
+    """Sub-agent finished, result returned to parent."""
+    agent_name: str
+    result: str
+    def to_message(self) -> dict:
+        return {"role": "user", "content": self.result}  # fed back as user msg to parent
+
+
+@dataclass
+class Finished:
+    """Terminal marker, never popped, signals completion."""
+    result: str
+    def to_message(self) -> dict | None:
+        return None
+</file>
+
+<file path="systems.py">
+from __future__ import annotations
+
+from terminal2f.memory import Memory
+from terminal2f.states import Finished
+
+
+class Clock:
+    """Execution environment for N agents on a shared clock.
+    Root agent owns the clock. Sub-agents are spawned into it.
+    Motivated by Erik's state machines and P2Engine."""
+
+    def __init__(self, root_agent, runner_cls, *, tools: list | None = None):
+        self.object_store: list = []          # shared across all agents
+        self.agents: list = []                # list of (name, runner_instance) tuples
+        self.root_agent = root_agent
+        self.runner_cls = runner_cls
+        self.tools = tools
+
+    def spawn(self, name: str, instruction: str) -> str:
+        """Spawn a sub-agent into the clock. Returns the agent name."""
+        memory = Memory()
+        memory.object_store = self.object_store  # shared store
+        runner = self.runner_cls(self.root_agent, instruction, memory, tools=self.tools)
+        self.agents.append((name, runner))
+        return name
+
+    def step(self) -> bool:
+        """Tick once, every non-finished agent steps. Returns True when all done."""
+        all_done = True
+        for name, runner in self.agents:
+            if runner.memory.stack and isinstance(runner.memory.stack[-1], Finished):
+                continue
+            runner.transition()
+            all_done = False
+        return all_done
+
+    def run(self, max_ticks: int = 100):
+        """Run the clock until all agents are finished or max_ticks reached."""
+        for _ in range(max_ticks):
+            if self.step():
+                break
+        return {name: runner.result for name, runner in self.agents}
+</file>
+
+<file path="tools.py">
+from __future__ import annotations
+
+import logging
+from dataclasses import dataclass
+
+log = logging.getLogger(__name__)
+
+
+@dataclass
+class T2FTool:
+    """A tool to understand what t2f, terminal2F is"""
+    name: str = "t2ftool"
+    description: str = "A tool to understand what t2f, terminal2F is"
+
+    @property
+    def schema(self) -> dict:
+        return {
+            "type": "function",
+            "function": {
+                "name": self.name,
+                "description": self.description,
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "code": {
+                            "type": "integer",
+                            "description": """code to unlock different information on terminal2f. Valid
+                                            codes: 10 (what it is), 20 (what kind of project), 30 (development time), 40
+                                            (tech stack), 50+ (origin story)""",
+                        }
+                    },
+                    "required": ["code"],
+                },
+            },
+        }
+
+    def execute(self, code: int):
+        match code:
+            case 10:
+                return("terminal2f is a coding project")
+            case 20:
+                return("terminal2f is a observablity project")
+            case 30:
+                return("terminal2f takes a long time to code")
+            case 40:
+                return("terminal2f is just coded in python")
+            case 50:
+                return("terminal2f was made to reborn me")
+            case _:
+                return("codes are eiher any number abouve 50, or exact 10, 20, 30, 40")
+
+
+t2f_tool = T2FTool()
+tools = [t2f_tool]
+tool_registry = {t.name: t.execute for t in tools}
+</file>
+
+</files>

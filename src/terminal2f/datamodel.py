@@ -6,7 +6,7 @@ import pyarrow as pa
 import rerun.catalog as catalog
 
 
-# --- Schemas ---
+# Schema
 
 RUNS_SCHEMA: pa.Schema = pa.schema(
     [
@@ -31,7 +31,7 @@ EPISODES_SCHEMA: pa.Schema = pa.schema(
     ]
 )
 
-# --- Paths ---
+# Paths
 
 LOGS_DIR = Path("logs")
 TABLES_DIR = LOGS_DIR / "tables"
@@ -43,7 +43,7 @@ def recordings_path(experiment_family: str, version_id: str) -> Path:
     return STORAGE_DIR / "recordings" / experiment_family / version_id / "runs"
 
 
-# --- Catalog helpers ---
+# Catalog
 
 def init_dataset(client, name: str):
     try:
