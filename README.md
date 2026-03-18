@@ -40,6 +40,10 @@ Requires `MISTRAL_API_KEY` in your `.env`. The `t2f` command is available after 
 
 ## What is this
 
+terminal2F is a research platform and lab for agents and systems of agents. An open-source stack for building, observing, evaluating, and training LLMs. All experiments stream to [Rerun](https://rerun.io). ChatCompletion compatible, currently using Mistral models but you are free to pick any. No frameworks, just Python.
+
+As I like to say, research is the product, the model is the byproduct.
+
 ---
 
 ## Research Harness
