@@ -40,13 +40,17 @@ Requires `MISTRAL_API_KEY` in your `.env`. The `t2f` command is available after 
 
 ## Primitives
 
-#### Systems
-
-A Clock is the execution environment for N agents on a shared clock. One root agent owns the clock, sub-agents are spawned into it. All agents in a clock share an object store (the shared artifact space) and tick on the same clock. The clock decides when agents run, what they can see, and when they're done. Inspired by [State Machines for Multi-Agent](https://eriksfunhouse.com/writings/state_machines_for_multi_agent_part_1/) and [P2Engine](https://github.com/gustofied/P2Engine).
-
 #### Agent
 
 The Agent is a single chat completion call. It holds config (model, temperature, system prompt, tools) and exposes one method: act. No memory, no loop, no state. That all lives in the automaton.
+
+#### Automata
+
+The runners that drive the agent. LOOP is your typical agent loop implementation. FSM is an explicit state machine with bounded context (k=3). PDA is stack-top driven with full history. LBA extends PDA with a bounded read/write scratchpad. TM extends PDA with unbounded read/write memory. Same "agent", different runner.
+
+#### Systems
+
+A Clock is the execution environment for N agents on a shared clock. One root agent owns the clock, sub-agents are spawned into it. All agents in a clock share an object store (the shared artifact space) and tick on the same clock. The clock decides when agents run, what they can see, and when they're done. Inspired by [State Machines for Multi-Agent](https://eriksfunhouse.com/writings/state_machines_for_multi_agent_part_1/) and [P2Engine](https://github.com/gustofied/P2Engine).
 
 #### Memory
 
