@@ -38,6 +38,14 @@ Requires `MISTRAL_API_KEY` in your `.env`. The `t2f` command is available after 
 
 ---
 
+## Research Harness
+
+#### Engine
+
+`run.py` is the engine behind it all. It handles experiment setup, generates run IDs, creates Rerun recording streams, and manages the per-episode context. You define your policies and environments, the engine iterates over episodes, records everything to `.rrd` files, and logs metrics to the catalog. The experiment runs as a context manager, each episode gets its own recording, and everything is timestamped and traceable.
+
+---
+
 ## Primitives
 
 #### Agent

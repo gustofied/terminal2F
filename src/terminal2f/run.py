@@ -8,11 +8,6 @@ import rerun as rr
 import rerun.catalog as catalog
 import ulid
 
-
-# Episodic memory lives here — at the Run/episode level, not inside FSM/PDA/TM.
-# Within-episode computation uses Memory (messages, stack, etc).
-# Across-episode learning uses the recordings, tables, and metrics captured here.
-# The episode context manager is the natural boundary for an "episode" in the episodic memory sense.
 class Run:
     def __init__(
         self,
