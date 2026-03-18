@@ -44,37 +44,7 @@ Requires `MISTRAL_API_KEY` in your `.env`. The `t2f` command is available after 
 
 `run.py` is the engine behind it all. It handles experiment setup, generates run IDs, creates Rerun recording streams, and manages the per-episode context. You define your policies and environments, the engine iterates over episodes, records everything to `.rrd` files, and logs metrics to the catalog. The experiment runs as a context manager, each episode gets its own recording, and everything is timestamped and traceable.
 
----
-
-## Primitives
-
-#### Agent
-
-The Agent is a single chat completion call. It holds config (model, temperature, system prompt, tools) and exposes one method: act. No memory, no loop, no state. That all lives in the automaton.
-
-#### Automata
-
-The runners that drive the agent. LOOP is your typical agent loop implementation. FSM is an explicit state machine with bounded context (k=3). PDA is stack-top driven with full history. LBA extends PDA with a bounded read/write scratchpad. TM extends PDA with unbounded read/write memory. Same "agent", different runner.
-
-#### Systems
-
-A Clock is the execution environment for N agents on a shared clock. One root agent owns the clock, sub-agents are spawned into it. All agents in a clock share an object store (the shared artifact space) and tick on the same clock. The clock decides when agents run, what they can see, and when they're done. Inspired by [State Machines for Multi-Agent](https://eriksfunhouse.com/writings/state_machines_for_multi_agent_part_1/) and [P2Engine](https://github.com/gustofied/P2Engine).
-
-#### Memory
-
-There are three layers of memory: raw messages (for the typical agent loop), a typed interaction stack (for the state machine runners), and an object store (long-term artifacts, TM-level). What gets used and how is up to the automaton. The memory architecture is what determines the agent's computational power: bounded context gives you an FSM, a stack gives you a PDA, read/write memory gives you a TM.
-
-#### Environments
-
-An environment is a task that the agent tries to solve. It gives the agent an observation (the problem), the agent produces an answer, and the environment scores it (reward). Reset starts a new task, step takes the agent's answer and returns the next observation, a reward, and whether it's done.
-
-#### Tools
-
-Currently tools are implemented in the standard way per [Mistral function calling](https://docs.mistral.ai/capabilities/function_calling).
-
----
-
-## Data Model
+#### Data Model
 
 terminal2F uses Rerun's [data platform](https://rerun.io/docs/concepts/query-and-transform/catalog-object-model), a DataFusion-based platform where data is served via the redap protocol (Rerun Data Protocol). The top level is the catalog, which maps to our experiments.
 
@@ -134,5 +104,33 @@ The dataset is not storage. It is a workspace, more like a viewer of data. On a 
 │   └── ...                                        │
 └─────────────────────────────────────────────────┘
 ```
+
+---
+
+## Primitives
+
+#### Agent
+
+The Agent is a single chat completion call. It holds config (model, temperature, system prompt, tools) and exposes one method: act. No memory, no loop, no state. That all lives in the automaton.
+
+#### Automata
+
+The runners that drive the agent. LOOP is your typical agent loop implementation. FSM is an explicit state machine with bounded context (k=3). PDA is stack-top driven with full history. LBA extends PDA with a bounded read/write scratchpad. TM extends PDA with unbounded read/write memory. Same "agent", different runner.
+
+#### Systems
+
+A Clock is the execution environment for N agents on a shared clock. One root agent owns the clock, sub-agents are spawned into it. All agents in a clock share an object store (the shared artifact space) and tick on the same clock. The clock decides when agents run, what they can see, and when they're done. Inspired by [State Machines for Multi-Agent](https://eriksfunhouse.com/writings/state_machines_for_multi_agent_part_1/) and [P2Engine](https://github.com/gustofied/P2Engine).
+
+#### Memory
+
+There are three layers of memory: raw messages (for the typical agent loop), a typed interaction stack (for the state machine runners), and an object store (long-term artifacts, TM-level). What gets used and how is up to the automaton. The memory architecture is what determines the agent's computational power: bounded context gives you an FSM, a stack gives you a PDA, read/write memory gives you a TM.
+
+#### Environments
+
+An environment is a task that the agent tries to solve. It gives the agent an observation (the problem), the agent produces an answer, and the environment scores it (reward). Reset starts a new task, step takes the agent's answer and returns the next observation, a reward, and whether it's done.
+
+#### Tools
+
+Currently tools are implemented in the standard way per [Mistral function calling](https://docs.mistral.ai/capabilities/function_calling).
 
 ---
