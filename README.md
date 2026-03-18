@@ -13,6 +13,8 @@
 <img src="assets/demo_t2f.gif" alt="terminal2F Demo" width="800">
 </p>
 
+**[How To Run](#how-to-run)** · **[What is this](#what-is-this)** · **[Research Harness](#research-harness)** · **[Primitives](#primitives)**
+
 ---
 
 ## How To Run
