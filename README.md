@@ -83,45 +83,56 @@ In the catalog there are two types of entries: **datasets** and **tables**. Data
 The dataset is not storage. It is a workspace, more like a viewer of data. On a new run we DELETE + RECREATE the dataset to get a clean slate. The actual data lives in `.rrd` files on disk. The dataset just tells the viewer what to show.
 
 ```
-Experiment (stable name)
-EXPERIMENT_FAMILY/VERSION
-        |
-        |  many
-        v
-runs (table)
-run_id (ULID), started_at, ended_at
-        |
-        |  many rows per run
-        v
-episodes (table)
-run_id, episode_id, layer (variant)
-total_return, steps, done
-        |
-        |  points to immutable artifacts
-        v
-Artifacts (.rrd)
-logs/storage/recordings/<exp>/<version>/runs/
-  <run_id>/
-    <layer>/
-      <episode_id>.rrd
+┌─────────────────────────────────────┐
+│  Experiment (stable name)           │
+│  EXPERIMENT_FAMILY/VERSION          │
+└──────────────┬──────────────────────┘
+               │
+               │  many
+               v
+┌─────────────────────────────────────┐
+│  runs (table)                       │
+│  run_id (ULID), started_at, ended_at│
+└──────────────┬──────────────────────┘
+               │
+               │  many rows per run
+               v
+┌─────────────────────────────────────┐
+│  episodes (table)                   │
+│  run_id, episode_id, layer (variant)│
+│  total_return, steps, done          │
+└──────────────┬──────────────────────┘
+               │
+               │  points to immutable artifacts
+               v
+┌─────────────────────────────────────┐
+│  Artifacts (.rrd files on disk)     │
+│                                     │
+│  logs/storage/recordings/           │
+│    <exp>/<version>/runs/            │
+│      <run_id>/                      │
+│        <layer>/                     │
+│          <episode_id>.rrd           │
+└─────────────────────────────────────┘
 
 
-Dataset: EXPERIMENT (workspace / "current view")
-  segment_id = episode_id
-  layer      = variant (loop/fsm/pda/...)
-  slot points to whichever .rrd you most recently
-  registered for that (episode_id, variant)
-
-  On new run: DELETE + RECREATE dataset to avoid stale leftovers.
-
-  Problem (segment_id = episode_1)
-   ├── loop  (layer)  -> episode_1.rrd
-   ├── fsm   (layer)  -> episode_1.rrd
-   └── pda   (layer)  -> episode_1.rrd
-
-  Problem (segment_id = episode_2)
-   ├── loop  (layer)  -> episode_2.rrd
-   └── ...
+┌─────────────────────────────────────────────────┐
+│  Dataset: EXPERIMENT (workspace / viewer)        │
+│                                                  │
+│  segment_id = episode_id                         │
+│  layer      = variant (loop/fsm/pda/...)         │
+│                                                  │
+│  On new run: DELETE + RECREATE to start clean.   │
+│                                                  │
+│  Problem (segment = episode_1)                   │
+│   ├── loop  (layer)  -> episode_1.rrd            │
+│   ├── fsm   (layer)  -> episode_1.rrd            │
+│   └── pda   (layer)  -> episode_1.rrd            │
+│                                                  │
+│  Problem (segment = episode_2)                   │
+│   ├── loop  (layer)  -> episode_2.rrd            │
+│   └── ...                                        │
+└─────────────────────────────────────────────────┘
 ```
 
 ---
