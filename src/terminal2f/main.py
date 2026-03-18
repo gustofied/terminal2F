@@ -43,7 +43,6 @@ t2f_agent = Agent(
 )
 
 
-
 class Policy:
     def __init__(self, name: str, agent, tools: list | None = None, automaton=LOOP):
         self.name = name
@@ -55,10 +54,13 @@ POLICIES = [
     Policy("loop", agent=t2f_agent, tools=[t2f_tool], automaton=LOOP),
     Policy("fsm", agent=t2f_agent, tools=[t2f_tool], automaton=FSM),
     Policy("pda", agent=t2f_agent, tools=[t2f_tool], automaton=PDA),
+    # Policy("lba", agent=t2f_agent, tools=[t2f_tool], automaton=LBA),
+    # Policy("tm", agent=t2f_agent, tools=[t2f_tool], automaton=TM),
 ]
 
 
 app = typer.Typer()
+
 
 
 RERUN_PORT = 5555

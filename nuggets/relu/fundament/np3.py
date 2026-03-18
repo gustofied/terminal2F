@@ -1,4 +1,4 @@
 # sum axis = 1
-# [:, None]
+# [:, None] adds an axis
 # np.where
 # np.matmul
