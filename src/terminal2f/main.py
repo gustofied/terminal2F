@@ -25,7 +25,7 @@ from terminal2f.run import Run
 setup_logging(str(Path(__file__).parent / "logging" / "config.json"))
 log = logging.getLogger(__name__)
 
-# config this — experiment-specific, moves to experiments/ later
+# config this in the future.
 EXPERIMENT_FAMILY = "TOOLS_VS_NOTOOLS"
 VERSION_ID = "v1"
 EXPERIMENT = f"{EXPERIMENT_FAMILY}/{VERSION_ID}"
@@ -42,7 +42,7 @@ t2f_agent = Agent(
     tools=[t2f_tool],
 )
 
-# --- Policies ---
+
 
 class Policy:
     def __init__(self, name: str, agent, tools: list | None = None, automaton=LOOP):
@@ -61,8 +61,6 @@ POLICIES = [
 
 
 app = typer.Typer()
-eval_app = typer.Typer(help="Eval tools.")
-app.add_typer(eval_app, name="eval")
 
 
 RERUN_PORT = 5555
