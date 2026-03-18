@@ -31,7 +31,7 @@ class QuestionEnv:
         return obs, reward, done
 
 
-def env_response(*, env, policy, episode: str) -> tuple[float, int, bool]:
+def rollout(*, env, policy, episode: str) -> tuple[float, int, bool]:
     """Run the agent-env interaction loop."""
     obs = env.reset()
 

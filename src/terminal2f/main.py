@@ -15,7 +15,7 @@ from terminal2f.tools import t2f_tool
 from terminal2f.memory import Memory
 from terminal2f.automata import FSM, LOOP, PDA, LBA, TM
 from terminal2f.systems import Clock
-from terminal2f.envs import QuestionEnv, QUESTIONS, env_response
+from terminal2f.envs import QuestionEnv, QUESTIONS, rollout
 from terminal2f.datamodel import (
     RUNS_SCHEMA, EPISODES_SCHEMA,
     recordings_path, init_dataset, get_or_make_table, load_run_into_dataset,
@@ -98,7 +98,7 @@ def record(num_episodes: int = 10):
         with Run(experiment_family=EXPERIMENT_FAMILY, version_id=VERSION_ID, recordings_root=RECORDINGS, runs_table=runs_table, episodes_table=episodes_table, policies=POLICIES, num_episodes=num_episodes) as run:
             for episode_id, policy in run:   # TODO: __iter__ could yield a Task dataclass (episode_id, seed, policy, prompt, ground_truth, etc.) when real benchmark tasks define the shape
                 with run.episode(episode_id, layer=policy.name) as episode:
-                    total_return, steps, done = env_response(env=QuestionEnv(QUESTIONS), policy=policy, episode=episode)
+                    total_return, steps, done = rollout(env=QuestionEnv(QUESTIONS), policy=policy, episode=episode)
                     run.log_metrics(episode_id=episode_id, layer=policy.name, total_return=total_return, steps=steps, done=done)
         try:
             while True:
