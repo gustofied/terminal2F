@@ -73,3 +73,55 @@ An environment is a task that the agent tries to solve. It gives the agent an ob
 Currently tools are implemented in the standard way per [Mistral function calling](https://docs.mistral.ai/capabilities/function_calling).
 
 ---
+
+## Data Model
+
+terminal2F uses Rerun's [data platform](https://rerun.io/docs/concepts/query-and-transform/catalog-object-model), a DataFusion-based platform where data is served via the redap protocol (Rerun Data Protocol). The top level is the catalog, which maps to our experiments.
+
+In the catalog there are two types of entries: **datasets** and **tables**. Datasets hold the recordings from experiments. Tables hold metrics (runs metadata, episode scores, etc).
+
+The dataset is not storage. It is a workspace, more like a viewer of data. On a new run we DELETE + RECREATE the dataset to get a clean slate. The actual data lives in `.rrd` files on disk. The dataset just tells the viewer what to show.
+
+```
+Experiment (stable name)
+EXPERIMENT_FAMILY/VERSION
+        |
+        |  many
+        v
+runs (table)
+run_id (ULID), started_at, ended_at
+        |
+        |  many rows per run
+        v
+episodes (table)
+run_id, episode_id, layer (variant)
+total_return, steps, done
+        |
+        |  points to immutable artifacts
+        v
+Artifacts (.rrd)
+logs/storage/recordings/<exp>/<version>/runs/
+  <run_id>/
+    <layer>/
+      <episode_id>.rrd
+
+
+Dataset: EXPERIMENT (workspace / "current view")
+  segment_id = episode_id
+  layer      = variant (loop/fsm/pda/...)
+  slot points to whichever .rrd you most recently
+  registered for that (episode_id, variant)
+
+  On new run: DELETE + RECREATE dataset to avoid stale leftovers.
+
+  Problem (segment_id = episode_1)
+   ├── loop  (layer)  -> episode_1.rrd
+   ├── fsm   (layer)  -> episode_1.rrd
+   └── pda   (layer)  -> episode_1.rrd
+
+  Problem (segment_id = episode_2)
+   ├── loop  (layer)  -> episode_2.rrd
+   └── ...
+```
+
+---
