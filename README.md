@@ -56,6 +56,10 @@ A Clock is the execution environment for N agents on a shared clock. One root ag
 
 There are three layers of memory: raw messages (for the typical agent loop), a typed interaction stack (for the state machine runners), and an object store (long-term artifacts, TM-level). What gets used and how is up to the automaton. The memory architecture is what determines the agent's computational power: bounded context gives you an FSM, a stack gives you a PDA, read/write memory gives you a TM.
 
+#### Environments
+
+An environment is a task that the agent tries to solve. It gives the agent an observation (the problem), the agent produces an answer, and the environment scores it (reward). Reset starts a new task, step takes the agent's answer and returns the next observation, a reward, and whether it's done.
+
 #### Tools
 
 Currently tools are implemented in the standard way per [Mistral function calling](https://docs.mistral.ai/capabilities/function_calling).
