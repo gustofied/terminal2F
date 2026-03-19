@@ -54,7 +54,7 @@ class Run:
             end=self.end,
         )
 
-    def log_metrics(self, *, episode_id: str, layer: str, total_return: float, steps: int, done: bool):
+    def log_metrics(self, *, episode_id: str, layer: str, total_return: float, steps: int, done: bool, **extra):
         self.episodes_table.append(
             experiment_family=self.experiment_family,
             version_id=self.version_id,
@@ -64,6 +64,7 @@ class Run:
             total_return=float(total_return),
             steps=int(steps),
             done=bool(done),
+            **extra,
         )
 
     @contextmanager

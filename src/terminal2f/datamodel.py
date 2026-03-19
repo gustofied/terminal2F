@@ -24,16 +24,23 @@ EPISODES_SCHEMA: pa.Schema = pa.schema(
         ("version_id", pa.string()),
         ("run_id", pa.string()),
         ("episode_id", pa.string()),
-        ("layer", pa.string()),  # variant name ("A"/"B"/etc)
+        ("layer", pa.string()),
         ("total_return", pa.float64()),
         ("steps", pa.int64()),
         ("done", pa.bool_()),
+        ("final_confidence", pa.float64()),
+        ("final_entropy", pa.float64()),
+        ("total_cost", pa.float64()),
+        ("true_hypothesis", pa.string()),
+        ("chosen_hypothesis", pa.string()),
+        ("correct", pa.bool_()),
     ]
 )
 
 # Paths
 
-LOGS_DIR = Path("logs")
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+LOGS_DIR = PROJECT_ROOT / "logs"
 TABLES_DIR = LOGS_DIR / "tables"
 STORAGE_DIR = LOGS_DIR / "storage"
 # in the future RECORDINGS_ROOT = "s3://my-bucket/terminal2f/recordings"
@@ -69,8 +76,11 @@ def get_or_make_table(
     try:
         return client.get_table(name=name)
     except LookupError:
-        if any(path.iterdir()):
-            client.register_table(name=name, url=url)
+        subdirs = [d for d in path.iterdir() if d.is_dir()] if path.exists() else []
+        if subdirs:
+            # create_table stores lance data in a UUID subdirectory
+            lance_url = subdirs[0].absolute().as_uri()
+            client.register_table(name=name, url=lance_url)
         else:
             client.create_table(name=name, schema=schema, url=url)
         return client.get_table(name=name)

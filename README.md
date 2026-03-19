@@ -22,16 +22,25 @@
 ## How To Run
 
 ```bash
-# Interactive chat (default loop runner)
-t2f chat
+# Interactive chat
+t2f chat                                          # default loop runner
+t2f chat --automaton fsm                          # or pda, tm, lba
 
-# Chat with a specific automaton/runner
-t2f chat --automaton fsm    # or pda, tm, lba
+# Run experiments
+t2f serve record                                  # automata experiment
+t2f serve record --experiment bayesian            # bayesian controller experiment
+t2f serve record --experiment bayesian --num-episodes 3
 
-# Start Rerun observability server
-t2f serve record             # run experiment, write .rrd files
-t2f serve load <run_id>      # load existing run into viewer
-t2f serve live               # stream to viewer in real-time (stub)
+# Browse experiments
+t2f serve load
+t2f serve load --experiment bayesian
+
+# Load a specific experiment run
+t2f serve load <run_id>
+t2f serve load <run_id> --experiment bayesian
+
+# Then connect the viewer
+rerun --connect 127.0.0.1:5555
 ```
 
 Requires `MISTRAL_API_KEY` in your `.env`. The `t2f` command is available after installing the package. Switch automaton during chat with `/automaton <name>`. Exit with `/q` or `quit`.

@@ -13,3 +13,4 @@ plt.plot(x.detach(), y.detach(), label='y')
 plt.plot(x.detach(), dydx, label='dy/dx')
 plt.legend()
 plt.show()
+
