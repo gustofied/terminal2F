@@ -752,6 +752,21 @@ CUDA_VISIBLE_DEVICES=<span style="color:#6c71c4">1</span> <span style="color:#26
 
 <h3 id="s-learnings"><span class="num">V</span>Learnings</h3>
 
+<p><b>transformers 5.x breaks vLLM.</b> vLLM 0.10.x calls <code>tokenizer.all_special_tokens_extended</code>, which was removed in transformers 5.x. vLLM crashes on startup with <code>AttributeError: Qwen2Tokenizer has no attribute all_special_tokens_extended</code>. Fix: pin <code>transformers&gt;=4.45,&lt;5</code> for the vLLM process. But installing t2f-trainer pulls in transformers 5.x again, so the pin gets undone. The cleanest workaround is to downgrade after the t2f-trainer install: <code>uv pip install 'transformers&gt;=4.45,&lt;5'</code>. The trainer itself works fine on 4.x.</p>
+
+<p><b>verifiers version matters.</b> <code>verifiers==0.1.11</code> changed <code>resolve_client()</code> and rejects <code>AsyncOpenAI</code> as a client type, which is what the orchestrator passes. The error is <code>ValueError: Unsupported client type: &lt;class 'openai.AsyncOpenAI'&gt;</code>. Fix: pin <code>verifiers==0.1.10</code>. This will likely be resolved in a future verifiers release.</p>
+
+<p><b>Two SSH sessions can land in different containers.</b> On RunPod (and similar providers), each SSH connection may get its own container instance. vLLM running in one container is unreachable from the trainer in another. Symptoms: <code>Connection error: All connection attempts failed</code> even though vLLM shows <code>Application startup complete</code>. Fix: install tmux on the remote (<code>apt-get update && apt-get install -y tmux</code>) and run both processes from the same session, or use <code>t2f-rl</code> which handles this by launching both in a single remote tmux.</p>
+
+<p><b>OOM on A6000 48GB with micro_batch_size=16.</b> Even a 0.6B model with LoRA can OOM during the training step if the micro batch is too large. The forward pass on the trainer side materializes the full sequence × vocab logits tensor. Fix: drop <code>micro_batch_size</code> to 4 or 8. Generation batch size (controlled by <code>batch_size</code> and <code>rollouts_per_example</code>) is separate and can stay large.</p>
+
+<p><b>wandb env var not picked up in remote tmux.</b> Exporting <code>WANDB_API_KEY</code> in one shell does not carry into tmux panes launched by <code>t2f-rl</code>. The trainer prompts interactively for login. Fix: run <code>wandb login</code> before starting training so the key is saved to <code>~/.netrc</code>.</p>
+
+<p><b>HF token needs write access.</b> <code>push_to_hub</code> requires a HuggingFace token with write permissions. Read-only tokens fail with <code>401 Unauthorized</code> on repo creation. Generate a write token at <a href="https://huggingface.co/settings/tokens">huggingface.co/settings/tokens</a>.</p>
+
+<p><b>hatchling and editables for --no-build-isolation.</b> When using <code>--no-build-isolation</code> (needed because flash-attn requires torch at build time), the build backend (<code>hatchling</code>) must be in the venv. For editable installs (<code>-e</code>), <code>editables</code> is also needed. Install both before the main install: <code>uv pip install hatchling editables</code>.</p>
+
+<p><b>vllm_server_host default.</b> The trainer config defaults to <code>vllm_server_host = "0.0.0.0"</code>, which is a bind address, not a connect address. In some container setups this fails to connect. Setting <code>vllm_server_host = "127.0.0.1"</code> in the TOML config fixes it.</p>
 
 <div class="colophon">
   <p>END-TO-END</p>
