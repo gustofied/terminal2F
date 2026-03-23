@@ -1968,6 +1968,54 @@ CC/BCC overlap:           0</code></pre>
       <tr><td>Trained 0.6B</td><td class="mono">760 chars</td><td class="mono">181 chars</td><td class="mono">81%</td></tr>
     </table>
 
+    <p><b>Reasoning about the results.</b></p>
+
+    <p>
+      The single-turn result (0.710 on unseen data, beating GPT-4.1-mini at 0.486) is strong, but what matters more is understanding <em>what</em> the model learned and what it did not. Three things stand out.
+    </p>
+
+    <p>
+      First, the model learned To/CC distinction — the core skill the environment was designed to train. GPT defaults to "everyone in To," which is a safe general-purpose heuristic but wrong for this task. The trained model learned that To means "action owner" and CC means "kept in the loop," and it applies this consistently. This is a genuine capability that emerged from the reward signal, not from memorization. The test set has examples the model never saw, and it still makes the right distinction.
+    </p>
+
+    <p>
+      Second, the model learned conciseness without being explicitly rewarded for it. Thinking tokens dropped 5x. This is an emergent effect of GRPO: shorter completions leave less room for the model to drift or second-guess itself, and the reward only depends on the final JSON. So the optimization pressure implicitly favors directness. This is worth noting because it suggests that RL training can shape behaviors that are not directly in the rubric — a double-edged sword that is useful here but could be harmful in other settings.
+    </p>
+
+    <p>
+      Third, the model did <em>not</em> learn BCC. It abstains entirely (0.036 on the test set) because the rubric makes abstention the reward-maximizing strategy: BCC is weighted at 0.10 and the ground truth is empty 60% of the time. The model is not wrong to do this — it is responding rationally to the incentive structure. If BCC matters, the rubric needs to change. This is a good example of reward shaping limitations: the model does exactly what you reward, which may not be what you want.
+    </p>
+
+    <p>
+      The multi-turn collapse (format drops to 71% on turn 3) is the most actionable finding. The model was never trained on multi-turn, so it is unsurprising, but it means the current checkpoint cannot be deployed as-is for multi-turn scenarios. The fix is straightforward: Phase B (SFT on ground-truth multi-turn conversations) would teach the model to maintain format across turns, and Phase C (multi-turn GRPO) would then optimize placement on turns 2 and 3.
+    </p>
+
+    <p><b>Possible future directions.</b></p>
+
+    <p>
+      <b>Phase B + C.</b> SFT on the dataset's ground-truth answers (full 3-turn conversations with clean JSON) to teach format persistence, then GRPO on max_turns=2 and 3. The single-turn placement quality should transfer, and multi-turn format should be learnable from supervised examples.
+    </p>
+
+    <p>
+      <b>BCC reward redesign.</b> The current rubric makes BCC abstention optimal. To actually train BCC prediction, either upweight it significantly (e.g. 0.30) or add a separate binary reward for "correctly predicted non-empty BCC when ground truth is non-empty." The model needs a strong enough signal that attempting BCC is worth the risk of getting it wrong.
+    </p>
+
+    <p>
+      <b>To/CC swap analysis.</b> The remaining failures are all To/CC swaps. This might be fixable by adjusting the data: making the "primary action owner" even more explicit in the email text, or adding a dedicated reward for "is the To person the one being directly tasked in the email." The current Jaccard reward treats all placement errors equally — a more targeted signal might help.
+    </p>
+
+    <p>
+      <b>Larger models.</b> The 0.6B model hit 0.710 on single-turn. What would a 3B or 8B model achieve with the same training? The base Qwen3-8B already scores 0.429 without training. GRPO on a larger model might push toward 0.9+, especially if the remaining errors (To/CC swap) require deeper reasoning about email context.
+    </p>
+
+    <p>
+      <b>Reasoning mode.</b> We never tested disabling <code>&lt;think&gt;</code> blocks. The trained model still uses them (81% of response), just shorter. A non-reasoning variant might be even more concise and potentially better — or it might lose the placement quality that comes from reasoning through roles and relationships. Worth a comparison.
+    </p>
+
+    <p>
+      <b>Cross-environment transfer.</b> Does the format compliance and conciseness transfer to other verifiers environments? If the model learned "always output clean JSON" as a general behavior, it might score better out of the box on environments like alphabet-sort or SQL-from-context that also require structured output.
+    </p>
+
     <h3 id="s-learnings"><span class="num">VII</span>Learnings</h3>
 
     <p>
