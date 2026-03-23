@@ -646,13 +646,20 @@ source .venv/bin/activate</code></pre>
 
 <p><b><code>verifiers==0.1.10</code></b> because 0.1.11 changed <code>resolve_client()</code> and rejects the <code>AsyncOpenAI</code> client that the orchestrator originally passed. t2f-trainer has been updated to use <code>ClientConfig</code> instead, which should work with 0.1.11+. If you are using the updated t2f-trainer, try dropping this pin. If rollouts fail with <code>ValueError: Unsupported client type</code>, add it back.</p>
 
-<p><b>flash-attn</b> is commented out in t2f-trainer's <code>pyproject.toml</code> by default. It is a CUDA C++ library that compiles from source against your exact torch + CUDA versions (~15 min). For small models with <code>enforce_eager = true</code>, it is not needed. If you want it (larger models, long sequences), uncomment it and add <code>MAX_JOBS=4</code> to prevent OOM during compilation:</p>
+<p><b>flash-attn</b> is commented out in t2f-trainer's <code>pyproject.toml</code> by default. It is a CUDA C++ library that compiles from source against your exact torch + CUDA versions (~15 min). For small models with <code>enforce_eager = true</code>, it is not needed. For larger models it matters — 2-3x faster attention, O(n) memory instead of O(n²).</p>
+
+<p>If you need flash-attn, the cleanest path is to grab a <a href="https://github.com/Dao-AILab/flash-attention/releases">pre-built wheel from Dao-AILab's releases</a> that matches your torch + CUDA version. If a matching wheel exists, install is instant. If not, you fall back to source compilation:</p>
 
 <div class="code-block">
   <span class="code-lang">shell</span>
-  <pre><code><span style="color:#586E75"># only if you uncommented flash-attn in pyproject.toml</span>
-MAX_JOBS=<span style="color:#6c71c4">4</span> <span style="color:#268bd2">uv pip install</span> ./t2f-trainer --no-build-isolation</code></pre>
+  <pre><code><span style="color:#586E75"># option 1: pre-built wheel (check releases for your torch + CUDA)</span>
+<span style="color:#268bd2">uv pip install</span> flash-attn
+
+<span style="color:#586E75"># option 2: compile from source (~15 min)</span>
+MAX_JOBS=<span style="color:#6c71c4">4</span> <span style="color:#268bd2">uv pip install</span> flash-attn --no-build-isolation</code></pre>
 </div>
+
+<p>Using a Docker image (NVIDIA NGC, RunPod templates) that comes with flash-attn pre-installed avoids this entirely. TODO: check if matching a specific torch version to available flash-attn wheels is a faster path than compiling.</p>
 
 <h4><span class="sub">f</span>Install extras</h4>
 
