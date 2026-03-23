@@ -1878,6 +1878,96 @@ CC/BCC overlap:           0</code></pre>
       <b>Key takeaway:</b> the improvement is real and holds on unseen examples. Phase A (single-turn GRPO) achieved what it set out to do. The natural next step is Phase B: SFT on multi-turn ground truth to fix the format collapse, followed by Phase C: multi-turn GRPO to push placement quality on turns 2 and 3.
     </p>
 
+    <p><b>Deeper analysis.</b></p>
+
+    <p><b>Reward distribution (single-turn).</b> The trained model is right-skewed: 43% of rollouts score above 0.8, and only 2% score below 0.2. GPT-4.1-mini is more uniformly spread with a concentration at 0.2–0.4 (43%). The base model is stuck left: 95% of rollouts score below 0.4.</p>
+
+    <!-- reward distribution chart -->
+    <figure style="margin:20px 0; border:1px solid #1a1a1a; padding:16px; background:#fff;">
+      <div style="font-family:'JetBrains Mono',monospace; font-size:7px; color:#aaa; letter-spacing:1px; text-transform:uppercase; margin-bottom:12px;">Reward distribution — single-turn test set (150 rollouts each)</div>
+      <svg viewBox="0 0 600 200" style="width:100%;height:auto;display:block;font-family:'JetBrains Mono',monospace;">
+        <!-- axes -->
+        <line x1="80" y1="180" x2="580" y2="180" stroke="#1a1a1a" stroke-width="0.5"/>
+        <line x1="80" y1="10" x2="80" y2="180" stroke="#1a1a1a" stroke-width="0.5"/>
+        <!-- x labels -->
+        <text x="130" y="195" font-size="7" fill="#999" text-anchor="middle">0.0–0.2</text>
+        <text x="230" y="195" font-size="7" fill="#999" text-anchor="middle">0.2–0.4</text>
+        <text x="330" y="195" font-size="7" fill="#999" text-anchor="middle">0.4–0.6</text>
+        <text x="430" y="195" font-size="7" fill="#999" text-anchor="middle">0.6–0.8</text>
+        <text x="530" y="195" font-size="7" fill="#999" text-anchor="middle">0.8–1.0</text>
+        <!-- y grid -->
+        <line x1="80" y1="95" x2="580" y2="95" stroke="#f0efeb" stroke-width="0.3" stroke-dasharray="2,2"/>
+        <text x="76" y="98" font-size="6" fill="#bbb" text-anchor="end">50%</text>
+
+        <!-- Base 0.6B (light grey) -->
+        <rect x="100" y="103" width="22" height="77" fill="#ddd"/>
+        <rect x="200" y="95" width="22" height="85" fill="#ddd"/>
+        <rect x="300" y="173" width="22" height="7" fill="#ddd"/>
+        <rect x="400" y="177" width="22" height="3" fill="#ddd"/>
+        <rect x="500" y="180" width="22" height="0" fill="#ddd"/>
+
+        <!-- GPT-4.1-mini (medium grey) -->
+        <rect x="126" y="163" width="22" height="17" fill="#888"/>
+        <rect x="226" y="107" width="22" height="73" fill="#888"/>
+        <rect x="326" y="161" width="22" height="19" fill="#888"/>
+        <rect x="426" y="165" width="22" height="15" fill="#888"/>
+        <rect x="526" y="134" width="22" height="46" fill="#888"/>
+
+        <!-- Trained 0.6B (black) -->
+        <rect x="152" y="177" width="22" height="3" fill="#1a1a1a"/>
+        <rect x="252" y="163" width="22" height="17" fill="#1a1a1a"/>
+        <rect x="352" y="163" width="22" height="17" fill="#1a1a1a"/>
+        <rect x="452" y="121" width="22" height="59" fill="#1a1a1a"/>
+        <rect x="552" y="107" width="22" height="73" fill="#1a1a1a"/>
+
+        <!-- legend -->
+        <rect x="90" y="12" width="10" height="8" fill="#ddd"/>
+        <text x="104" y="19" font-size="7" fill="#999">Base 0.6B</text>
+        <rect x="170" y="12" width="10" height="8" fill="#888"/>
+        <text x="184" y="19" font-size="7" fill="#888">GPT-4.1-mini</text>
+        <rect x="260" y="12" width="10" height="8" fill="#1a1a1a"/>
+        <text x="274" y="19" font-size="7" fill="#1a1a1a">Trained 0.6B</text>
+      </svg>
+    </figure>
+
+    <p><b>Failure patterns.</b> Every trained model failure (reward &lt; 0.3) follows the same pattern: <b>To/CC swap</b>. The model identifies the right people but places the action owner in CC and a stakeholder in To. The right people are in the email — they are just in the wrong fields. This is the "reply-to bias" the base model also has, partially trained out but not fully eliminated.</p>
+
+    <p>Example (reward 0.200):</p>
+    <table class="ch-table">
+      <tr><th></th><th>Predicted</th><th>Ground truth</th></tr>
+      <tr><td>To</td><td class="mono">cynthia.dickson@initech.com</td><td class="mono">codyjones@initech.com</td></tr>
+      <tr><td>CC</td><td class="mono">codyjones, k.mendez</td><td class="mono">k.mendez, p.sullivan, cynthia.dickson</td></tr>
+      <tr><td>BCC</td><td class="mono">p.sullivan</td><td class="mono">(empty)</td></tr>
+    </table>
+    <p>The model knows all the relevant people but puts the To person in CC and a CC person in To. It also hallucinates BCC where there should be none.</p>
+
+    <p><b>Where the trained model wins over GPT.</b> GPT-4.1-mini's main failure mode is the <b>"all-in-To" pattern</b>: it dumps everyone into To and leaves CC empty. The trained model learned the distinction. In 6 examples where the trained model scores above 0.9 while GPT scores below 0.5, the pattern is always the same:</p>
+
+    <table class="ch-table">
+      <tr><th></th><th>Trained</th><th>GPT-4.1-mini</th><th>Ground truth</th></tr>
+      <tr>
+        <td>To</td>
+        <td class="mono">ashley_sullivan</td>
+        <td class="mono">ashley_sullivan, a.avila, jamie_williams, c.medina</td>
+        <td class="mono">ashley_sullivan</td>
+      </tr>
+      <tr>
+        <td>CC</td>
+        <td class="mono">a.avila, jamie_williams, c.medina</td>
+        <td class="mono">(empty)</td>
+        <td class="mono">jamie_williams, c.medina, a.avila</td>
+      </tr>
+    </table>
+    <p>The trained model correctly distinguishes "must act" (To) from "kept in the loop" (CC). GPT puts everyone in To because that is the safer default for a general-purpose model. GRPO specifically trained the distinction because the rubric rewards it.</p>
+
+    <p><b>Thinking tokens.</b> The trained model thinks 5x less than the base model. Average <code>&lt;think&gt;</code> block: 760 characters (trained) vs 3844 characters (base). The thinking ratio dropped from 92% to 81% of the total response. GRPO implicitly taught conciseness — shorter thinking means faster generation and more direct output, both of which are indirectly rewarded through the rollout mechanism (shorter completions → less chance of drift, and the reward does not depend on reasoning quality, only on the JSON).</p>
+
+    <table class="ch-table">
+      <tr><th></th><th>Think block</th><th>JSON part</th><th>Think ratio</th></tr>
+      <tr><td>Base 0.6B</td><td class="mono">3844 chars</td><td class="mono">333 chars</td><td class="mono">92%</td></tr>
+      <tr><td>Trained 0.6B</td><td class="mono">760 chars</td><td class="mono">181 chars</td><td class="mono">81%</td></tr>
+    </table>
+
     <h3 id="s-learnings"><span class="num">VII</span>Learnings</h3>
 
     <p>
