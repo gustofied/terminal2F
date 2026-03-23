@@ -644,7 +644,7 @@ source .venv/bin/activate</code></pre>
 
 <p><b><code>transformers&gt;=4.45,&lt;5</code></b> because vLLM 0.10.x calls <code>tokenizer.all_special_tokens_extended</code>, which was removed in transformers 5.x. Without this pin, vLLM crashes on startup. The t2f-trainer install pulls in transformers 5.x by default, so the pin must come after.</p>
 
-<p><b><code>verifiers==0.1.10</code></b> because 0.1.11 changed <code>resolve_client()</code> and rejects the <code>AsyncOpenAI</code> client that the orchestrator passes. Without this pin, all rollouts fail with <code>ValueError: Unsupported client type</code>.</p>
+<p><b><code>verifiers==0.1.10</code></b> because 0.1.11 changed <code>resolve_client()</code> and rejects the <code>AsyncOpenAI</code> client that the orchestrator originally passed. t2f-trainer has been updated to use <code>ClientConfig</code> instead, which should work with 0.1.11+. If you are using the updated t2f-trainer, try dropping this pin. If rollouts fail with <code>ValueError: Unsupported client type</code>, add it back.</p>
 
 <p><b>flash-attn</b> is commented out in t2f-trainer's <code>pyproject.toml</code> by default. It is a CUDA C++ library that compiles from source against your exact torch + CUDA versions (~15 min). For small models with <code>enforce_eager = true</code>, it is not needed. If you want it (larger models, long sequences), uncomment it and add <code>MAX_JOBS=4</code> to prevent OOM during compilation:</p>
 
@@ -712,9 +712,11 @@ hub_model_id = <span style="color:#2aa198">"&lt;your-org&gt;/&lt;model-name&gt;"
 
 <h4><span class="sub">h</span>Start t2f-vllm on GPU 0</h4>
 
+<p>Steps h and i must run in the <b>same container</b>. If you are on a cloud provider like RunPod, each SSH connection may land in a different container. Use tmux on the remote: SSH in once, start <code>tmux</code>, split into two panes, and run vLLM in one and the trainer in the other. Or just use <code>t2f-rl</code> which handles this automatically.</p>
+
 <div class="code-block">
   <span class="code-lang">shell</span>
-  <pre><code><span style="color:#268bd2">export</span> HF_TOKEN=your_token
+  <pre><code><span style="color:#586E75"># on the remote, inside tmux</span>
 CUDA_VISIBLE_DEVICES=<span style="color:#6c71c4">0</span> <span style="color:#268bd2">t2f-vllm</span> --model &lt;model-id&gt; \
   --enforce-eager --disable-log-requests</code></pre>
 </div>
@@ -725,7 +727,7 @@ CUDA_VISIBLE_DEVICES=<span style="color:#6c71c4">0</span> <span style="color:#26
 
 <h4><span class="sub">i</span>Run training on GPU 1</h4>
 
-<p>In a second tmux pane:</p>
+<p>In the other tmux pane (same remote session):</p>
 
 <div class="code-block">
   <span class="code-lang">shell</span>
