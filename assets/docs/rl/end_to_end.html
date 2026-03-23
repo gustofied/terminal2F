@@ -724,10 +724,21 @@ save_strategy = <span style="color:#2aa198">"steps"</span>
 save_steps = <span style="color:#6c71c4">25</span>
 save_only_model = <span style="color:#b58900">true</span>
 push_to_hub = <span style="color:#b58900">true</span>
-hub_model_id = <span style="color:#2aa198">"&lt;your-org&gt;/&lt;model-name&gt;"</span></code></pre>
+hub_model_id = <span style="color:#2aa198">"&lt;your-org&gt;/&lt;model-name&gt;"</span>
+
+<span style="color:#586E75"># checkpoints</span>
+[checkpoints]
+interval = <span style="color:#6c71c4">25</span>              <span style="color:#586E75"># save every N steps</span>
+keep_cloud = <span style="color:#6c71c4">5</span>            <span style="color:#586E75"># retain last N in cloud (-1 for all)</span>
+
+<span style="color:#586E75"># wandb logging — set this or runs end up in the default project</span>
+[wandb]
+project = <span style="color:#2aa198">"&lt;project-name&gt;"</span>
+name = <span style="color:#2aa198">"&lt;run-name&gt;"</span>
+entity = <span style="color:#2aa198">"&lt;team-or-username&gt;"</span></code></pre>
 </div>
 
-<p>Top-level <code>model</code> applies to both inference and trainer. GPU counts are split sequentially: inference gets GPU 0, trainer gets GPU 1. <code>vllm_server_host</code> defaults to <code>0.0.0.0</code> which can fail as a connect address in some container setups — <code>127.0.0.1</code> is safer. <code>micro_batch_size</code> controls how many sequences the trainer processes per gradient accumulation step — 16 OOMs on A6000 48GB even with a 0.6B model because the forward pass materializes the full sequence × vocab logits tensor.</p>
+<p>Top-level <code>model</code> applies to both inference and trainer. GPU counts are split sequentially: inference gets GPU 0, trainer gets GPU 1. <code>vllm_server_host</code> defaults to <code>0.0.0.0</code> which can fail as a connect address in some container setups — <code>127.0.0.1</code> is safer. <code>micro_batch_size</code> controls how many sequences the trainer processes per gradient accumulation step — 16 OOMs on A6000 48GB even with a 0.6B model because the forward pass materializes the full sequence x vocab logits tensor. Without the <code>[wandb]</code> section, training metrics get logged to the default wandb project, which can mix runs from different experiments.</p>
 
 <h4><span class="sub">h</span>Start t2f-vllm on GPU 0</h4>
 
@@ -792,6 +803,57 @@ CUDA_VISIBLE_DEVICES=<span style="color:#6c71c4">1</span> <span style="color:#26
     <td>Back to 3 with updated weights</td>
   </tr>
 </table>
+
+<h4><span class="sub">k</span>Reading the training run</h4>
+
+<p>After training starts, wandb logs ~23 metrics per step. The easiest way to read the run is to group them by question rather than by metric name. No single chart is decisive; read them together.</p>
+
+<p><b>1. Is the model learning the task?</b></p>
+
+<table class="ch-table">
+  <tr><th>Metric</th><th>What it tells you</th><th>Good sign</th><th>Bad sign</th></tr>
+  <tr><td class="mono">train/reward</td><td>Overall reward; the headline training objective</td><td>Steady rise</td><td>Flat or collapsing</td></tr>
+  <tr><td class="mono">train/reward/&lt;field&gt;</td><td>Per-rubric-function scores; environment-specific</td><td>The hard task metrics are rising, not just the easy ones</td><td>Reward rises while main task metrics stay flat (scaffold dominance or reward hacking)</td></tr>
+  <tr><td class="mono">train/reward/std</td><td>Reward variance across rollouts in the batch</td><td>Moderate early/mid, settling later</td><td>Near zero from the start (no ranking signal for GRPO)</td></tr>
+</table>
+
+<p><b>2. Is RL optimization stable?</b></p>
+
+<table class="ch-table">
+  <tr><th>Metric</th><th>What it tells you</th><th>Good sign</th><th>Bad sign</th></tr>
+  <tr><td class="mono">train/importance_ratio</td><td>How far the updated policy moved from the rollout policy</td><td>Stays near 1.0</td><td>Swings far from 1 (updates too aggressive)</td></tr>
+  <tr><td class="mono">train/mismatch_kl</td><td>Divergence from the reference policy</td><td>Rises gradually and stays small</td><td>Sharp spikes or runaway growth (policy drifting too fast)</td></tr>
+  <tr><td class="mono">train/loss</td><td>The GRPO surrogate objective, not the task itself</td><td>Drops early, oscillates near 0</td><td>Not very meaningful on its own; interpret with reward, KL, and ratio</td></tr>
+  <tr><td class="mono">train/grad_norm</td><td>Gradient magnitude</td><td>Moderate, stable band</td><td>Exploding upward or collapsing toward zero</td></tr>
+  <tr><td class="mono">train/advantage/absmean</td><td>How much within-group signal GRPO has</td><td>Nonzero throughout</td><td>Near zero (no contrast between better and worse rollouts)</td></tr>
+</table>
+
+<p><b>3. Is the policy sharpening in a healthy way?</b></p>
+
+<table class="ch-table">
+  <tr><th>Metric</th><th>What it tells you</th><th>Good sign</th><th>Bad sign</th></tr>
+  <tr><td class="mono">train/entropy</td><td>How random or confident the policy is</td><td>Gradual decline while reward rises</td><td>Early collapse while reward stalls (premature mode collapse)</td></tr>
+  <tr><td class="mono">train/tokens/completion</td><td>Average completion length</td><td>Declining when the task rewards concise output</td><td>Exploding (rambling) or collapsing to near zero (degenerate)</td></tr>
+</table>
+
+<p><b>4. Is the run getting faster or slower?</b></p>
+
+<table class="ch-table">
+  <tr><th>Metric</th><th>What it tells you</th><th>Good sign</th><th>Bad sign</th></tr>
+  <tr><td class="mono">train/wall_clock/generate_s</td><td>Seconds per batch for rollout generation</td><td>Declining, often because completions get shorter</td><td>Rising steadily without obvious reason</td></tr>
+  <tr><td class="mono">train/timing/total_ms</td><td>Total time per step</td><td>Roughly follows generation time</td><td>Increasing while completions are short (infra bottleneck)</td></tr>
+  <tr><td class="mono">train/timing/scoring_ms</td><td>Time spent scoring rollouts</td><td>Small and stable</td><td>Repeated spikes (scorer bug or pathological outputs)</td></tr>
+</table>
+
+<p><b>Common failure modes.</b></p>
+<ul style="margin:4px 0 12px 20px; font-size:13.5px; line-height:1.7;">
+  <li>Reward up, task metrics flat: reward hacking or scaffold dominance</li>
+  <li>Reward flat, KL rising: policy drifting without learning</li>
+  <li>Entropy crash, reward stall: mode collapse</li>
+  <li>reward/std near zero from step 1: weak GRPO ranking signal</li>
+</ul>
+
+<p><b>First-pass checklist.</b> Look at these first: <code>train/reward</code>, your main <code>train/reward/&lt;field&gt;</code> metrics, <code>train/importance_ratio</code>, <code>train/mismatch_kl</code>, <code>train/entropy</code>, <code>train/tokens/completion</code>. A run is usually healthy when reward is rising, the hard task metrics are improving (not just scaffold terms), importance ratio stays near 1, KL rises gradually, entropy declines without collapsing, and completion length moves in the direction the task wants. No single metric decides; read them in combination.</p>
 
 <h3 id="s-learnings"><span class="num">V</span>Learnings</h3>
 
