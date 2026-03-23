@@ -481,14 +481,26 @@
 mkdir -p &lt;project&gt; &amp;&amp; cd &lt;project&gt;</code></pre>
 </div>
 
-<h4><span class="sub">b</span>Install uv and create venv</h4>
+<h4><span class="sub">b</span>Install uv, tmux, and create venv</h4>
 
 <div class="code-block">
   <span class="code-lang">shell</span>
-  <pre><code>curl -LsSf https://astral.sh/uv/install.sh | sh
+  <pre><code><span style="color:#586E75"># tmux keeps processes alive when SSH drops</span>
+apt-get update &amp;&amp; apt-get install -y tmux
+
+curl -LsSf https://astral.sh/uv/install.sh | sh
 export PATH="$HOME/.local/bin:$PATH"
 <span style="color:#268bd2">uv venv</span>
 source .venv/bin/activate</code></pre>
+</div>
+
+<p>Optionally, scp a tmux config to make the remote tmux more comfortable (mouse scrolling, <code>ctrl+a</code> prefix so it does not conflict with local tmux):</p>
+
+<div class="code-block">
+  <span class="code-lang">shell (local)</span>
+  <pre><code><span style="color:#268bd2">scp</span> -P &lt;port&gt; -i ~/.ssh/primeintellect_ed25519 \
+  ~/projects/terminal2F/configs/remote/.tmux.conf \
+  root@&lt;ip&gt;:~/.tmux.conf</code></pre>
 </div>
 
 <h4><span class="sub">c</span>Install vLLM</h4>
@@ -507,10 +519,24 @@ source .venv/bin/activate</code></pre>
 
 <div class="code-block">
   <span class="code-lang">shell</span>
-  <pre><code><span style="color:#268bd2">vllm serve</span> &lt;model-id&gt; --enforce-eager</code></pre>
+  <pre><code><span style="color:#586E75"># base model (no fine-tuning)</span>
+<span style="color:#268bd2">vllm serve</span> &lt;model-id&gt; --enforce-eager
+
+<span style="color:#586E75"># if trained with LoRA: serve base model + adapter</span>
+<span style="color:#268bd2">vllm serve</span> &lt;base-model-id&gt; --enforce-eager \
+  --enable-lora \
+  --lora-modules trained=&lt;adapter-hub-id&gt;
+
+<span style="color:#586E75"># merged model or local path: use --served-model-name for a clean label</span>
+<span style="color:#268bd2">vllm serve</span> /path/to/merged-model --enforce-eager \
+  --served-model-name &lt;clean-name&gt;</code></pre>
 </div>
 
 <p>Starts an OpenAI-compatible API on <code>http://localhost:8000</code>. Wait for <code>Application startup complete</code> before running evals. <code>--enforce-eager</code> skips Triton graph compilation, which can fail on newer CUDA versions (13.0+). Slightly slower inference but avoids setup headaches.</p>
+
+<p><code>--served-model-name</code> controls the model ID that vLLM registers. Without it, vLLM uses the path or HuggingFace ID, which can be ugly (e.g. <code>/workspace/emaileval/merged-model</code>). The <code>-m</code> flag in <code>prime eval run</code> must match this name — it is both the label on the eval dashboard and the model ID sent to vLLM. So always set a clean name when serving local paths.</p>
+
+<p>LoRA adapters are small patches (~3MB) on top of a frozen base model. They cannot be served on their own — vLLM loads the full base model first, then applies the adapter. The <code>--lora-modules</code> flag gives the adapted model a name (<code>trained</code>) that you use as the model ID in eval. To avoid the LoRA flags entirely, you can merge the adapter into the base model and serve as a standalone model.</p>
 
 <h4><span class="sub">e</span>Run eval</h4>
 
