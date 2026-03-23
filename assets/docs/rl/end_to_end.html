@@ -662,12 +662,12 @@ MAX_JOBS=<span style="color:#6c71c4">4</span> <span style="color:#268bd2">uv pip
 <span style="color:#268bd2">uv pip install</span> editables
 <span style="color:#268bd2">uv pip install</span> -e ./&lt;env-name&gt;
 
-<span style="color:#586E75"># login to wandb and HF before training</span>
-<span style="color:#268bd2">wandb login</span>
+<span style="color:#586E75"># tokens for wandb and HF</span>
+<span style="color:#268bd2">export</span> WANDB_API_KEY=your_wandb_key
 <span style="color:#268bd2">export</span> HF_TOKEN=your_write_token</code></pre>
 </div>
 
-<p><code>editables</code> is needed for <code>-e</code> (editable) installs with <code>--no-build-isolation</code>. wandb login saves credentials to <code>~/.netrc</code> so they persist across tmux panes. The HF token needs <b>write</b> access if using <code>push_to_hub</code>.</p>
+<p><code>editables</code> is needed for <code>-e</code> (editable) installs with <code>--no-build-isolation</code>. The HF token needs <b>write</b> access if using <code>push_to_hub</code>.</p>
 
 <h4><span class="sub">g</span>Config</h4>
 

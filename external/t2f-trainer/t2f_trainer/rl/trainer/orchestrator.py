@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 import queue
 import threading
 import time
@@ -183,10 +184,9 @@ class Orchestrator:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         self.worker_loop = loop
-        import os
         os.environ.setdefault("T2F_VLLM_API_KEY", self.client_api_key)
         self.client = ClientConfig(
-            client_type="openai_chat_completions",
+            client_type="openai_chat_completions",  # ty:ignore[unknown-argument]
             api_base_url=self.client_base_url,
             api_key_var="T2F_VLLM_API_KEY",
             timeout=self.client_timeout,
