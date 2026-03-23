@@ -550,32 +550,18 @@ source .venv/bin/activate</code></pre>
 <span style="color:#268bd2">prime env install</span> &lt;env-id&gt;</code></pre>
 </div>
 
-<p>Configure the local vLLM endpoint in <code>configs/endpoints.toml</code>:</p>
-
-<div class="block">
-<span class="label">configs/endpoints.toml</span>
-<pre><code>[[endpoint]]
-endpoint_id = <span style="color:#2aa198">"&lt;endpoint-name&gt;"</span>
-model = <span style="color:#2aa198">"&lt;model-id&gt;"</span>
-url = <span style="color:#2aa198">"http://localhost:8000/v1"</span>
-key = <span style="color:#2aa198">"VLLM_API_KEY"</span></code></pre>
-</div>
-
-<p><code>key</code> is the name of an env var, not the key itself. Set a dummy one since vLLM does not need auth:</p>
+<p>Point the eval at the local vLLM endpoint with <code>--api-base-url</code> and <code>--api-key-var</code>. The <code>-m</code> flag is both the model ID sent to vLLM and the label on the eval dashboard — it must match <code>--served-model-name</code> if you set one.</p>
 
 <div class="code-block">
   <span class="code-lang">shell</span>
   <pre><code><span style="color:#268bd2">export</span> VLLM_API_KEY=empty
-<span style="color:#268bd2">prime eval run</span> &lt;env-id&gt; -m &lt;endpoint-name&gt; -n <span style="color:#6c71c4">10</span> -r <span style="color:#6c71c4">3</span></code></pre>
+
+<span style="color:#268bd2">prime eval run</span> &lt;env-id&gt; -m &lt;model-name&gt; -n <span style="color:#6c71c4">10</span> -r <span style="color:#6c71c4">3</span> \
+  --api-base-url http://localhost:8000/v1 \
+  --api-key-var VLLM_API_KEY</code></pre>
 </div>
 
-<p>If the CLI rejects the model name (validates against Prime's API before checking the local registry), fall back to passing the endpoint directly:</p>
-
-<div class="code-block">
-  <span class="code-lang">shell</span>
-  <pre><code><span style="color:#268bd2">prime eval run</span> &lt;env-id&gt; -m &lt;model-id&gt; -n <span style="color:#6c71c4">10</span> -r <span style="color:#6c71c4">3</span> \
-  -b http://localhost:8000/v1 -k VLLM_API_KEY</code></pre>
-</div>
+<p><code>--api-key-var</code> is the name of an env var, not the key itself. vLLM does not need auth, so any dummy value works. Short flags: <code>-b</code> for <code>--api-base-url</code>, <code>-k</code> for <code>--api-key-var</code>.</p>
 
 <hr class="sep">
 
