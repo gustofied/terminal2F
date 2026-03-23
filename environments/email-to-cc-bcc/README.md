@@ -9,22 +9,23 @@
 ### Datasets
 
 - **Primary dataset(s)**: `gustofied/email-to-cc-bcc` (Hugging Face)
-- **Split sizes**: ~5000 rows (train)
+- **Split sizes**: ~5000 rows (train), 91 rows (test)
 
 ### Task
 
-- **Type**: multi-turn (3 turns)
-- **Output format**: JSON with `to`, `cc`, `bcc` arrays of email addresses
-- **Rubric overview**: Jaccard overlap per field per turn, averaged. Invalid JSON or missing keys scores 0.
+- **Type**: multi-turn (1–3 turns, configurable)
+- **Output format**: JSON with exactly `to`, `cc`, `bcc` keys, each an array of email addresses
+- **Rubric overview**: Jaccard overlap per field per turn, averaged. Weighted sum with format scaffolding.
 
 ### Quickstart
 
 ```bash
-prime eval run email-to-cc-bcc
+prime eval run email-to-cc-bcc -m gpt-4.1-mini -n 20 -r 3
 ```
 
+Single-turn on test set:
 ```bash
-prime eval run email-to-cc-bcc -m gpt-4.1-mini -n 20 -r 3 -t 1024
+prime eval run email-to-cc-bcc -m <model> -n 50 -r 3 -a '{"max_turns": 1, "dataset_split": "test"}'
 ```
 
 ### Environment Arguments
@@ -32,14 +33,22 @@ prime eval run email-to-cc-bcc -m gpt-4.1-mini -n 20 -r 3 -t 1024
 | Arg | Type | Default | Description |
 | --- | ---- | ------- | ----------- |
 | `dataset_name` | str | `gustofied/email-to-cc-bcc` | HuggingFace dataset path |
-| `dataset_split` | str | `train` | Dataset split to use |
-| `max_turns` | int | `3` | Number of turns per conversation |
+| `dataset_split` | str | `train` | Dataset split (`train` or `test`) |
+| `max_turns` | int | `3` | Number of turns per conversation (1, 2, or 3) |
 
 ### Metrics
 
-| Metric        | Meaning                                              |
-| ------------- | ---------------------------------------------------- |
-| `reward`      | Weighted average of to/cc/bcc (equal weights)        |
-| `to_correct`  | Jaccard overlap for To field, averaged across turns   |
-| `cc_correct`  | Jaccard overlap for CC field, averaged across turns   |
-| `bcc_correct` | Jaccard overlap for BCC field, averaged across turns  |
+| Metric | Weight | Meaning |
+| ------ | ------ | ------- |
+| `reward` | - | Weighted average of all metrics below |
+| `to_correct` | 0.40 | Jaccard overlap for To field, averaged across turns |
+| `cc_correct` | 0.40 | Jaccard overlap for CC field, averaged across turns |
+| `bcc_correct` | 0.10 | Jaccard overlap for BCC field, averaged across turns |
+| `format_correct` | 0.05 | Binary: valid JSON with exactly {to, cc, bcc} keys and list values |
+| `email_format` | 0.05 | Fractional: proportion of recipients that are email addresses |
+
+### Notes
+
+- BCC ground truth is empty on ~60% of turns. Empty/empty scores 0.2 (small credit), non-empty when GT is empty scores 0.0 (penalizes hallucination).
+- `format_correct` and `email_format` are scaffolding rewards. They help small models learn output format before recipient placement.
+- The `test` split (91 rows) was generated independently from the training data using the same pipeline and validator.

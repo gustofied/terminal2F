@@ -45,7 +45,7 @@ def set_overlap(predicted: set, expected: set) -> float:
 def score_turn(response: str, ground_truth: str, field: str) -> float:
     """Score a single turn for a single field (to/cc/bcc)."""
     pred_obj = extract_json(response)
-    if not pred_obj or not all(k in pred_obj for k in ("to", "cc", "bcc")):
+    if not isinstance(pred_obj, dict) or set(pred_obj.keys()) != {"to", "cc", "bcc"}:
         return 0.0
     gt_obj = extract_json(ground_truth)
     pred = {x for x in pred_obj.get(field, []) if isinstance(x, str)}
