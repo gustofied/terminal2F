@@ -1703,6 +1703,60 @@ CC/BCC overlap:           0</code></pre>
     <h3 id="s-diary"><span class="num">VI</span>Continued Work Diary</h3>
 
 
+    <p><b>Evaluation results.</b> Served the merged model (LoRA baked into base) via vLLM and ran <code>prime eval run</code> with n=50, r=3. Two evals: single-turn (matching training) and 3-turn (generalization test).</p>
+
+    <p><em>Note: the eval samples from the same dataset as training (4991 rows, no train/test split). Some overlap with training examples is likely. A proper held-out eval requires splitting the dataset.</em></p>
+
+    <table class="ch-table">
+      <tr>
+        <th></th><th>Reward</th><th>To</th><th>CC</th><th>BCC</th><th>Format</th>
+      </tr>
+      <tr>
+        <td>Qwen3-0.6B (pre-train, 1t)</td>
+        <td class="mono">0.253</td><td class="mono">0.149</td><td class="mono">0.220</td><td class="mono">0.090</td><td class="mono">1.000</td>
+      </tr>
+      <tr>
+        <td><b>Trained (eval, 1t)</b></td>
+        <td class="mono"><b>0.730</b></td><td class="mono"><b>0.863</b></td><td class="mono"><b>0.698</b></td><td class="mono">0.055</td><td class="mono">1.000</td>
+      </tr>
+      <tr>
+        <td>Trained (eval, 3t)</td>
+        <td class="mono">0.473</td><td class="mono">0.587</td><td class="mono">0.400</td><td class="mono">0.034</td><td class="mono">0.747</td>
+      </tr>
+      <tr style="border-top:1.5px solid #1a1a1a">
+        <td style="color:#999">GPT-4.1-mini (1t)</td>
+        <td class="mono" style="color:#999">0.514</td><td class="mono" style="color:#999">0.579</td><td class="mono" style="color:#999">0.423</td><td class="mono" style="color:#999">0.132</td><td class="mono" style="color:#999">1.000</td>
+      </tr>
+      <tr>
+        <td style="color:#999">GPT-4.1-mini (3t)</td>
+        <td class="mono" style="color:#999">0.488</td><td class="mono" style="color:#999">0.683</td><td class="mono" style="color:#999">0.373</td><td class="mono" style="color:#999">0.127</td><td class="mono" style="color:#999">1.000</td>
+      </tr>
+    </table>
+
+    <p>
+      On single-turn the trained model reaches 0.730 reward — higher than the 0.674 training-time average. 79% of rollouts get perfect To, 39% get perfect To and CC. The model rarely misses: only 2 of 150 rollouts score below 0.2, and none score zero. 46% of rollouts score above 0.8.
+    </p>
+
+    <p><b>Error patterns (1-turn).</b> The dominant failure mode is To/CC swap: the model identifies the right people but puts the action owner in CC and a stakeholder in To. In the worst examples, the predicted To is the ground truth CC and vice versa. This is the same "reply-to bias" seen in the baselines — the model sometimes defaults to addressing the person being replied to rather than the person being tasked. BCC is essentially not predicted (mean 0.055).</p>
+
+    <p><b>Multi-turn (3-turn).</b> Reward drops to 0.473, primarily due to format collapse returning on later turns. Turn-by-turn format validity:</p>
+
+    <table class="ch-table">
+      <tr><th>Turn</th><th>Valid emails</th><th>No JSON</th></tr>
+      <tr><td class="mono">1</td><td class="mono">149/150 (99%)</td><td class="mono">0</td></tr>
+      <tr><td class="mono">2</td><td class="mono">125/150 (83%)</td><td class="mono">~25</td></tr>
+      <tr><td class="mono">3</td><td class="mono">60/150 (40%)</td><td class="mono">90</td></tr>
+    </table>
+
+    <p>
+      The format collapse pattern is identical to the pre-training baseline: turn 1 is clean, turn 3 loses 60% of responses. Single-turn training did not fix the multi-turn format problem, which is expected — the model never saw multi-turn during training. But on the turns where format is valid, the recipient placement quality carries over from single-turn training. Even with the format collapse dragging the score down, the trained model at 0.473 on 3 turns is close to GPT-4.1-mini at 0.488.
+    </p>
+
+    <p><b>Rollout variance.</b> 19 of 50 examples (38%) produce identical rewards across all 3 rollouts. The model is deterministic on those. Mean spread (max minus min reward per example) is 0.159. Lower than the pre-training spread, which means the model has become more confident but still has variation for GRPO to work with in further training.</p>
+
+    <p><b>What this means for next steps.</b> The single-turn result (0.730) is strong but needs a proper train/test split to confirm. The multi-turn result (0.473) confirms that Phase B (SFT on multi-turn ground truth) is needed before multi-turn GRPO. The model learned recipient placement well but did not learn to maintain format across turns, because it never had to during training.</p>
+
+
     <h3 id="s-learnings"><span class="num">VII</span>Learnings</h3>
 
     <p>
