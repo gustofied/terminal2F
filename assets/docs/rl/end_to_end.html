@@ -624,26 +624,33 @@ source .venv/bin/activate</code></pre>
 
 <h4><span class="sub">e</span>Install t2f-trainer</h4>
 
-<p>This installs everything: vllm, deepspeed, liger-kernel, trl, accelerate, torch, wandb. flash-attn is optional — it makes attention faster and more memory-efficient, but it is a CUDA C++ library that compiles from source against your exact torch + CUDA versions (~15 min). For small models with <code>enforce_eager = true</code>, you do not need it.</p>
-
-<p><b>Without flash-attn</b> (recommended for small models). Comment out <code>flash-attn</code> in t2f-trainer's <code>pyproject.toml</code> and use <code>enforce_eager = true</code> in the config. Install is fast — just wheels, no compilation.</p>
+<p>This pulls in the full training stack: vllm, deepspeed, liger-kernel, trl, accelerate, torch, wandb. The golden path:</p>
 
 <div class="code-block">
   <span class="code-lang">shell</span>
   <pre><code>cd /workspace/&lt;project&gt;
 <span style="color:#268bd2">uv pip install</span> hatchling
-<span style="color:#268bd2">uv pip install</span> ./t2f-trainer --no-build-isolation</code></pre>
+<span style="color:#268bd2">uv pip install</span> ./t2f-trainer --no-build-isolation
+
+<span style="color:#586E75"># pin versions that break otherwise (see reasoning below)</span>
+<span style="color:#268bd2">uv pip install</span> <span style="color:#2aa198">'transformers&gt;=4.45,&lt;5'</span> <span style="color:#2aa198">'verifiers==0.1.10'</span></code></pre>
 </div>
 
-<p><b>With flash-attn</b> (for larger models or long sequences). flash-attn needs torch headers to compile its CUDA kernels. With uv's default build isolation, the build happens in a temporary environment that does not have torch, so it fails. Install torch first, then install t2f-trainer with <code>--no-build-isolation</code> so flash-attn can find it.</p>
+<p>Why each of these:</p>
+
+<p><b><code>hatchling</code></b> is the build backend t2f-trainer uses (declared in its <code>pyproject.toml</code>). With <code>--no-build-isolation</code>, uv does not auto-install build tools into a temporary environment, so hatchling must already be in the venv.</p>
+
+<p><b><code>--no-build-isolation</code></b> tells uv to build packages using what is already installed in the venv rather than creating an isolated build environment. This is needed because flash-attn (if enabled) requires torch headers at compile time, and an isolated build env would not have torch. Even without flash-attn, <code>--no-build-isolation</code> avoids edge cases where the build backend is missing.</p>
+
+<p><b><code>transformers&gt;=4.45,&lt;5</code></b> because vLLM 0.10.x calls <code>tokenizer.all_special_tokens_extended</code>, which was removed in transformers 5.x. Without this pin, vLLM crashes on startup. The t2f-trainer install pulls in transformers 5.x by default, so the pin must come after.</p>
+
+<p><b><code>verifiers==0.1.10</code></b> because 0.1.11 changed <code>resolve_client()</code> and rejects the <code>AsyncOpenAI</code> client that the orchestrator passes. Without this pin, all rollouts fail with <code>ValueError: Unsupported client type</code>.</p>
+
+<p><b>flash-attn</b> is commented out in t2f-trainer's <code>pyproject.toml</code> by default. It is a CUDA C++ library that compiles from source against your exact torch + CUDA versions (~15 min). For small models with <code>enforce_eager = true</code>, it is not needed. If you want it (larger models, long sequences), uncomment it and add <code>MAX_JOBS=4</code> to prevent OOM during compilation:</p>
 
 <div class="code-block">
   <span class="code-lang">shell</span>
-  <pre><code>cd /workspace/&lt;project&gt;
-<span style="color:#268bd2">uv pip install</span> torch hatchling
-
-<span style="color:#586E75"># --no-build-isolation lets flash-attn see torch during compile</span>
-<span style="color:#586E75"># MAX_JOBS=4 prevents OOM on nodes with limited RAM</span>
+  <pre><code><span style="color:#586E75"># only if you uncommented flash-attn in pyproject.toml</span>
 MAX_JOBS=<span style="color:#6c71c4">4</span> <span style="color:#268bd2">uv pip install</span> ./t2f-trainer --no-build-isolation</code></pre>
 </div>
 
@@ -651,9 +658,16 @@ MAX_JOBS=<span style="color:#6c71c4">4</span> <span style="color:#268bd2">uv pip
 
 <div class="code-block">
   <span class="code-lang">shell</span>
-  <pre><code><span style="color:#268bd2">uv pip install</span> wandb
-<span style="color:#268bd2">uv pip install</span> -e ./&lt;env-name&gt;</code></pre>
+  <pre><code><span style="color:#586E75"># editable install so local env changes take effect immediately</span>
+<span style="color:#268bd2">uv pip install</span> editables
+<span style="color:#268bd2">uv pip install</span> -e ./&lt;env-name&gt;
+
+<span style="color:#586E75"># login to wandb and HF before training</span>
+<span style="color:#268bd2">wandb login</span>
+<span style="color:#268bd2">export</span> HF_TOKEN=your_write_token</code></pre>
 </div>
+
+<p><code>editables</code> is needed for <code>-e</code> (editable) installs with <code>--no-build-isolation</code>. wandb login saves credentials to <code>~/.netrc</code> so they persist across tmux panes. The HF token needs <b>write</b> access if using <code>push_to_hub</code>.</p>
 
 <h4><span class="sub">g</span>Config</h4>
 
@@ -677,16 +691,24 @@ enforce_eager = <span style="color:#b58900">true</span>
 gpus = <span style="color:#6c71c4">1</span>
 
 [trainer.args]
+vllm_server_host = <span style="color:#2aa198">"127.0.0.1"</span>
 run_name = <span style="color:#2aa198">"&lt;run-name&gt;"</span>
-micro_batch_size = <span style="color:#6c71c4">16</span>
+micro_batch_size = <span style="color:#6c71c4">4</span>           <span style="color:#586E75"># 16 OOMs on A6000 48GB</span>
 rollouts_per_example = <span style="color:#6c71c4">16</span>
 batch_size = <span style="color:#6c71c4">512</span>
 max_steps = <span style="color:#6c71c4">100</span>
 max_tokens = <span style="color:#6c71c4">512</span>
-max_seq_len = <span style="color:#6c71c4">1024</span></code></pre>
+max_seq_len = <span style="color:#6c71c4">1024</span>
+learning_rate = <span style="color:#6c71c4">1e-5</span>
+use_lora = <span style="color:#b58900">true</span>
+save_strategy = <span style="color:#2aa198">"steps"</span>
+save_steps = <span style="color:#6c71c4">25</span>
+save_only_model = <span style="color:#b58900">true</span>
+push_to_hub = <span style="color:#b58900">true</span>
+hub_model_id = <span style="color:#2aa198">"&lt;your-org&gt;/&lt;model-name&gt;"</span></code></pre>
 </div>
 
-<p>Top-level <code>model</code> applies to both inference and trainer. GPU counts are split sequentially: inference gets GPU 0, trainer gets GPU 1.</p>
+<p>Top-level <code>model</code> applies to both inference and trainer. GPU counts are split sequentially: inference gets GPU 0, trainer gets GPU 1. <code>vllm_server_host</code> defaults to <code>0.0.0.0</code> which can fail as a connect address in some container setups — <code>127.0.0.1</code> is safer. <code>micro_batch_size</code> controls how many sequences the trainer processes per gradient accumulation step — 16 OOMs on A6000 48GB even with a 0.6B model because the forward pass materializes the full sequence × vocab logits tensor.</p>
 
 <h4><span class="sub">h</span>Start t2f-vllm on GPU 0</h4>
 

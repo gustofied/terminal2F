@@ -5,14 +5,13 @@ import threading
 import time
 from typing import Any
 
-import httpx
 import numpy as np
 from datasets import Dataset
-from openai import AsyncOpenAI
 from pydantic import BaseModel, Field
 from transformers import PreTrainedTokenizerBase
 
 from verifiers import Environment
+from verifiers.types import ClientConfig
 from verifiers.types import Messages
 
 
@@ -184,13 +183,14 @@ class Orchestrator:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         self.worker_loop = loop
-        self.client = AsyncOpenAI(
-            base_url=self.client_base_url,
-            api_key=self.client_api_key,
-            http_client=httpx.AsyncClient(
-                limits=httpx.Limits(max_connections=self.client_limit),
-                timeout=self.client_timeout,
-            ),
+        import os
+        os.environ.setdefault("T2F_VLLM_API_KEY", self.client_api_key)
+        self.client = ClientConfig(
+            client_type="openai_chat_completions",
+            api_base_url=self.client_base_url,
+            api_key_var="T2F_VLLM_API_KEY",
+            timeout=self.client_timeout,
+            max_connections=self.client_limit,
         )
         try:
             while not self.stop_event.is_set():

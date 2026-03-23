@@ -32,3 +32,19 @@ dependencies = [
     # "flash-attn>=2.8.3",  # optional: compiles from source, use enforce_eager without it
 ]
 ```
+
+**`ClientConfig` instead of `AsyncOpenAI`** — verifiers 0.1.11+ routes all clients through `resolve_client()`, which only accepts `Client` or `ClientConfig`, not raw `AsyncOpenAI`. The orchestrator was creating an `AsyncOpenAI` directly and passing it to `env.generate()`. Changed to pass a `ClientConfig` instead, which verifiers constructs the client from internally. The API key is set as an env var (`T2F_VLLM_API_KEY`) since `ClientConfig.api_key_var` expects an env var name, not a literal value.
+
+```python
+# before (orchestrator.py)
+self.client = AsyncOpenAI(base_url=..., api_key="EMPTY", ...)
+
+# after
+os.environ.setdefault("T2F_VLLM_API_KEY", self.client_api_key)
+self.client = ClientConfig(
+    client_type="openai_chat_completions",
+    api_base_url=self.client_base_url,
+    api_key_var="T2F_VLLM_API_KEY",
+    ...
+)
+```

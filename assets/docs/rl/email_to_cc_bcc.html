@@ -375,7 +375,8 @@
       <a href="#s-rewards"><span class="toc-num">III</span>Rewards</a>
       <a href="#s-discussion"><span class="toc-num">IV</span>Results v1</a>
       <a href="#s-v2"><span class="toc-num">V</span>v2</a>
-      <a href="#s-learnings"><span class="toc-num">VI</span>Learnings</a>
+      <a href="#s-diary"><span class="toc-num">VI</span>Continued Work Diary</a>
+      <a href="#s-learnings"><span class="toc-num">VII</span>Learnings</a>
     </div>
 
     <!-- ═══════════════════════════════════════════════════════════
@@ -1678,8 +1679,31 @@ CC/BCC overlap:           0</code></pre>
       <b>The headline:</b> a 0.6B model trained with GRPO for 100 steps (1h52m on two A6000s) surpassed GPT-4.1-mini on recipient placement. To: 0.800 vs 0.579. CC: 0.629 vs 0.423. Overall reward: 0.674 vs 0.514. This is on training data, not held-out eval, so the numbers need to be validated on unseen examples. But the trajectory is clear: the model learned the task.
     </p>
 
+    <h4><span class="sub">j</span>Continued work</h4>
 
-    <h3 id="s-learnings"><span class="num">VI</span>Learnings</h3>
+    <p><em>23 March 2026.</em></p>
+
+    <p>
+      Open threads from Phase A: the training metrics (reward 0.674, To 0.800, CC 0.629) are from rollouts the model generated during training, not from held-out evaluation. Three things to do next.
+    </p>
+
+    <p>
+      <b>1. Held-out eval.</b> Serve the trained LoRA checkpoint (<a href="https://huggingface.co/gustofied/Qwen3-0.6B-to-cc-bcc" style="color:#666; text-decoration:none; border-bottom:0.5px dotted #bbb;">gustofied/Qwen3-0.6B-to-cc-bcc</a>) via vLLM and run <code>prime eval run</code> with n=50, r=3, max_turns=1. Compare against the pre-training baseline (0.253) and GPT-4.1-mini (0.514). This tells us whether the improvement holds on unseen examples or whether the model overfit.
+    </p>
+
+    <p>
+      <b>2. Multi-turn eval.</b> Run the trained checkpoint on max_turns=3. The model was only trained on single-turn. If it generalizes to multi-turn without the format collapse the base model had (40% no-JSON at turn 3), that is a strong signal. If it collapses, that confirms the need for Phase B (SFT on multi-turn ground truth).
+    </p>
+
+    <p>
+      <b>3. Inspect rollout quality.</b> The training reward started at ~0.04 instead of the eval baseline of 0.253. That gap was never explained — could be the stricter schema check in v0.1.10, differences in sampling, or something else. Worth pulling a few early rollouts from the wandb completions tables and comparing against eval rollouts to understand what changed.
+    </p>
+
+
+    <h3 id="s-diary"><span class="num">VI</span>Continued Work Diary</h3>
+
+
+    <h3 id="s-learnings"><span class="num">VII</span>Learnings</h3>
 
     <p>
       <b>How <code>load_environment</code> receives arguments.</b> The verifiers
