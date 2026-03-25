@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>t2f eval</title>
+<title>Eval Viewer</title>
 <style>html { font-size: 90%; } 
   @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&display=swap');
 
@@ -175,7 +175,7 @@
 <a class="back" href="index.html">&larr; docs</a>
 
 <div class="memo-head">
-  <h1>t2f eval</h1>
+  <h1>Eval Viewer</h1>
 </div>
 
 <p>After <code>prime eval run</code> finishes, results sit in a directory as two files. The eval viewer starts a local server that reads them and renders an HTML page. Refreshing the browser re-reads the files, so you always see the latest data without rerunning the command.</p>
@@ -183,13 +183,13 @@
 <div class="code-block">
   <span class="code-lang">shell</span>
   <pre><code><span style="color:#586E75"># one run</span>
-t2f eval view outputs/evals/email-to-cc-bcc--openai--gpt-4.1/e50c41ac
+python nuggets/eval_viewer.py outputs/evals/email-to-cc-bcc--openai--gpt-4.1/e50c41ac
 
 <span style="color:#586E75"># compare two runs side by side</span>
-t2f eval view &lt;dir1&gt; &lt;dir2&gt;
+python nuggets/eval_viewer.py &lt;dir1&gt; &lt;dir2&gt;
 
 <span style="color:#586E75"># no args: scans outputs/evals/ for everything</span>
-t2f eval view</code></pre>
+python nuggets/eval_viewer.py</code></pre>
 </div>
 
 <h3>What it reads</h3>
@@ -223,7 +223,7 @@ t2f eval view</code></pre>
 </table>
 
 <div class="colophon">
-  <p>T2F EVAL</p>
+  <p>EVAL VIEWER</p>
 </div>
 
     <script src="../edit.js"></script>

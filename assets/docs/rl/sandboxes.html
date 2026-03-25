@@ -150,7 +150,7 @@
   <h1>Sandboxes</h1>
 </div>
 
-<p>RL agents act on environments. Those environments need isolation &mdash; each rollout must run in its own stateful sandbox so parallel rollouts don&rsquo;t corrupt each other. The model never touches the sandbox directly. It talks through FastMCP tools over stdio. The sandbox sits behind them.</p>
+<p>RL agents act on environments. Those environments often need isolation: each rollout must run in its own stateful sandbox so parallel rollouts don't corrupt each other. The model never touches the sandbox directly. It talks through FastMCP tools over stdio. The sandbox sits behind them.</p>
 
 <pre><code>Model &rarr; FastMCP (stdio) &rarr; Sandbox (isolated runtime)</code></pre>
 
@@ -159,12 +159,12 @@
 <p>When evaluating any sandbox, ask three things (<a href="https://michaellivs.com/blog/sandboxed-execution-environment/">Livshits</a>):</p>
 
 <ol>
-  <li><strong>Boundary</strong> &mdash; what is shared between this code and the host?</li>
-  <li><strong>Policy</strong> &mdash; what can the code touch? (files, network, devices, syscalls)</li>
-  <li><strong>Lifecycle</strong> &mdash; what survives between runs?</li>
+  <li><strong>Boundary</strong>: what is shared between this code and the host?</li>
+  <li><strong>Policy</strong>: what can the code touch? (files, network, devices, syscalls)</li>
+  <li><strong>Lifecycle</strong>: what survives between runs?</li>
 </ol>
 
-<p>If you can answer those, you understand your sandbox. If you can&rsquo;t, you&rsquo;re guessing.</p>
+<p>If you can answer those, you understand your sandbox. If you can't, you're guessing.</p>
 
 <h3>Boundary</h3>
 
@@ -174,17 +174,17 @@
   <tr><th>Boundary</th><th>What happens</th></tr>
   <tr><td><strong>Container</strong></td><td>Processes in separate namespaces, still one host kernel. Syscalls go straight to the host.</td></tr>
   <tr><td><strong>gVisor</strong></td><td>Userspace kernel (Sentry) intercepts syscalls. Only ~68 host syscalls exposed.</td></tr>
-  <tr><td><strong>MicroVM</strong></td><td>Guest kernel behind hardware virtualization. Host sees KVM ioctls, not the workload&rsquo;s syscalls.</td></tr>
+  <tr><td><strong>MicroVM</strong></td><td>Guest kernel behind hardware virtualization. Host sees KVM ioctls, not the workload's syscalls.</td></tr>
   <tr><td><strong>WASM / Isolate</strong></td><td>No syscall ABI at all. Guest only gets capabilities the host explicitly provides.</td></tr>
 </table>
 
-<p>Stronger boundary doesn&rsquo;t mean simpler &mdash; it means you&rsquo;re betting on different code. Containers bet on the host kernel. gVisor bets on its Sentry. MicroVMs bet on KVM + VMM. WASM bets on the runtime.</p>
+<p>Stronger boundary doesn't mean simpler, it means you're betting on different code. Containers bet on the host kernel. gVisor bets on its Sentry. MicroVMs bet on KVM + VMM. WASM bets on the runtime.</p>
 
 <h3>Policy</h3>
 
 <p>A tight policy in a weak boundary is still a weak sandbox. A strong boundary with a permissive policy is a missed opportunity. Policy covers: filesystem paths, network destinations, process creation, device access, resource quotas, and the interface surface itself.</p>
 
-<p><strong>For our RL envs, FastMCP tools are the policy.</strong> The model can only call <code>draw_line</code>, <code>query</code>, <code>screenshot</code> &mdash; whatever tools the server exposes. No shell, no arbitrary syscalls, no filesystem access. The tools have typed inputs. This is capability-scoped by design, which is why we can use lighter boundaries than agents that run arbitrary code.</p>
+<p><strong>For our RL envs, FastMCP tools are the policy.</strong> The model can only call <code>draw_line</code>, <code>query</code>, <code>screenshot</code>, whatever tools the server exposes. No shell, no arbitrary syscalls, no filesystem access. The tools have typed inputs. This is capability-scoped by design, which is why we can use lighter boundaries than agents that run arbitrary code.</p>
 
 <h3>Lifecycle</h3>
 
@@ -195,7 +195,7 @@
   <tr><td><strong>Snapshot/restore</strong></td><td>Checkpoint VM or runtime state, clone per run.</td><td>RL rollouts. Pre-warmed agents.</td></tr>
 </table>
 
-<p>For our envs: drawing is <strong>fresh</strong> (Canvas starts blank, instant anyway). Doltgres is <strong>snapshot/restore</strong> at the data level &mdash; seed the database once, branch per rollout, drop the branch on cleanup. Dolt branching <em>is</em> snapshot/restore without VM-level machinery.</p>
+<p>For our envs: drawing is <strong>fresh</strong> (Canvas starts blank, instant anyway). Doltgres is <strong>snapshot/restore</strong> at the data level: seed the database once, branch per rollout, drop the branch on cleanup. Dolt branching <em>is</em> snapshot/restore without VM-level machinery.</p>
 
 <hr>
 
@@ -208,40 +208,40 @@
 <p>No real OS at all. Everything happens in JavaScript or WASM. Instant startup, no kernel, no container.</p>
 
 <ul>
-  <li><strong><a href="https://webcontainers.io/">WebContainers</a></strong> &mdash; Node.js compiled to WASM. Millisecond startup. Anything that runs on Node runs here: HTML Canvas, PGLite, Express, file I/O. JS/Node only &mdash; no native binaries, no C extensions.</li>
-  <li><strong>just-bash</strong> (Vercel) &mdash; TypeScript implementation of bash with in-memory filesystem. 40+ Unix utilities. &lt;1ms startup. Can wire in custom CLIs and DuckDB.</li>
-  <li><strong>AgentVM</strong> &mdash; full Alpine Linux VM compiled to WASM via container2wasm. Experimental.</li>
-  <li><strong><a href="https://github.com/pydantic/monty">Monty</a></strong> (Pydantic) &mdash; minimal Python interpreter in Rust. Born from the failure of mcp-run-python: pyodide isn&rsquo;t safe &mdash; Python in WASM can run arbitrary JS, taint the runtime, and OOM the machine. Monty is purpose-built with security as a constraint.</li>
+  <li><strong><a href="https://webcontainers.io/">WebContainers</a></strong>: Node.js compiled to WASM. Millisecond startup. Anything that runs on Node runs here: HTML Canvas, PGLite, Express, file I/O. JS/Node only:no native binaries, no C extensions.</li>
+  <li><strong>just-bash</strong> (Vercel): TypeScript implementation of bash with in-memory filesystem. 40+ Unix utilities. &lt;1ms startup. Can wire in custom CLIs and DuckDB.</li>
+  <li><strong>AgentVM</strong>: full Alpine Linux VM compiled to WASM via container2wasm. Experimental.</li>
+  <li><strong><a href="https://github.com/pydantic/monty">Monty</a></strong> (Pydantic):minimal Python interpreter in Rust. Born from the failure of mcp-run-python: pyodide isn't safe:Python in WASM can run arbitrary JS, taint the runtime, and OOM the machine. Monty is purpose-built with security as a constraint.</li>
 </ul>
 
-<p><strong>Note:</strong> WebContainers specifically is browser-only (it needs Service Workers, SharedArrayBuffer). It works for in-browser dev tools (StackBlitz, CodeSandbox) but not on headless GPU servers. For headless WASM sandboxes, look at Wasmer, Wasmtime, or WasmEdge &mdash; but those don&rsquo;t have Canvas. PGLite (Postgres compiled to WASM) is the strongest RL use case for WASM today &mdash; it runs headlessly via any WASM runtime.</p>
+<p><strong>Note:</strong> WebContainers specifically is browser-only (it needs Service Workers, SharedArrayBuffer). It works for in-browser dev tools (StackBlitz, CodeSandbox) but not on headless GPU servers. For headless WASM sandboxes, look at Wasmer, Wasmtime, or WasmEdge:but those don't have Canvas. PGLite (Postgres compiled to WASM) is the strongest RL use case for WASM today:it runs headlessly via any WASM runtime.</p>
 
-<p>Note on safety: the pyodide problem matters if you give agents a <code>run_code</code> tool. Our envs use predefined tools with typed inputs &mdash; the model can&rsquo;t inject arbitrary code.</p>
+<p>Note on safety: the pyodide problem matters if you give agents a <code>run_code</code> tool. Our envs use predefined tools with typed inputs:the model can't inject arbitrary code.</p>
 
 <h3>2. OS-Level Isolation (Containers)</h3>
 
 <p>Real code against a real kernel, but restricted. The workhorse.</p>
 
 <ul>
-  <li><strong>Docker / <a href="https://podman.io/">Podman</a></strong> &mdash; the default. Seconds to start. For RL, a 2-second startup across 10,000 rollouts is 5+ hours of spawning overhead.</li>
-  <li><strong>gVisor</strong> &mdash; userspace kernel that intercepts syscalls. Drops host exposure to ~68 syscalls. What <a href="https://github.com/Mercor-Intelligence/archipelago">Archipelago</a> uses for code execution. What Claude uses on the web (<code>runsc</code> hostname). Fits into Docker/Kubernetes as an OCI runtime. Trade-off: not every syscall is identical &mdash; there&rsquo;s a compatibility matrix.</li>
-  <li><strong>OS primitives</strong> &mdash; no containers at all. Claude Code uses bubblewrap (Linux) and Seatbelt (macOS). OpenAI&rsquo;s Codex CLI uses Landlock + seccomp (Linux), Seatbelt (macOS). Just OS-level restrictions on a process.</li>
+  <li><strong>Docker / <a href="https://podman.io/">Podman</a></strong>: the default. Seconds to start. For RL, a 2-second startup across 10,000 rollouts is 5+ hours of spawning overhead.</li>
+  <li><strong>gVisor</strong>: userspace kernel that intercepts syscalls. Drops host exposure to ~68 syscalls. What <a href="https://github.com/Mercor-Intelligence/archipelago">Archipelago</a> uses for code execution. What Claude uses on the web (<code>runsc</code> hostname). Fits into Docker/Kubernetes as an OCI runtime. Trade-off: not every syscall is identical:there's a compatibility matrix.</li>
+  <li><strong>OS primitives</strong>: no containers at all. Claude Code uses bubblewrap (Linux) and Seatbelt (macOS). OpenAI's Codex CLI uses Landlock + seccomp (Linux), Seatbelt (macOS). Just OS-level restrictions on a process.</li>
 </ul>
 
-<p>Containers share the host kernel. A kernel bug in any allowed syscall path is a host bug. Hardening (seccomp, AppArmor, user namespaces) tightens policy but doesn&rsquo;t change the boundary.</p>
+<p>Containers share the host kernel. A kernel bug in any allowed syscall path is a host bug. Hardening (seccomp, AppArmor, user namespaces) tightens policy but doesn't change the boundary.</p>
 
 <h3>3. MicroVMs</h3>
 
 <p>True VM-level isolation. Each agent gets its own kernel, its own memory space, hardware-enforced boundaries.</p>
 
 <ul>
-  <li><strong><a href="https://github.com/firecracker-microvm/firecracker">Firecracker</a></strong> &mdash; AWS&rsquo;s VMM for Lambda/Fargate. ~125ms boot, ~5MB overhead. One process per microVM, minimal virtio devices, jailer for host confinement. 24 whitelisted syscalls. Supports snapshot/restore.</li>
-  <li><strong><a href="https://e2b.dev/">E2B</a></strong> &mdash; Firecracker/Cloud Hypervisor underneath. &lt;200ms cold start. 200M+ sandboxes served. Managed, costs money.</li>
-  <li><strong>Fly Sprites</strong> &mdash; persistent Linux VMs that sleep when idle. Create in 1&ndash;2s, checkpoint in ~300ms, restore instantly. Durable storage. <em>&ldquo;You&rsquo;re not helping the agent by giving it a container. They don&rsquo;t want containers.&rdquo;</em></li>
-  <li><strong><a href="https://www.daytona.io/">Daytona</a></strong> &mdash; stateful sandboxes: start, pause, fork, snapshot, resume. Sub-90ms cold start. Best <a href="https://www.daytona.io/dotfiles/sandbox-infrastructure-for-reinforcement-learning-agents">framing</a> of the RL sandbox problem.</li>
-  <li><strong><a href="https://modal.com/products/sandboxes">Modal</a></strong> &mdash; Python-native, runtime-defined containers on demand. Up to 24h. Good for batch/RL workloads.</li>
-  <li><strong><a href="https://sandbox.cloudflare.com/">Cloudflare</a></strong> &mdash; containers on edge infra. Good if you&rsquo;re already in the ecosystem.</li>
-  <li><strong><a href="https://docs.primeintellect.ai/sandboxes/overview">Prime Intellect</a></strong> &mdash; their own sandbox infra. Relevant since we use verifiers.</li>
+  <li><strong><a href="https://github.com/firecracker-microvm/firecracker">Firecracker</a></strong>: AWS's VMM for Lambda/Fargate. ~125ms boot, ~5MB overhead. One process per microVM, minimal virtio devices, jailer for host confinement. 24 whitelisted syscalls. Supports snapshot/restore.</li>
+  <li><strong><a href="https://e2b.dev/">E2B</a></strong>: Firecracker/Cloud Hypervisor underneath. &lt;200ms cold start. 200M+ sandboxes served. Managed, costs money.</li>
+  <li><strong>Fly Sprites</strong>: persistent Linux VMs that sleep when idle. Create in 1&ndash;2s, checkpoint in ~300ms, restore instantly. Durable storage. <em>"You're not helping the agent by giving it a container. They don't want containers."</em></li>
+  <li><strong><a href="https://www.daytona.io/">Daytona</a></strong>: stateful sandboxes: start, pause, fork, snapshot, resume. Sub-90ms cold start. Best <a href="https://www.daytona.io/dotfiles/sandbox-infrastructure-for-reinforcement-learning-agents">framing</a> of the RL sandbox problem.</li>
+  <li><strong><a href="https://modal.com/products/sandboxes">Modal</a></strong>: Python-native, runtime-defined containers on demand. Up to 24h. Good for batch/RL workloads.</li>
+  <li><strong><a href="https://sandbox.cloudflare.com/">Cloudflare</a></strong>: containers on edge infra. Good if you're already in the ecosystem.</li>
+  <li><strong><a href="https://docs.primeintellect.ai/sandboxes/overview">Prime Intellect</a></strong>: their own sandbox infra. Relevant since we use verifiers.</li>
 </ul>
 
 <p>MicroVMs shift the attack surface from host kernel syscalls to KVM ioctls + VMM device I/O. Stronger isolation, but you now have two kernels to patch.</p>
@@ -256,11 +256,11 @@
   <tr><td>Batch/RL workloads</td><td>Containers or microVMs</td><td>Modal, Firecracker with snapshots</td></tr>
   <tr><td>Agent runs arbitrary code</td><td>MicroVM</td><td>Firecracker, E2B, Daytona</td></tr>
   <tr><td>Text/file manipulation only</td><td>Simulated</td><td>just-bash</td></tr>
-  <tr><td>CLI tool on user&rsquo;s machine</td><td>OS primitives</td><td>sandbox-runtime, Landlock</td></tr>
+  <tr><td>CLI tool on user's machine</td><td>OS primitives</td><td>sandbox-runtime, Landlock</td></tr>
   <tr><td>Web agent, full browser</td><td>Chromium</td><td>Playwright, Puppeteer</td></tr>
 </table>
 
-<p>The rule of thumb from Livshits: <em>&ldquo;If you can model the task as capability-scoped operations: prefer Wasm/isolate.&rdquo;</em> That&rsquo;s exactly what FastMCP tools are &mdash; predefined operations with typed inputs. We start at the lightest boundary and escalate only if the environment demands it.</p>
+<p>The rule of thumb from Livshits: <em>"If you can model the task as capability-scoped operations: prefer Wasm/isolate."</em> That's exactly what FastMCP tools are:predefined operations with typed inputs. We start at the lightest boundary and escalate only if the environment demands it.</p>
 
 <h2>Our Environments</h2>
 
@@ -272,13 +272,13 @@
   <tr><td>Email-to-CC-BCC</td><td>In-process</td><td>Python function (MultiTurnEnv)</td><td>Fresh per rollout</td></tr>
 </table>
 
-<p>No containers, no VMs. The model talks through FastMCP tools &mdash; that&rsquo;s the policy. Each env picks the lightest boundary that works:</p>
+<p>No containers, no VMs. The model talks through FastMCP tools:that's the policy. Each env picks the lightest boundary that works:</p>
 
 <ul>
-  <li><strong>Drawing</strong> &mdash; needs real Canvas, so Playwright provides a headless browser. The FastMCP App (<code>ui://</code> resource) serves the same Canvas HTML for both training (Playwright renders it headlessly, returns screenshots) and visualization (human opens it in a browser, watches live).</li>
-  <li><strong>PGLite</strong> &mdash; Postgres compiled to WASM. Runs headlessly via any WASM runtime (Wasmer, Wasmtime). No binary to download, no process to manage. This is where WASM shines for RL &mdash; instant startup, strong isolation, real SQL.</li>
-  <li><strong>Doltgres</strong> &mdash; real Go binary as a subprocess. No sandbox needed &mdash; FastMCP tools are the boundary. Branching handles per-rollout isolation at the data level.</li>
-  <li><strong>Email-to-CC-BCC</strong> &mdash; pure Python, in-process. No sandbox at all.</li>
+  <li><strong>Drawing</strong>: needs real Canvas, so Playwright provides a headless browser. The FastMCP App (<code>ui://</code> resource) serves the same Canvas HTML for both training (Playwright renders it headlessly, returns screenshots) and visualization (human opens it in a browser, watches live).</li>
+  <li><strong>PGLite</strong>: Postgres compiled to WASM. Runs headlessly via any WASM runtime (Wasmer, Wasmtime). No binary to download, no process to manage. This is where WASM shines for RL:instant startup, strong isolation, real SQL.</li>
+  <li><strong>Doltgres</strong>: real Go binary as a subprocess. No sandbox needed:FastMCP tools are the boundary. Branching handles per-rollout isolation at the data level.</li>
+  <li><strong>Email-to-CC-BCC</strong>: pure Python, in-process. No sandbox at all.</li>
 </ul>
 
 <h2>At Scale: Remote Sandboxes</h2>
@@ -287,7 +287,7 @@
 
 <pre><code>GPU cluster (inference) &larr;&rarr; API &larr;&rarr; CPU cluster (sandboxes)</code></pre>
 
-<p>Inference nodes run the model. Sandbox nodes run environments. They scale independently. GPUs stay busy, environments scale horizontally. The FastMCP interface stays the same &mdash; stdio locally becomes HTTP remotely. Same tools, same protocol, different transport.</p>
+<p>Inference nodes run the model. Sandbox nodes run environments. They scale independently. GPUs stay busy, environments scale horizontally. The FastMCP interface stays the same:stdio locally becomes HTTP remotely. Same tools, same protocol, different transport.</p>
 
 <p>For now: build local, everything on one machine. The MCP abstraction buys the flexibility to split later without rewriting the environment.</p>
 

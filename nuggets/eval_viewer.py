@@ -3,14 +3,14 @@
 Starts a local server so browser refresh re-reads the files live.
 
 Usage:
-    t2f eval view outputs/evals/email-to-cc-bcc--openai--gpt-4.1/e50c41ac
-    t2f eval view outputs/evals/.../e50c41ac outputs/evals/.../d02a5a4d
+    python nuggets/eval_viewer.py outputs/evals/email-to-cc-bcc--openai--gpt-4.1/e50c41ac
+    python nuggets/eval_viewer.py <dir1> <dir2>
+    python nuggets/eval_viewer.py                # scans outputs/evals/ for all runs
 """
 
 from __future__ import annotations
 
 import html
-import importlib
 import json
 import threading
 import webbrowser
@@ -708,16 +708,12 @@ def view(eval_dirs: list[Path] | None = None, port: int = 8279) -> None:
 
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):
-            # Reload module so source changes are picked up on refresh
-            mod = importlib.import_module(__name__)
-            importlib.reload(mod)
-
-            dirs = mod.find_eval_runs() if auto_discover else fixed_dirs
-            data = mod._load_dirs(dirs)
+            dirs = find_eval_runs() if auto_discover else fixed_dirs
+            data = _load_dirs(dirs)
             if not data:
                 self.send_error(404, "No valid eval dirs")
                 return
-            content = mod.generate_html(data).encode()
+            content = generate_html(data).encode()
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Content-Length", str(len(content)))
@@ -735,3 +731,10 @@ def view(eval_dirs: list[Path] | None = None, port: int = 8279) -> None:
         server.serve_forever()
     except KeyboardInterrupt:
         print("\nStopped.")
+
+
+if __name__ == "__main__":
+    import sys
+
+    dirs = [Path(a) for a in sys.argv[1:]] or None
+    view(dirs)

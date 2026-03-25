@@ -215,6 +215,29 @@
   }
 
   /* ── Separators ── */
+  .ch-table .pos { color: #2a7a2a; }
+  .ch-table .neg { color: #b33a3a; }
+
+  .formula {
+    background: none;
+    border: none;
+    border-top: 1px solid #1a1a1a;
+    padding: 12px 0 0;
+    margin: 14px 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+    line-height: 1.6;
+    color: #333;
+  }
+  .formula .label {
+    font-size: 8px;
+    color: #aaa;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    display: block;
+    margin-bottom: 6px;
+  }
+
   .sep {
     border: none;
     text-align: center;
@@ -279,9 +302,6 @@
 
 <figure class="header-fig">
   <div class="header-stack">
-    <img class="l4" src="https://www.mfab.hu/app/uploads/2023/08/345913.jpg" alt="">
-    <img class="l3" src="https://www.mfab.hu/app/uploads/2023/08/345913.jpg" alt="">
-    <img class="l2" src="https://www.mfab.hu/app/uploads/2023/08/345913.jpg" alt="">
     <img class="l1" src="https://www.bnf.fr/sites/default/files/2019-02/Cosmographie_universelle_selon_les_navigateurs_%5B...%5DLe_Testu_btv1b8447838j_16.jpg" alt="Cosmographie universelle, Guillaume Le Testu, 1556">
   </div>
   <figcaption>Guillaume Le Testu, <em style="color:#bbb">Cosmographie universelle</em>, 1556.</figcaption>
@@ -289,6 +309,8 @@
 
 <div class="toc">
   <a href="#s-chat-templates"><span class="toc-num">I</span>Chat Templates</a>
+  <a href="#s-grpo"><span class="toc-num">II</span>How GRPO Works</a>
+  <a href="#s-drgrpo"><span class="toc-num">III</span>Dr.GRPO</a>
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════
@@ -386,6 +408,160 @@ Berlin.<span style="color:#b58900">&lt;|im_end|&gt;</span></code></pre>
 <p>All processed left-to-right in one forward pass during training. The orchestrator finds where each assistant turn starts and ends by applying the same template and locating the boundaries. If the boundaries are off by even one token, you're training on user tokens or skipping completion tokens.</p>
 
 <p>During generation it's incremental: vLLM generates turn 1, the env injects the follow-up, vLLM generates turn 2 with the full history. During training, the entire conversation is one sequence in a single forward pass.</p>
+
+<hr class="sep">
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     II. HOW GRPO WORKS
+     ═══════════════════════════════════════════════════════════ -->
+
+<h3 id="s-grpo"><span class="num">II</span>How GRPO Works</h3>
+
+<p>The model tries it 3 times independently:</p>
+
+<table class="ch-table">
+  <tr>
+    <th></th>
+    <th>Answer</th>
+    <th>Correct?</th>
+    <th>Reward</th>
+  </tr>
+  <tr>
+    <td>Rollout 1</td>
+    <td class="mono">a, b, c, d</td>
+    <td>yes</td>
+    <td class="mono">1.0</td>
+  </tr>
+  <tr>
+    <td>Rollout 2</td>
+    <td class="mono">a, b, d, c</td>
+    <td>no</td>
+    <td class="mono">0.0</td>
+  </tr>
+  <tr>
+    <td>Rollout 3</td>
+    <td class="mono">a, b, c, d</td>
+    <td>yes</td>
+    <td class="mono">1.0</td>
+  </tr>
+</table>
+
+<p>Average reward: (1.0 + 0.0 + 1.0) / 3 = <strong>0.67</strong>. Now the advantage, how each rollout compares to the group mean:</p>
+
+<table class="ch-table" style="margin-top: 12px;">
+  <tr>
+    <th></th>
+    <th>Reward</th>
+    <th>Advantage</th>
+    <th></th>
+  </tr>
+  <tr>
+    <td>Rollout 1</td>
+    <td class="mono">1.0</td>
+    <td class="mono pos">+0.33</td>
+    <td style="color: #999; font-size: 13px;">better than average</td>
+  </tr>
+  <tr>
+    <td>Rollout 2</td>
+    <td class="mono">0.0</td>
+    <td class="mono neg">&minus;0.67</td>
+    <td style="color: #999; font-size: 13px;">worse than average</td>
+  </tr>
+  <tr>
+    <td>Rollout 3</td>
+    <td class="mono">1.0</td>
+    <td class="mono pos">+0.33</td>
+    <td style="color: #999; font-size: 13px;">better than average</td>
+  </tr>
+</table>
+
+<p><strong>Why this matters for RL:</strong> the model can look at rollout 1 vs rollout 2 and ask "what did I do differently?" The positive advantage says "do more of this", negative says "do less of this." It learns from its own successes and failures on the same problem.</p>
+
+<p>This is the core idea behind <strong>GRPO</strong> (Group Relative Policy Optimization). You don't need a separate reward model, you just compare the rollouts against each other within the group.</p>
+
+<hr class="sep">
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     III. DR.GRPO
+     ═══════════════════════════════════════════════════════════ -->
+
+<h3 id="s-drgrpo"><span class="num">III</span>Dr.GRPO</h3>
+<p class="lede">Dr.GRPO (<a href="https://arxiv.org/abs/2503.20783" style="color: #268bd2; text-decoration: none;">Liu et al., 2025</a>) makes two adjustments to standard GRPO. Both are about fairness: making sure no single group or response dominates the gradient just because of scale.</p>
+
+<h4><span class="sub">a</span>Group Std Normalization</h4>
+
+<div style="display: flex; gap: 12px; margin: 18px 0;">
+  <div class="formula" style="flex: 1; margin: 0; border-top-color: #ccc;">
+    <span class="label">GRPO</span>
+    advantage = reward &minus; group_mean
+  </div>
+  <div class="formula" style="flex: 1; margin: 0;">
+    <span class="label">DR.GRPO</span>
+    advantage = (reward &minus; group_mean) / group_std
+  </div>
+</div>
+
+<p>Groups with high reward variance produce larger advantages and dominate the gradient. Example, two groups, 4 rollouts each:</p>
+
+<table class="ch-table" style="margin-top: 12px;">
+  <tr>
+    <th>Group</th>
+    <th>Rewards</th>
+    <th>Mean</th>
+    <th>Advantages</th>
+  </tr>
+  <tr>
+    <td>A</td>
+    <td class="mono">[0, 0, 0, 1]</td>
+    <td class="mono">0.25</td>
+    <td class="mono">[-0.25, -0.25, -0.25, 0.75]</td>
+  </tr>
+  <tr>
+    <td>B</td>
+    <td class="mono">[0.4, 0.5, 0.5, 0.6]</td>
+    <td class="mono">0.50</td>
+    <td class="mono">[-0.1, 0, 0, 0.1]</td>
+  </tr>
+</table>
+
+<p>Group A's advantages are 7x larger. Without normalization, the model mostly learns from Group A (the easy question where one rollout got lucky) and ignores Group B (where it's actually making steady progress with nuanced signal). Dividing by std scales both groups to similar magnitude, every prompt contributes equally to learning.</p>
+
+<p>Edge case: if all rollouts in a group score the same, std is 0. These groups get skipped (advantage = 0), which is correct, zero variance means no learning signal.</p>
+
+<h4><span class="sub">b</span>Response Length Normalization</h4>
+
+<p>Standard GRPO sums the loss over all tokens. Every token gets the same advantage, so longer responses have more impact on the gradient.</p>
+
+<table class="ch-table" style="margin-top: 12px;">
+  <tr>
+    <th></th>
+    <th>Tokens</th>
+    <th>Reward</th>
+    <th>Gradient weight</th>
+  </tr>
+  <tr>
+    <td>Rollout 1</td>
+    <td class="mono">400</td>
+    <td class="mono neg">0</td>
+    <td style="color: #999; font-size: 13px;">400 tokens of negative signal</td>
+  </tr>
+  <tr>
+    <td>Rollout 2</td>
+    <td class="mono">50</td>
+    <td class="mono pos">1</td>
+    <td style="color: #999; font-size: 13px;">50 tokens of positive signal</td>
+  </tr>
+  <tr>
+    <td>Rollout 3</td>
+    <td class="mono">200</td>
+    <td class="mono neg">0</td>
+    <td style="color: #999; font-size: 13px;">200 tokens of negative signal</td>
+  </tr>
+</table>
+
+<p>Without length normalization: 600 tokens of negative gradient vs 50 tokens of positive. The long wrong answer drowns out the short correct one. The model learns "don't be verbose" instead of "don't be wrong." With length normalization: each rollout's loss is divided by its token count, so each response contributes equally regardless of length.</p>
 
 <div class="colophon">
   <p>CONCEPTS+</p>

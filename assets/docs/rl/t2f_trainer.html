@@ -125,10 +125,7 @@
 
 <figure style="margin:16px 0 0; overflow:hidden; border-radius:2px;">
   <div style="position:relative; height:220px;">
-    <img style="position:absolute; left:50%; transform:translateX(-50%); width:100%; height:220px; object-fit:cover; object-position:center 30%; display:block; opacity:0.5;" src="https://www.mfab.hu/app/uploads/2023/08/345913.jpg" alt="">
-    <img style="position:absolute; left:50%; transform:translateX(-50%); width:98%; height:220px; object-fit:cover; object-position:center 30%; display:block; opacity:0.7;" src="https://www.mfab.hu/app/uploads/2023/08/345913.jpg" alt="">
-    <img style="position:absolute; left:50%; transform:translateX(-50%); width:96%; height:220px; object-fit:cover; object-position:center 30%; display:block; opacity:0.85;" src="https://www.mfab.hu/app/uploads/2023/08/345913.jpg" alt="">
-    <img style="position:absolute; left:50%; transform:translateX(-50%); width:94%; height:220px; object-fit:cover; object-position:center 70%; display:block; opacity:1;" src="https://www.mapsandart.com/wp-content/uploads/2020/08/01GBR20206-01.jpg" alt="English Countryside, Peter Trowbridge, 1836">
+    <img style="position:absolute; left:50%; transform:translateX(-50%); width:94%; height:220px; object-fit:cover; object-position:center 70%; display:block;" src="https://www.mapsandart.com/wp-content/uploads/2020/08/01GBR20206-01.jpg" alt="English Countryside, Peter Trowbridge, 1836">
   </div>
   <figcaption style="font-family:'JetBrains Mono',monospace; font-size:11px; color:#bbb; letter-spacing:0.5px; margin-top:8px; text-align:center;">Peter Trowbridge, <em style="color:#bbb">English Countryside</em>, 1836.</figcaption>
 </figure>
@@ -146,42 +143,29 @@
 <p>The codebase is small and well-defined:</p>
 
 <ol>
-<li><strong><code>orchestrator.py</code></strong> - the multi-turn conversation loop. Model responds, environment gives new input, model responds again, score the whole trajectory. This is the core valuable piece.</li>
-<li><strong><code>client.py</code></strong> - vLLM weight sync. Pushes updated weights from training GPU to inference GPU via NCCL.</li>
-<li><strong><code>trainer.py</code></strong> - subclasses <code>transformers.Trainer</code> directly (not TRL). Runs GRPO with importance ratio clipping.</li>
-<li><strong><code>config.py</code></strong> - RLConfig with multi-turn fields.</li>
-<li><strong><code>server.py</code></strong> - custom vLLM server with weight sync endpoints.</li>
+<li><strong><code>orchestrator.py</code></strong>: the multi-turn rollout loop. Model responds, environment gives new input, model responds again, score the whole trajectory. This is the core valuable piece.</li>
+<li><strong><code>client.py</code></strong>: vLLM weight sync. Pushes updated weights from training GPU to inference GPU.</li>
+<li><strong><code>trainer.py</code></strong>: subclasses <code>transformers.Trainer</code>. Runs GRPO with importance ratio clipping.</li>
+<li><strong><code>config.py</code></strong>: RLConfig with multi-turn fields.</li>
+<li><strong><code>server.py</code></strong>: custom vLLM server with weight sync endpoints.</li>
 </ol>
 
-<h3><span class="num">III</span>Observations</h3>
+<h3><span class="num">III</span>Changes from verifiers-rl</h3>
 
 <ul>
-<li>verifiers-rl does NOT use TRL at all, it's pure <code>transformers.Trainer</code></li>
-<li>The earlier plan to port into TRL's <code>rollout_func</code> is one option but not the only one</li>
-<li>Ludic exists as a purpose-built multi-turn/agentic RL library (custom trainer, no TRL)</li>
-<li>prime-rl is production-grade but not meant for hacking</li>
-<li>The real value is the orchestrator + weight sync, the trainer itself is fairly standard GRPO</li>
+<li><strong><code>get_model_and_tokenizer</code> import</strong>: the original calls <code>vf.get_model_and_tokenizer()</code> from the verifiers package, which gates it behind a <code>verifiers-rl</code> install check. t2f-trainer has its own copy in <code>utils.py</code>, so the import was changed to use the local version.</li>
+<li><strong><code>flash-attn</code> made optional</strong>: <code>flash-attn</code> compiles CUDA kernels from source (~15 min). For small models with <code>enforce_eager = true</code>, it is not needed. Commented out in <code>pyproject.toml</code> so install is fast (just wheels, no compilation).</li>
+<li><strong><code>ClientConfig</code> instead of <code>AsyncOpenAI</code></strong>: verifiers 0.1.11+ routes all clients through <code>resolve_client()</code>, which only accepts <code>Client</code> or <code>ClientConfig</code>, not raw <code>AsyncOpenAI</code>. The orchestrator was changed to pass a <code>ClientConfig</code> instead, with the API key set as an env var (<code>T2F_VLLM_API_KEY</code>) since <code>ClientConfig.api_key_var</code> expects an env var name, not a literal value.</li>
 </ul>
 
 <h3><span class="num">IV</span>Directions</h3>
 
-<p><strong>Option A: Keep evolving t2f-trainer.</strong> Simplest path. Full ownership, small enough to understand fully. Unpin vllm (currently locked to 0.10.x), make flash-attn optional, add KL penalty (training collapsed without it), add more algorithms beyond GRPO, improve TOML config support.</p>
-
-<p><strong>Option B: Study Ludic's architecture.</strong> Ludic is designed for exactly this: agentic multi-turn RL. Clean separation of agents, environments, interaction protocols. Modular credit assignment and loss functions. Supports GRPO, SAPO, REINFORCE, SFT out of the box. Could adopt ideas or patterns into t2f-trainer.</p>
-
-<p><strong>Option C: Contribute to prime-rl / upstream.</strong> If the changes are useful broadly, push them upstream. Less control but more community.</p>
-
-<h3><span class="num">V</span>Next Steps</h3>
-
-<ol>
-<li>Read through t2f-trainer source end to end, understand every file</li>
-<li>Unpin vllm, update <code>server.py</code> imports for newer vLLM (the <code>collective_rpc</code> / <code>worker_extension_cls</code> pattern is stable and officially supported, just the internal import paths move between versions)</li>
-<li>Make flash-attn optional, move to <code>[project.optional-dependencies]</code>, vLLM handles attention itself</li>
+<ul>
 <li>Add KL penalty option to prevent training collapse</li>
 <li>Add SFT training mode (for SFT + LoRA to RLVR + LoRA pipeline)</li>
 <li>Read Ludic source for ideas on better multi-turn abstractions</li>
-<li>Test on a GPU node with alphabet-sort</li>
-</ol>
+<li>Read through t2f-trainer source end to end, understand every file</li>
+</ul>
 
 <div class="colophon">
   <p>T2F-TRAINER</p>
