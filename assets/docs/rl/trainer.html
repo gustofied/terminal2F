@@ -376,7 +376,7 @@
      ═══════════════════════════════════════════════════════════ -->
 
 <h2><span class="num">II</span>Training</h2>
-<p class="lede">One full cycle. The orchestrator prepares what the trainer needs: rollouts, advantages, microbatches. The trainer re-evaluates the same tokens under the current policy, computes loss, and updates weights. Then syncs to vLLM so the next batch generates with the new policy.</p>
+<p class="lede">One full cycle. The orchestrator calls <code>env.generate()</code>, which hands control to verifiers. Verifiers drives the multi-turn conversation loop &ndash; calling vLLM for completions, running <code>env_response()</code> between turns, repeating until the environment says it's done &ndash; then scores the rollout with reward functions. The orchestrator collects the results, packages them into microbatches, and feeds them to the trainer. The trainer re-evaluates the same tokens under the current policy, computes loss, updates weights, and syncs back to vLLM.</p>
 
 <div class="fig">
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 330" width="700" height="330">
@@ -396,42 +396,43 @@
 
   <!-- 2 -->
   <text x="0" y="92" font-family="'Palatino Linotype','Book Antiqua',Palatino,serif" font-size="12" fill="#999">2.</text>
-  <text x="22" y="92" font-family="'Palatino Linotype','Book Antiqua',Palatino,serif" font-size="13" fill="#1a1a1a">Compute advantages</text>
-  <text x="200" y="92" font-family="'JetBrains Mono',monospace" font-size="10" fill="#999">A = reward &minus; group_mean</text>
+  <text x="22" y="92" font-family="'Palatino Linotype','Book Antiqua',Palatino,serif" font-size="13" fill="#1a1a1a">Advantages</text>
+  <text x="120" y="92" font-family="'JetBrains Mono',monospace" font-size="10" fill="#999">A = reward &minus; group_mean</text>
+  <text x="22" y="108" font-family="'JetBrains Mono',monospace" font-size="8" fill="#bbb">computed by verifiers in rubric.py &middot; orchestrator passes through</text>
 
-  <line x1="0" y1="104" x2="700" y2="104" stroke="#eee" stroke-width="0.3"/>
+  <line x1="0" y1="120" x2="700" y2="120" stroke="#eee" stroke-width="0.3"/>
 
   <!-- 3 -->
-  <text x="0" y="124" font-family="'Palatino Linotype','Book Antiqua',Palatino,serif" font-size="12" fill="#999">3.</text>
-  <text x="22" y="124" font-family="'Palatino Linotype','Book Antiqua',Palatino,serif" font-size="13" fill="#1a1a1a">Package microbatches</text>
-  <text x="22" y="140" font-family="'JetBrains Mono',monospace" font-size="8" fill="#bbb">input_ids · loss_mask · logprobs · advantages</text>
+  <text x="0" y="140" font-family="'Palatino Linotype','Book Antiqua',Palatino,serif" font-size="12" fill="#999">3.</text>
+  <text x="22" y="140" font-family="'Palatino Linotype','Book Antiqua',Palatino,serif" font-size="13" fill="#1a1a1a">Package microbatches</text>
+  <text x="22" y="156" font-family="'JetBrains Mono',monospace" font-size="8" fill="#bbb">input_ids · loss_mask · logprobs · advantages</text>
 
   <!-- ── TRAINER ── -->
-  <line x1="0" y1="164" x2="700" y2="164" stroke="#1a1a1a" stroke-width="1.2"/>
-  <text x="0" y="178" font-family="'JetBrains Mono',monospace" font-size="7.5" fill="#999" letter-spacing="1.2">TRAINER</text>
-  <line x1="0" y1="184" x2="700" y2="184" stroke="#1a1a1a" stroke-width="0.3"/>
+  <line x1="0" y1="176" x2="700" y2="176" stroke="#1a1a1a" stroke-width="1.2"/>
+  <text x="0" y="190" font-family="'JetBrains Mono',monospace" font-size="7.5" fill="#999" letter-spacing="1.2">TRAINER</text>
+  <line x1="0" y1="196" x2="700" y2="196" stroke="#1a1a1a" stroke-width="0.3"/>
 
   <!-- 4 -->
-  <text x="0" y="208" font-family="'Palatino Linotype','Book Antiqua',Palatino,serif" font-size="12" fill="#999">4.</text>
-  <text x="22" y="208" font-family="'Palatino Linotype','Book Antiqua',Palatino,serif" font-size="13" fill="#1a1a1a">Forward pass</text>
-  <text x="122" y="208" font-family="'Palatino Linotype','Book Antiqua',Palatino,serif" font-size="13" fill="#999">&rarr;</text>
-  <text x="140" y="208" font-family="'JetBrains Mono',monospace" font-size="10" fill="#1a1a1a">trainer_logprobs</text>
-  <text x="286" y="208" font-family="'Palatino Linotype','Book Antiqua',Palatino,serif" font-size="12" fill="#bbb">on same token sequences</text>
+  <text x="0" y="220" font-family="'Palatino Linotype','Book Antiqua',Palatino,serif" font-size="12" fill="#999">4.</text>
+  <text x="22" y="220" font-family="'Palatino Linotype','Book Antiqua',Palatino,serif" font-size="13" fill="#1a1a1a">Forward pass</text>
+  <text x="122" y="220" font-family="'Palatino Linotype','Book Antiqua',Palatino,serif" font-size="13" fill="#999">&rarr;</text>
+  <text x="140" y="220" font-family="'JetBrains Mono',monospace" font-size="10" fill="#1a1a1a">trainer_logprobs</text>
+  <text x="286" y="220" font-family="'Palatino Linotype','Book Antiqua',Palatino,serif" font-size="12" fill="#bbb">on same token sequences</text>
 
-  <line x1="0" y1="220" x2="700" y2="220" stroke="#eee" stroke-width="0.3"/>
+  <line x1="0" y1="232" x2="700" y2="232" stroke="#eee" stroke-width="0.3"/>
 
   <!-- 5 -->
-  <text x="0" y="240" font-family="'Palatino Linotype','Book Antiqua',Palatino,serif" font-size="12" fill="#999">5.</text>
-  <text x="22" y="240" font-family="'Palatino Linotype','Book Antiqua',Palatino,serif" font-size="13" fill="#1a1a1a">Loss</text>
-  <text x="56" y="240" font-family="'JetBrains Mono',monospace" font-size="10" fill="#1a1a1a">&minus;ratio &times; advantage</text>
-  <text x="224" y="240" font-family="'Palatino Linotype','Book Antiqua',Palatino,serif" font-size="12" fill="#bbb">masked to completions &rarr; backprop</text>
+  <text x="0" y="252" font-family="'Palatino Linotype','Book Antiqua',Palatino,serif" font-size="12" fill="#999">5.</text>
+  <text x="22" y="252" font-family="'Palatino Linotype','Book Antiqua',Palatino,serif" font-size="13" fill="#1a1a1a">Loss</text>
+  <text x="56" y="252" font-family="'JetBrains Mono',monospace" font-size="10" fill="#1a1a1a">&minus;ratio &times; advantage</text>
+  <text x="224" y="252" font-family="'Palatino Linotype','Book Antiqua',Palatino,serif" font-size="12" fill="#bbb">masked to completions &rarr; backprop</text>
 
-  <line x1="0" y1="252" x2="700" y2="252" stroke="#eee" stroke-width="0.3"/>
+  <line x1="0" y1="264" x2="700" y2="264" stroke="#eee" stroke-width="0.3"/>
 
   <!-- 6 -->
-  <text x="0" y="272" font-family="'Palatino Linotype','Book Antiqua',Palatino,serif" font-size="12" fill="#999">6.</text>
-  <text x="22" y="272" font-family="'Palatino Linotype','Book Antiqua',Palatino,serif" font-size="13" fill="#1a1a1a">Update weights</text>
-  <text x="140" y="272" font-family="'Palatino Linotype','Book Antiqua',Palatino,serif" font-size="12" fill="#bbb">optimizer step</text>
+  <text x="0" y="284" font-family="'Palatino Linotype','Book Antiqua',Palatino,serif" font-size="12" fill="#999">6.</text>
+  <text x="22" y="284" font-family="'Palatino Linotype','Book Antiqua',Palatino,serif" font-size="13" fill="#1a1a1a">Update weights</text>
+  <text x="140" y="284" font-family="'Palatino Linotype','Book Antiqua',Palatino,serif" font-size="12" fill="#bbb">optimizer step</text>
 
   <!-- ── SYNC ── -->
   <line x1="0" y1="296" x2="700" y2="296" stroke="#1a1a1a" stroke-width="1.2"/>
@@ -447,7 +448,68 @@
 <p class="fig-cap"><strong>Steps</strong></p>
 </div>
 
-<p>One step processes one batch. A batch is all your rollouts: say 5 examples from the dataset, 3 rollouts each, so 15 rollouts total. Advantages are computed per group before anything hits the trainer. After that each rollout carries its own advantage and the trainer doesn't need to know which group it came from. Microbatches just split those 15 rollouts into smaller chunks that fit in GPU memory. The trainer processes them one by one, accumulates gradients, then does a single optimizer step at the end.</p>
+<p>One step processes one batch. A batch is all your rollouts: say 5 examples from the dataset, 3 rollouts each, so 15 rollouts total. The trainer processes them one microbatch at a time, accumulates gradients, then does a single optimizer step at the end.</p>
+
+<h3><span class="sub">a</span>Step 1: Roll out</h3>
+
+<p>The orchestrator calls <code>env.generate()</code> on an async background thread with the vLLM client. Verifiers takes over from there: it sends prompts to vLLM, gets completions back, calls <code>env_response()</code> to produce the next turn, sends that back to vLLM, and repeats until the environment signals it's done. Then reward functions score the full trajectory. The orchestrator doesn't control the conversation loop &ndash; verifiers does. The orchestrator just triggers it and waits for results.</p>
+
+<p>Each rollout comes back with: the full trajectory (prompts, completions, env responses per turn), token IDs, the logprobs vLLM assigned to each completion token at generation time, and a reward.</p>
+
+<h3><span class="sub">b</span>Step 2: Advantages</h3>
+
+<p>In verifiers-rl, <strong>verifiers computes the advantage, not the trainer</strong>. The rubric scores all rollouts for a prompt group, then computes <code>advantage = reward &minus; group_mean</code> (GRPO) and writes it into each trajectory step. The orchestrator just reads <code>step["advantage"]</code> and passes it through.</p>
+
+<p>This is a design choice worth noting. It means verifiers is deciding the advantage scheme &ndash; if you want Dr.GRPO normalization, or a different baseline, verifiers has to do it. Other trainers (t2f-trainer, prime-rl, SkyRL) take the raw rewards and compute their own advantages. That's cleaner: the trainer picks the RL algorithm, verifiers just scores.</p>
+
+<h3><span class="sub">c</span>Step 3: Package microbatches</h3>
+
+<p>The orchestrator splits the batch into microbatches that fit in GPU memory. If you have 4 GPUs and 512 rollouts, each GPU gets 128 rollouts, split further into chunks of <code>micro_batch_size</code> (default 8). Each microbatch carries four fields:</p>
+
+<ul>
+  <li><code>input_ids</code> &ndash; prompt + completion token IDs concatenated</li>
+  <li><code>loss_mask</code> &ndash; 0 for prompt tokens, 1 for completion tokens</li>
+  <li><code>sampling_logprobs</code> &ndash; the logprobs vLLM assigned at generation time (the "old policy")</li>
+  <li><code>advantages</code> &ndash; the single scalar repeated for every token in the sequence</li>
+</ul>
+
+<p>The trainer loops over microbatches, accumulates gradients, then does one optimizer step for the whole batch.</p>
+
+<h3><span class="sub">d</span>Steps 4&ndash;6: Forward, loss, update</h3>
+
+<p>The trainer runs a forward pass on each microbatch's <code>input_ids</code> to get <code>trainer_logprobs</code> &ndash; what the current policy thinks about the same tokens. Then computes the importance ratio and loss (detailed in section IV). Gradients accumulate across microbatches, then one optimizer step updates the weights.</p>
+
+<h3><span class="sub">e</span>Step 7: Sync</h3>
+
+<p>Updated weights are pushed to vLLM via NCCL. The next batch then generates with the new policy.</p>
+
+<h3><span class="sub">f</span>The async pipeline and the ratio</h3>
+
+<p>There is one subtlety. Generation is async: the orchestrator submits the <em>next</em> batch for generation at the <strong>start</strong> of the current training step, before training happens. So the timeline is:</p>
+
+<div class="block">
+<span class="label">Async pipeline</span>
+<pre><code>__init__:  submit batch 0          (vLLM has &pi;&#x2080;)
+
+step 0:    sync &rarr; skipped          (first step, nothing to sync)
+           submit batch 1          (vLLM still has &pi;&#x2080;)
+           train on batch 0        (generated by &pi;&#x2080;, trainer has &pi;&#x2080;)
+           &rarr; ratio = &pi;&#x2080;/&pi;&#x2080; = 1
+           &rarr; optimizer step &rarr; trainer becomes &pi;&#x2081;
+
+step 1:    sync &pi;&#x2081; to vLLM
+           submit batch 2          (vLLM now has &pi;&#x2081;)
+           train on batch 1        (generated by &pi;&#x2080;, trainer has &pi;&#x2081;)
+           &rarr; ratio = &pi;&#x2081;/&pi;&#x2080; &ne; 1
+           &rarr; optimizer step &rarr; trainer becomes &pi;&#x2082;
+
+step 2:    sync &pi;&#x2082; to vLLM
+           submit batch 3          (vLLM now has &pi;&#x2082;)
+           train on batch 2        (generated by &pi;&#x2081;, trainer has &pi;&#x2082;)
+           &rarr; ratio = &pi;&#x2082;/&pi;&#x2081; &ne; 1</code></pre>
+</div>
+
+<p>The ratio is exactly 1 only on step 0. From step 1 onward, the batch was generated by the <em>previous</em> step's policy. But it's only one gradient step behind, at a learning rate of 1e-5 on a billion-parameter model &ndash; logprobs barely shift, so the ratio is close to 1 (e.g. 0.98&ndash;1.02 for most tokens). This is very different from textbook PPO, where you take multiple SGD steps on the same frozen batch and the ratio drifts meaningfully.</p>
 
 <hr class="sep">
 
@@ -664,15 +726,17 @@ loss  = -ratio &times; advantage</code></pre>
 
 <h3><span class="sub">c</span>Clipping</h3>
 
-<p>The ratio can get extreme if the policy has shifted a lot since generation. PPO clipping caps it:</p>
+<p>The ratio can get extreme if the policy has shifted a lot since generation. Verifiers-rl doesn't use PPO's <code>min(ratio, clip(...))</code> formulation. Instead it masks: any token whose ratio falls outside a wide band is simply dropped from the loss.</p>
 
 <div class="block">
-<span class="label">PPO Clip &ensp;($\varepsilon = 0.2$)</span>
-<pre><code>clipped = clip(ratio, 1-&epsilon;, 1+&epsilon;)
-loss    = -min(ratio &times; A, clipped &times; A)</code></pre>
+<span class="label">IS Masking &ensp;(default bounds: 0.125 &ndash; 8.0)</span>
+<pre><code>keep = (ratio &ge; 0.125) &amp; (ratio &le; 8.0) &amp; loss_mask
+loss = &minus;(ratio &times; advantage)[keep].sum()</code></pre>
 </div>
 
-<p>This prevents any single update from moving weights too aggressively. For positive advantages, it caps large probability increases. For negative advantages, it caps large decreases. The model can only move so far per step.</p>
+<p>In practice, this masking almost never fires. The training loop does <strong>one</strong> gradient step per rollout batch, then syncs the updated weights to vLLM for the next generation. So the policy that generated a batch is only one step behind the policy that trains on it. With a learning rate of 1e-5 on a billion-parameter model, logprobs barely shift &ndash; the ratio stays close to 1 (e.g. 0.98&ndash;1.02 for most tokens). The wide [0.125, 8.0] band is a safety net, not a regular constraint.</p>
+
+<p>This is different from textbook PPO, where you take <strong>multiple</strong> SGD steps on the same batch with a frozen old policy. There the ratio drifts meaningfully from 1 and clipping is load-bearing. Here, one step per batch means the ratio barely moves.</p>
 
 <h3><span class="sub">d</span>Credit Assignment</h3>
 <p>Every token in a completion gets the same advantage value. If the completion scored well, <em>all</em> its tokens get reinforced &ndash; even punctuation, formatting, filler words. The model can't tell which specific tokens were responsible for the score.</p>
