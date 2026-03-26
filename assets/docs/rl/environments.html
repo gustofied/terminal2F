@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Environments</title>
+<title>Verifiers Environments</title>
 <style>html { font-size: 90%; } 
   @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&display=swap');
 
@@ -216,457 +216,174 @@
 <a class="back" href="index.html">&larr; rl / docs</a>
 
 <div class="memo-head">
-  <h1>Environments</h1>
-  <div class="memo-sub">MULTI-TURN, ROLLOUTS, ENV LOGIC</div>
+  <h1>Verifiers Environments</h1>
 </div>
 
 
 <!-- ═══════════════════════════════════════════════════════════
-     I. MULTI-TURN ENVIRONMENTS
+     I. WHAT IS AN ENVIRONMENT
      ═══════════════════════════════════════════════════════════ -->
 
-<h2><span class="num">I</span>Multi-Turn Environments</h2>
-<p class="lede">Every environment is a loop: the model responds, the environment reacts, and state accumulates the full trajectory. Four components drive this.</p>
+<h2><span class="num">I</span>What is an Environment</h2>
+<p class="lede">Every environment in verifiers is a multi-turn environment. That's the core class. A single-turn environment is just a multi-turn environment with turns set to 1, for example a simple question and answer environment.</p>
 
-<h3><span class="sub">a</span>Pieces</h3>
+<p>An environment packages three things: a <strong>dataset</strong> (task inputs), a <strong>harness</strong> (tools, sandboxes, context), and a <strong>rubric</strong> (reward functions that score the model). The environment is a loop: the model responds to something, the environment reacts, repeat until done.</p>
 
-<table class="ch-table">
-  <tr>
-    <th>Component</th>
-    <th>Role</th>
-  </tr>
-  <tr>
-    <td class="mono">dataset row</td>
-    <td>Starting state. Has <code>prompt</code> (initial message) plus extra data in <code>info</code>: follow-ups, ground truths, turn count.</td>
-  </tr>
-  <tr>
-    <td class="mono">state</td>
-    <td>Mutable dict that accumulates data throughout the rollout. Dataset fields via <code>state["info"]</code> (follow-ups, ground truths, seed), <code>state["answer"]</code>. Runtime fields: <code>trajectory</code>, <code>completion</code>, <code>reward</code>, <code>error</code>. Shared across reward functions: earlier ones can store computed values for later ones to consume.</td>
-  </tr>
-  <tr>
-    <td class="mono">env_response</td>
-    <td>Your function. Called after each model turn with the full conversation + state. Returns new messages to append. This is where environment logic lives.</td>
-  </tr>
-  <tr>
-    <td class="mono">@vf.stop</td>
-    <td>Methods that check if the rollout is done. Called after each turn. Return <code>True</code> to end.</td>
-  </tr>
-</table>
+<p>The dataset gives you the starting state: a prompt and an <code>info</code> field with whatever the environment needs (follow-ups, ground truths, seeds). What turns a simple Q&A dataset into an agentic environment is <code>env_response</code>, the function that reacts to each model turn and feeds back the next message.</p>
 
-<p>Example dataset row:</p>
+<!-- ═══════════════════════════════════════════════════════════
+     II. THE ROLLOUT LOOP
+     ═══════════════════════════════════════════════════════════ -->
 
-<pre><code>{
-    "prompt": [{"role": "user", "content": "Sort these names: Alice, Bob"}],
-    "info": {
-        "follow_ups": ["Now add Charlie", "Now add Dan"],
-        "ground_truths": [["Alice", "Bob"], ["Alice", "Bob", "Charlie"], ...],
-        "num_turns": 3,
-    }
-}</code></pre>
+<h2><span class="num">II</span>The Rollout Loop</h2>
 
-<h3><span class="sub">b</span>Loop</h3>
+<p>Each rollout gets a <code>state</code> dict that lives for its full duration. It carries the dataset fields (<code>state["info"]</code>, <code>state["prompt"]</code>), runtime data that verifiers populates as the rollout progresses (<code>trajectory</code>, <code>completion</code>, <code>reward</code>), and anything you store there yourself (database handles, flags, computed values). <code>state</code> is passed to every function in the rollout: <code>setup_state</code>, <code>env_response</code>, stop conditions, cleanup, and reward functions all read from and write to the same object.</p>
 
 <table class="ch-table">
   <tr>
     <th></th>
-    <th>Step</th>
-  </tr>
-  <tr>
-    <td class="mono" style="color: #aaa;">0</td>
-    <td><code>setup_state(state)</code> prepares per-rollout resources</td>
+    <th>What happens</th>
   </tr>
   <tr>
     <td class="mono" style="color: #aaa;">1</td>
-    <td>Model sees accumulated messages, generates response</td>
+    <td><code>setup_state(state)</code> prepares per-rollout resources (database, server, etc.)</td>
   </tr>
   <tr>
     <td class="mono" style="color: #aaa;">2</td>
-    <td>Check <code>@vf.stop</code>: if done, go to 5</td>
+    <td>Model sees the conversation so far, generates a response</td>
   </tr>
   <tr>
     <td class="mono" style="color: #aaa;">3</td>
-    <td><code>env_response(messages, state)</code> returns new messages</td>
+    <td>Stop conditions checked. If done, go to 6</td>
   </tr>
   <tr>
     <td class="mono" style="color: #aaa;">4</td>
-    <td>New messages appended to conversation, go to 1</td>
+    <td><code>env_response(messages, state)</code> reacts: returns new messages to append</td>
   </tr>
   <tr>
     <td class="mono" style="color: #aaa;">5</td>
-    <td>Completion rendered into <code>state["completion"]</code>, scored by rubric, <code>@vf.cleanup</code> runs</td>
+    <td>Back to 2</td>
+  </tr>
+  <tr>
+    <td class="mono" style="color: #aaa;">6</td>
+    <td>Final completion rendered, rubric scores the rollout, cleanup runs</td>
   </tr>
 </table>
 
-<p>State accumulates the full conversation. Each turn appends to the trajectory. At the end, the whole thing is assembled into <code>state["completion"]</code>:</p>
+<p><code>env_response</code> is the heart of it. For a pre-planned environment, it pulls the next follow-up from <code>state["info"]</code>. For a tool environment, it executes the model's tool calls and returns results. For anything dynamic, it reacts to what the model did. Verifiers doesn't know or care what happens inside, it just expects messages back.</p>
 
-<pre><code>Turn 1: [{user: "Sort: Alice, Bob"}, {assistant: "Alice, Bob"}, {user: "Now add Charlie"}]
-Turn 2: [...all above..., {assistant: "Alice, Bob, Charlie"}, {user: "Now add Dan"}]
-Turn 3: [...all above..., {assistant: "Alice, Bob, Charlie, Dan"}] → stop → score</code></pre>
+<pre><code><span style="color:#586E75"># simple: pull follow-up from dataset</span>
+<span style="color:#859900">async def</span> <span style="color:#268bd2">env_response</span>(self, messages, state, **kwargs):
+    turn = <span style="color:#6c71c4">len</span>([m <span style="color:#859900">for</span> m <span style="color:#859900">in</span> messages <span style="color:#859900">if</span> m[<span style="color:#2aa198">"role"</span>] == <span style="color:#2aa198">"assistant"</span>]) - <span style="color:#d33682">1</span>
+    <span style="color:#859900">return</span> [{<span style="color:#2aa198">"role"</span>: <span style="color:#2aa198">"user"</span>, <span style="color:#2aa198">"content"</span>: state[<span style="color:#2aa198">"info"</span>][<span style="color:#2aa198">"follow_ups"</span>][turn]}]
 
-<h3><span class="sub">c</span>Data Patterns</h3>
+<span style="color:#586E75"># tool: execute and return results</span>
+<span style="color:#859900">async def</span> <span style="color:#268bd2">env_response</span>(self, messages, state, **kwargs):
+    tool_calls = parse_tool_calls(messages[<span style="color:#d33682">-1</span>])
+    results = []
+    <span style="color:#859900">for</span> call <span style="color:#859900">in</span> tool_calls:
+        result = <span style="color:#859900">await</span> state[<span style="color:#2aa198">"server"</span>].call_tool(call.name, call.args)
+        results.append({<span style="color:#2aa198">"role"</span>: <span style="color:#2aa198">"tool"</span>, <span style="color:#2aa198">"content"</span>: result})
+    <span style="color:#859900">return</span> results</code></pre>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     III. LIFECYCLE
+     ═══════════════════════════════════════════════════════════ -->
+
+<h2><span class="num">III</span>Lifecycle</h2>
+<p>Verifiers gives you hooks at each stage of a rollout. You set things up, react to each turn, decide when to stop, and clean up.</p>
 
 <table class="ch-table">
   <tr>
-    <th>Pattern</th>
-    <th>How it works</th>
+    <th>Hook</th>
+    <th>When</th>
+    <th>What you do</th>
   </tr>
   <tr>
-    <td class="mono">pre-planned</td>
-    <td>Follow-up questions stored in <code>info</code>, pulled out in <code>env_response</code> by turn index</td>
+    <td class="mono">setup_state</td>
+    <td>start of rollout</td>
+    <td>Spin up databases, servers, per-rollout resources. Store handles in <code>state</code>.</td>
   </tr>
   <tr>
-    <td class="mono">dynamic</td>
-    <td>Responses generated based on what the model did: execute action, return observation</td>
+    <td class="mono">env_response</td>
+    <td>after each model turn</td>
+    <td>React to the model's output. Return the next messages.</td>
   </tr>
   <tr>
-    <td class="mono">hybrid</td>
-    <td>Dataset has the scaffolding, <code>env_response</code> adapts based on what happens. Most real environments are this.</td>
+    <td class="mono">@vf.stop</td>
+    <td>after each turn</td>
+    <td>Custom stop conditions. Return <code>True</code> to end. Built-in <code>max_turns_reached</code> is always there.</td>
+  </tr>
+  <tr>
+    <td class="mono">@vf.cleanup</td>
+    <td>end of rollout</td>
+    <td>Tear down per-rollout resources. Must be idempotent.</td>
+  </tr>
+  <tr>
+    <td class="mono">@vf.teardown</td>
+    <td>environment shutdown</td>
+    <td>Clean up anything shared across all rollouts.</td>
   </tr>
 </table>
 
-<pre><code># pre-planned: pull from dataset
-async def env_response(self, messages, state):
-    turn = len([m for m in messages if m["role"] == "assistant"]) - 1
-    return [{"role": "user", "content": state["info"]["follow_ups"][turn]}]
 
-# dynamic: react to model output
-async def env_response(self, messages, state):
-    result = execute_action(messages[-1]["content"])
-    return [{"role": "user", "content": result}]</code></pre>
+<!-- ═══════════════════════════════════════════════════════════
+     IV. STATE
+     ═══════════════════════════════════════════════════════════ -->
 
-<h3><span class="sub">d</span>Hierarchy</h3>
-
-<p>Everything is a <code>MultiTurnEnv</code> with a different <code>env_response</code>:</p>
-
-<pre><code>Environment (base)
-  └── MultiTurnEnv (adds the env_response loop)
-        ├── SingleTurnEnv (one turn, no env_response)
-        ├── ToolEnv (env_response = execute tool calls, return results)
-        │     ├── StatefulToolEnv (persistent state between turns)
-        │     │     ├── SandboxEnv (tools run in isolated sandbox)
-        │     │     └── BrowserEnv (browser automation)
-        │     └── MCPEnv (MCP server tools)
-        ├── OpenEnvEnv (talks to OpenEnv server)
-        ├── TextArenaEnv (game environments)
-        └── CliAgentEnv (terminal/CLI agent in sandbox)</code></pre>
-
-<p>The pattern is always the same: parse the model's last message, execute the action, return the observation as messages. The model never talks to the real system directly. <code>env_response</code> is always the bridge.</p>
-
-<h3><span class="sub">e</span>Hooks</h3>
-
-<p>Verifiers provides a lifecycle. You hook into it, do whatever you want behind the hooks, and return messages.</p>
-
-<div class="block">
-<span class="label">setup_state(state) &rarr; State</span>
-<pre><code>async def setup_state(self, state: vf.State) -&gt; vf.State:
-    db = create_world(seed=state["info"]["seed"])
-    server = start_mcp_server(db)
-    state["db"] = db
-    state["server"] = server
-    return state</code></pre>
-</div>
-
-<p>Called once at the start of each rollout. Spin up your external system and store handles in state.</p>
-
-<div class="block">
-<span class="label">env_response(messages, state) &rarr; Messages</span>
-<pre><code>async def env_response(self, messages, state, **kwargs):
-    last_msg = messages[-1]
-    tool_calls = parse_tool_calls(last_msg)
-    results = []
-    for call in tool_calls:
-        result = await state["server"].call_tool(call.name, call.args)
-        results.append({"role": "tool", "content": result, "tool_call_id": call.id})
-    return results</code></pre>
-</div>
-
-<p>Called after every model turn. Receive the conversation so far, do your thing (execute tool calls, query a database, call an API), return the next messages. This is the main integration point. Verifiers doesn't know or care what happens inside.</p>
-
-<div class="block">
-<span class="label">@vf.stop</span>
-<pre><code>@vf.stop
-async def workflow_complete(self, state: vf.State) -&gt; bool:
-    return state.get("done", False)</code></pre>
-</div>
-
-<p>Custom stop conditions. Checked after every turn. Return <code>True</code> to end the rollout. The built-in <code>max_turns_reached</code> is always available.</p>
-
-<div class="block">
-<span class="label">@vf.cleanup</span>
-<pre><code>@vf.cleanup
-async def cleanup(self, state: vf.State) -&gt; None:
-    server = state.pop("server", None)
-    if server:
-        await server.stop()</code></pre>
-</div>
-
-<p>Called after each rollout completes. Tear down per-rollout resources.</p>
-
-<div class="block">
-<span class="label">@vf.teardown</span>
-<pre><code>@vf.teardown
-async def teardown(self) -&gt; None:
-    # clean up anything shared across rollouts
-    pass</code></pre>
-</div>
-
-<p>Called once when the entire environment shuts down. Clean up global resources.</p>
-
-<h3><span class="sub">f</span>State</h3>
-<p><code>state</code> is the glue. It persists across turns within a rollout and is accessible everywhere &ndash; in <code>env_response</code>, stop conditions, cleanup, and rubric scoring functions.</p>
+<h2><span class="num">IV</span>State</h2>
+<p><code>state</code> is a mutable dict that lives for the duration of a rollout. It's accessible everywhere: in <code>env_response</code>, stop conditions, cleanup, and reward functions. Verifiers populates some fields automatically. You add whatever your environment needs.</p>
 
 <table class="ch-table">
   <tr>
     <th>Field</th>
-    <th>Managed by</th>
     <th></th>
   </tr>
   <tr>
     <td class="mono">state["prompt"]</td>
-    <td>verifiers</td>
     <td>initial prompt messages</td>
   </tr>
   <tr>
-    <td class="mono">state["completion"]</td>
-    <td>verifiers</td>
-    <td>final computed completion</td>
+    <td class="mono">state["info"]</td>
+    <td>per-example data from the dataset (ground truths, seeds, follow-ups)</td>
   </tr>
   <tr>
     <td class="mono">state["trajectory"]</td>
-    <td>verifiers</td>
-    <td>list of {prompt, completion, reward, ...} per turn</td>
+    <td>list of steps, each with prompt, completion, reward per turn</td>
   </tr>
   <tr>
-    <td class="mono">state["info"]</td>
-    <td>verifiers</td>
-    <td>per-example data from dataset (ground truths, seeds, config)</td>
+    <td class="mono">state["completion"]</td>
+    <td>final rendered completion (after rollout ends)</td>
   </tr>
   <tr>
-    <td class="mono">state["error"]</td>
-    <td>verifiers</td>
-    <td>any error that occurred</td>
-  </tr>
-  <tr style="border-top: 1.5px solid #ddd;">
-    <td class="mono">state["db"]</td>
-    <td>you</td>
-    <td>database connection</td>
-  </tr>
-  <tr>
-    <td class="mono">state["server"]</td>
-    <td>you</td>
-    <td>MCP server handle</td>
-  </tr>
-  <tr>
-    <td class="mono">state["done"]</td>
-    <td>you</td>
-    <td>custom done flag</td>
+    <td class="mono">state["reward"]</td>
+    <td>final reward (after scoring)</td>
   </tr>
 </table>
 
-<h3><span class="sub">g</span>Scoring</h3>
-
-<p>Rubric functions receive <code>completion</code> and <code>state</code>. Use state to access ground truths, database state, or anything else you stored during the rollout.</p>
-
-<div class="block">
-<span class="label">Rubric</span>
-<pre><code>async def score(completion, state, **kwargs):
-    expected = state["info"]["ground_truths"]
-    actual = query_final_state(state["db"])
-    return compute_score(actual, expected)
-
-rubric = vf.Rubric(funcs=[score], weights=[1.0])</code></pre>
-</div>
-
-<hr class="sep">
+<p>You store your own resources in state too: database connections, server handles, flags. Reward functions can read anything in state, and earlier reward functions can store computed values for later ones to consume.</p>
 
 
 <!-- ═══════════════════════════════════════════════════════════
-     II. ROLLOUT SEQUENCE
+     V. SCORING
      ═══════════════════════════════════════════════════════════ -->
 
-<h2><span class="num">II</span>Rollout Sequence</h2>
-<p class="lede">Inside <code>env.generate()</code>. Verifiers drives the loop, vLLM generates when asked, the env produces the next message each turn. Scoring happens once at the end: the rubric evaluates all turns together, results flow back to the orchestrator.</p>
+<h2><span class="num">V</span>Scoring</h2>
+<p>Final rubric scoring happens after the rollout completes. The rubric is a list of reward functions with weights. Each function receives what it asks for by name: <code>completion</code>, <code>state</code>, <code>info</code>, <code>answer</code>. Returns a float, typically 0.0 to 1.0. Intermediate per-turn rewards can also be attached during the rollout via trajectory steps.</p>
 
-<div class="fig">
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 530" width="680" height="530">
-  <defs>
-    <marker id="sq" markerWidth="4" markerHeight="4" refX="4" refY="2" orient="auto">
-      <path d="M0,0 L4,2 L0,4 Z" fill="#1a1a1a"/>
-    </marker>
-    <marker id="sqg" markerWidth="4" markerHeight="4" refX="4" refY="2" orient="auto">
-      <path d="M0,0 L4,2 L0,4 Z" fill="#999"/>
-    </marker>
-    <marker id="sqr" markerWidth="4" markerHeight="4" refX="4" refY="2" orient="auto">
-      <path d="M0,0 L4,2 L0,4 Z" fill="#b33a3a"/>
-    </marker>
-  </defs>
+<pre><code><span style="color:#859900">async def</span> <span style="color:#268bd2">correctness</span>(completion, state, **kwargs):
+    expected = state[<span style="color:#2aa198">"info"</span>][<span style="color:#2aa198">"ground_truths"</span>]
+    actual = parse_answer(completion)
+    <span style="color:#859900">return</span> <span style="color:#d33682">1.0</span> <span style="color:#859900">if</span> actual == expected <span style="color:#859900">else</span> <span style="color:#d33682">0.0</span>
 
-  <!-- Column headers -->
-  <text x="94" y="16" font-family="'Palatino Linotype','Book Antiqua',Palatino,serif" font-size="13" fill="#1a1a1a" font-weight="600" text-anchor="middle">Verifiers</text>
-  <text x="324" y="16" font-family="'Palatino Linotype','Book Antiqua',Palatino,serif" font-size="13" fill="#1a1a1a" font-weight="600" text-anchor="middle">vLLM</text>
-  <text x="560" y="16" font-family="'Palatino Linotype','Book Antiqua',Palatino,serif" font-size="13" fill="#1a1a1a" font-weight="600" text-anchor="middle">Env Logic</text>
+rubric = vf.Rubric(funcs=[correctness], weights=[<span style="color:#d33682">1.0</span>])</code></pre>
 
-  <!-- Header underlines -->
-  <line x1="46" y1="22" x2="142" y2="22" stroke="#1a1a1a" stroke-width="0.4"/>
-  <line x1="286" y1="22" x2="362" y2="22" stroke="#1a1a1a" stroke-width="0.4"/>
-  <line x1="514" y1="22" x2="606" y2="22" stroke="#1a1a1a" stroke-width="0.4"/>
+<p>Multiple reward functions combine via weighted sum. Use <code>add_metric()</code> with <code>weight=0</code> to track things without affecting the final reward.</p>
 
-  <!-- Lifelines -->
-  <line x1="94" y1="30" x2="94" y2="510" stroke="#eee" stroke-width="0.5"/>
-  <line x1="324" y1="30" x2="324" y2="510" stroke="#eee" stroke-width="0.5"/>
-  <line x1="560" y1="30" x2="560" y2="510" stroke="#eee" stroke-width="0.5"/>
-
-  <!-- ── TURN 1 ── -->
-  <line x1="14" y1="40" x2="14" y2="162" stroke="#ddd" stroke-width="0.4"/>
-  <line x1="14" y1="40" x2="20" y2="40" stroke="#ddd" stroke-width="0.4"/>
-  <line x1="14" y1="162" x2="20" y2="162" stroke="#ddd" stroke-width="0.4"/>
-  <text x="10" y="105" font-family="'JetBrains Mono',monospace" font-size="7" fill="#ccc" text-anchor="end" transform="rotate(-90 10 105)">TURN 1</text>
-
-  <rect x="48" y="38" width="92" height="18" fill="#fdfcfa" stroke="#ccc" stroke-width="0.4"/>
-  <text x="94" y="51" font-family="'JetBrains Mono',monospace" font-size="8.5" fill="#888" text-anchor="middle">load prompt</text>
-
-  <line x1="94" y1="66" x2="318" y2="66" stroke="#1a1a1a" stroke-width="0.4" marker-end="url(#sq)"/>
-  <text x="206" y="62" font-family="'JetBrains Mono',monospace" font-size="7.5" fill="#aaa" text-anchor="middle">prompt &rarr; generate</text>
-
-  <rect x="282" y="74" width="84" height="16" fill="#fdfcfa" stroke="#ccc" stroke-width="0.4"/>
-  <text x="324" y="86" font-family="'JetBrains Mono',monospace" font-size="8.5" fill="#888" text-anchor="middle">completion&#x2081;</text>
-
-  <line x1="324" y1="98" x2="100" y2="98" stroke="#999" stroke-width="0.4" stroke-dasharray="3,2" marker-end="url(#sqg)"/>
-  <text x="206" y="94" font-family="'JetBrains Mono',monospace" font-size="7" fill="#ccc" text-anchor="middle">text + token IDs + logprobs</text>
-
-  <line x1="94" y1="116" x2="554" y2="116" stroke="#b33a3a" stroke-width="0.4" marker-end="url(#sqr)"/>
-  <text x="324" y="112" font-family="'JetBrains Mono',monospace" font-size="7.5" fill="#b33a3a" text-anchor="middle">env_response()</text>
-
-  <rect x="516" y="124" width="88" height="16" fill="#fff" stroke="#b33a3a" stroke-width="0.4"/>
-  <text x="560" y="136" font-family="'JetBrains Mono',monospace" font-size="8.5" fill="#b33a3a" text-anchor="middle">follow-up&#x2082;</text>
-
-  <line x1="560" y1="148" x2="100" y2="148" stroke="#b33a3a" stroke-width="0.4" stroke-dasharray="3,2" marker-end="url(#sqr)"/>
-
-  <!-- ── TURN 2 ── -->
-  <line x1="14" y1="178" x2="14" y2="308" stroke="#ddd" stroke-width="0.4"/>
-  <line x1="14" y1="178" x2="20" y2="178" stroke="#ddd" stroke-width="0.4"/>
-  <line x1="14" y1="308" x2="20" y2="308" stroke="#ddd" stroke-width="0.4"/>
-  <text x="10" y="247" font-family="'JetBrains Mono',monospace" font-size="7" fill="#ccc" text-anchor="end" transform="rotate(-90 10 247)">TURN 2</text>
-
-  <rect x="38" y="176" width="112" height="16" fill="#fdfcfa" stroke="#ccc" stroke-width="0.4"/>
-  <text x="94" y="188" font-family="'JetBrains Mono',monospace" font-size="8.5" fill="#888" text-anchor="middle">append to conv</text>
-
-  <line x1="94" y1="204" x2="318" y2="204" stroke="#1a1a1a" stroke-width="0.4" marker-end="url(#sq)"/>
-  <text x="206" y="200" font-family="'JetBrains Mono',monospace" font-size="7" fill="#aaa" text-anchor="middle">conv + follow-up&#x2082; &rarr; generate</text>
-
-  <rect x="282" y="212" width="84" height="16" fill="#fdfcfa" stroke="#ccc" stroke-width="0.4"/>
-  <text x="324" y="224" font-family="'JetBrains Mono',monospace" font-size="8.5" fill="#888" text-anchor="middle">completion&#x2082;</text>
-
-  <line x1="324" y1="236" x2="100" y2="236" stroke="#999" stroke-width="0.4" stroke-dasharray="3,2" marker-end="url(#sqg)"/>
-  <text x="206" y="232" font-family="'JetBrains Mono',monospace" font-size="7" fill="#ccc" text-anchor="middle">text + token IDs + logprobs</text>
-
-  <line x1="94" y1="256" x2="554" y2="256" stroke="#b33a3a" stroke-width="0.4" marker-end="url(#sqr)"/>
-  <text x="324" y="252" font-family="'JetBrains Mono',monospace" font-size="7.5" fill="#b33a3a" text-anchor="middle">env_response()</text>
-
-  <rect x="516" y="264" width="88" height="16" fill="#fff" stroke="#b33a3a" stroke-width="0.4"/>
-  <text x="560" y="276" font-family="'JetBrains Mono',monospace" font-size="8.5" fill="#b33a3a" text-anchor="middle">follow-up&#x2083;</text>
-
-  <line x1="560" y1="288" x2="100" y2="288" stroke="#b33a3a" stroke-width="0.4" stroke-dasharray="3,2" marker-end="url(#sqr)"/>
-
-  <!-- ── TURN 3 ── -->
-  <line x1="14" y1="320" x2="14" y2="400" stroke="#ddd" stroke-width="0.4"/>
-  <line x1="14" y1="320" x2="20" y2="320" stroke="#ddd" stroke-width="0.4"/>
-  <line x1="14" y1="400" x2="20" y2="400" stroke="#ddd" stroke-width="0.4"/>
-  <text x="10" y="364" font-family="'JetBrains Mono',monospace" font-size="7" fill="#ccc" text-anchor="end" transform="rotate(-90 10 364)">TURN 3</text>
-
-  <line x1="94" y1="324" x2="318" y2="324" stroke="#1a1a1a" stroke-width="0.4" marker-end="url(#sq)"/>
-  <text x="206" y="320" font-family="'JetBrains Mono',monospace" font-size="7" fill="#aaa" text-anchor="middle">full conversation &rarr; generate</text>
-
-  <rect x="282" y="334" width="84" height="16" fill="#fdfcfa" stroke="#ccc" stroke-width="0.4"/>
-  <text x="324" y="346" font-family="'JetBrains Mono',monospace" font-size="8.5" fill="#888" text-anchor="middle">completion&#x2083;</text>
-
-  <line x1="324" y1="358" x2="100" y2="358" stroke="#999" stroke-width="0.4" stroke-dasharray="3,2" marker-end="url(#sqg)"/>
-
-  <!-- ── SCORE ── -->
-  <rect x="42" y="388" width="104" height="16" fill="#fff" stroke="#b33a3a" stroke-width="0.4"/>
-  <text x="94" y="400" font-family="'JetBrains Mono',monospace" font-size="8.5" fill="#b33a3a" text-anchor="middle">max_turns &rarr; stop</text>
-
-  <rect x="42" y="416" width="104" height="16" fill="#fdfcfa" stroke="#ccc" stroke-width="0.4"/>
-  <text x="94" y="428" font-family="'JetBrains Mono',monospace" font-size="8" fill="#aaa" text-anchor="middle">rubric(all turns)</text>
-
-  <!-- ── RESULTS → ORCHESTRATOR ── -->
-  <rect x="32" y="448" width="124" height="18" fill="#fdfcfa" stroke="#1a1a1a" stroke-width="0.5"/>
-  <text x="94" y="461" font-family="'JetBrains Mono',monospace" font-size="8.5" fill="#1a1a1a" text-anchor="middle">scored rollout</text>
-
-  <line x1="156" y1="457" x2="290" y2="457" stroke="#1a1a1a" stroke-width="0.5" stroke-dasharray="4,2"/>
-  <text x="224" y="450" font-family="'JetBrains Mono',monospace" font-size="7" fill="#aaa" text-anchor="middle">trajectories + rewards</text>
-
-  <rect x="292" y="448" width="136" height="18" fill="#fff" stroke="#1a1a1a" stroke-width="0.5"/>
-  <text x="360" y="461" font-family="'JetBrains Mono',monospace" font-size="8.5" fill="#1a1a1a" text-anchor="middle">&rarr; orchestrator</text>
-
-  <!-- Legend -->
-  <rect x="600" y="68" width="72" height="60" fill="none" stroke="#eee" stroke-width="0.4"/>
-  <line x1="608" y1="82" x2="626" y2="82" stroke="#1a1a1a" stroke-width="0.4" marker-end="url(#sq)"/>
-  <text x="632" y="85" font-family="'JetBrains Mono',monospace" font-size="6.5" fill="#ccc">request</text>
-  <line x1="608" y1="98" x2="626" y2="98" stroke="#999" stroke-width="0.4" stroke-dasharray="3,2"/>
-  <text x="632" y="101" font-family="'JetBrains Mono',monospace" font-size="6.5" fill="#ccc">response</text>
-  <line x1="608" y1="114" x2="626" y2="114" stroke="#b33a3a" stroke-width="0.4"/>
-  <text x="632" y="117" font-family="'JetBrains Mono',monospace" font-size="6.5" fill="#ccc">env</text>
-</svg>
-<p class="fig-cap"><strong>Rollout</strong></p>
-</div>
-
-<!-- ═══════════════════════════════════════════════════════════
-     III. EXECUTION
-     ═══════════════════════════════════════════════════════════ -->
-
-<h2><span class="num">III</span>Execution</h2>
-<p class="lede">Inside <code>env.generate()</code>, rollouts for the same example are grouped and run concurrently. Scoring happens at the group boundary. After that, group structure dissolves.</p>
-
-<p><code>env.generate()</code> is called with <code>n</code> examples and <code>r</code> rollouts per example. Each example gets <code>r</code> copies, so 10 examples × 3 rollouts = 30 total inputs, grouped into 10 groups of 3.</p>
-
-<h3><span class="sub">a</span>Concurrency</h3>
-
-<table class="ch-table">
-  <tr>
-    <th>Level</th>
-    <th>Parallel?</th>
-    <th>Mechanism</th>
-  </tr>
-  <tr>
-    <td class="mono">groups</td>
-    <td>yes</td>
-    <td><code>asyncio.create_task</code> per group, semaphore-bounded</td>
-  </tr>
-  <tr>
-    <td class="mono">rollouts in group</td>
-    <td>yes</td>
-    <td>All rollouts for same example run concurrently</td>
-  </tr>
-  <tr>
-    <td class="mono">turns in rollout</td>
-    <td>no</td>
-    <td>Sequential: model, env_response, model, ...</td>
-  </tr>
-  <tr>
-    <td class="mono">scoring</td>
-    <td>per group</td>
-    <td>All rollouts finish, then rubric scores the group</td>
-  </tr>
-</table>
-
-<p>A group is the atomic unit. All its rollouts must finish before anything gets scored or reported. <code>asyncio.as_completed</code> picks up finished groups in whatever order they complete, fires <code>on_progress</code>, and saves results incrementally. You don't wait for all groups to finish.</p>
-
-<pre><code>t=0  Launch Group0(A), Group1(B), Group2(C)      ← all as async tasks
-t=1  Group0: rollout0 turn1, rollout1 turn1       ← parallel within group
-     Group1: rollout0 turn1, rollout1 turn1
-     Group2: rollout0 turn1, rollout1 turn1
-t=2  Group1 finishes first → rubric → on_progress → save
-t=3  Group0 finishes       → rubric → on_progress → save
-t=4  Group2 finishes       → rubric → on_progress → save
-t=5  All done, return results</code></pre>
-
-<h3><span class="sub">b</span>Handoff</h3>
-
-<p>Once groups are scored, the group structure is no longer needed. The orchestrator collects scored rollouts, computes advantages (this still needs the group, since advantage = reward minus group mean), then packages everything into microbatches. Microbatches don't respect group boundaries: they're just chunks of rollouts sized for GPU memory. From there, the trainer processes one microbatch at a time.</p>
 
 <div class="colophon">
-  <p>ENVIRONMENTS &middot; MULTI-TURN, ROLLOUTS, ENV LOGIC</p>
+  <p>VERIFIERS ENVIRONMENTS</p>
 </div>
 
     <script src="../edit.js"></script>
