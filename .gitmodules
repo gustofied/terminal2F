@@ -1,3 +1,6 @@
 [submodule "nuggets/dbenv"]
 	path = nuggets/dbenv
 	url = https://github.com/gustofied/dbenv.git
+[submodule "external/recognizers"]
+	path = external/recognizers
+	url = https://github.com/gustofied/recognizers.git
