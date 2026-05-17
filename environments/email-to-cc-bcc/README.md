@@ -10,11 +10,11 @@
 
 - **Primary dataset(s)**: `gustofied/email-to-cc-bcc` (Hugging Face)
 - **Split sizes**: ~5000 rows (train), 91 rows (test)
-- **Synthetic data generation**: [`nuggets/email-to-cc-bcc`](../../nuggets/email-to-cc-bcc) — scripts for generating the dataset. v1 used random recipient assignment (labels not derivable from content, models hit a ~0.44 ceiling). v2 rewrote the pipeline with deterministic routing rules and a post-generation validator; ~5000 of 7500 generated rows passed. See [`synthetic_data_generation_v2.py`](../../nuggets/email-to-cc-bcc/synthetic_data_generation_v2.py).
+- **Synthetic data generation**: [`nuggets/email-to-cc-bcc`](../../nuggets/email-to-cc-bcc). Scripts for generating the dataset. v1 used random recipient assignment (labels not derivable from content, models hit a ~0.44 ceiling). v2 rewrote the pipeline with deterministic routing rules and a post-generation validator; ~5000 of 7500 generated rows passed. See [`synthetic_data_generation_v2.py`](../../nuggets/email-to-cc-bcc/synthetic_data_generation_v2.py).
 
 ### Task
 
-- **Type**: multi-turn (1–3 turns, configurable)
+- **Type**: multi-turn (1 to 3 turns, configurable)
 - **Output format**: JSON with exactly `to`, `cc`, `bcc` keys, each an array of email addresses
 - **Rubric overview**: Jaccard overlap per field per turn, averaged. Weighted sum with format scaffolding.
 
