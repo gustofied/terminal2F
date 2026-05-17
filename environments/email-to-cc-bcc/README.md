@@ -10,6 +10,7 @@
 
 - **Primary dataset(s)**: `gustofied/email-to-cc-bcc` (Hugging Face)
 - **Split sizes**: ~5000 rows (train), 91 rows (test)
+- **Synthetic data generation**: [`nuggets/email-to-cc-bcc`](../../nuggets/email-to-cc-bcc) — scripts for generating the dataset. v1 used random recipient assignment (labels not derivable from content, models hit a ~0.44 ceiling). v2 rewrote the pipeline with deterministic routing rules and a post-generation validator; ~5000 of 7500 generated rows passed. See [`synthetic_data_generation_v2.py`](../../nuggets/email-to-cc-bcc/synthetic_data_generation_v2.py).
 
 ### Task
 
